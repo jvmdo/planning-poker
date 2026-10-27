@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { RejectionReason } from "../shared/protocol";
+import type { JoinRejectionReason } from "../shared/protocol";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-const REJECTION_MESSAGES: Record<RejectionReason, string> = {
+const REJECTION_MESSAGES: Record<JoinRejectionReason, string> = {
   "name-empty": "Please type a display name.",
   "name-taken":
     "Someone in the Room is already using that name. Please pick another one.",
@@ -23,7 +23,7 @@ export function JoinScreen({
   onJoin,
 }: {
   initialName: string;
-  rejection: RejectionReason | null;
+  rejection: JoinRejectionReason | null;
   disabled: boolean;
   onJoin: (name: string) => void;
 }) {

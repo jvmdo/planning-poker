@@ -6,10 +6,20 @@
 
 **Status:** ready-for-agent
 
-- [ ] The Deck is defined once in the shared area and rendered as a hand of Cards that wraps into a tappable grid on narrow screens.
-- [ ] Playing a Card records the Voter's Vote. Playing another replaces it. The player's own Card is highlighted.
-- [ ] Every Participant sees a "has voted" marker for each Participant who has voted in this Round.
-- [ ] The Room rejects a value that isn't a Card in the Deck, leaving the Room unchanged.
-- [ ] Before the Reveal, a Participant's snapshot contains their own Vote and no other Vote values. A test serializes another Participant's snapshot and checks that no Vote value appears anywhere in it.
-- [ ] A Participant who joins mid-Round can vote in the current Round.
-- [ ] Tests cover voting, changing a Vote, voted markers, and rejecting an invalid Card, all through Room commands and snapshots.
+- [x] The Deck is defined once in the shared area and rendered as a hand of Cards that wraps into a tappable grid on narrow screens.
+- [x] Playing a Card records the Voter's Vote. Playing another replaces it. The player's own Card is highlighted.
+- [x] Every Participant sees a "has voted" marker for each Participant who has voted in this Round.
+- [x] The Room rejects a value that isn't a Card in the Deck, leaving the Room unchanged.
+- [x] Before the Reveal, a Participant's snapshot contains their own Vote and no other Vote values. A test serializes another Participant's snapshot and checks that no Vote value appears anywhere in it.
+- [x] A Participant who joins mid-Round can vote in the current Round.
+- [x] Tests cover voting, changing a Vote, voted markers, and rejecting an invalid Card, all through Room commands and snapshots.
+
+## Comments
+
+**Implemented (2026-10-27).** All criteria are met. Notes for later tickets:
+
+- **Wire shape:** rejections now say which command failed (`{ command, reason }`), and each Room command declares its own reasons (`CommandResult<Reason>`). Add a union member to `Rejection` in `src/shared/protocol.ts` for each new command.
+- **Extra rule:** the Room rejects a Vote from someone who isn't in the Room (`not-in-room`).
+- **Client:** it ignores Vote rejections, because the Card hand only offers Deck Cards. If ticket 03/04 add rejections a user can trigger (a Vote after the Reveal, an Observer's Vote), show them.
+- **03:** playing the Card you already hold still sends a change notification. That's harmless.
+- **Tests:** the snapshot assertions repeat the full participant object. A small helper would help once more fields arrive (03, 06).

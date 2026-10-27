@@ -8,7 +8,13 @@ describe("joining the Room", () => {
     expect(room.join("ana-id", "Ana")).toEqual({ ok: true });
 
     expect(room.snapshotFor("ana-id").participants).toEqual([
-      { id: "ana-id", name: "Ana", role: "voter", isFacilitator: true },
+      {
+        id: "ana-id",
+        name: "Ana",
+        role: "voter",
+        isFacilitator: true,
+        hasVoted: false,
+      },
     ]);
   });
 });
@@ -20,8 +26,20 @@ describe("the Facilitator", () => {
     room.join("bruno-id", "Bruno");
 
     const expected = [
-      { id: "ana-id", name: "Ana", role: "voter", isFacilitator: true },
-      { id: "bruno-id", name: "Bruno", role: "voter", isFacilitator: false },
+      {
+        id: "ana-id",
+        name: "Ana",
+        role: "voter",
+        isFacilitator: true,
+        hasVoted: false,
+      },
+      {
+        id: "bruno-id",
+        name: "Bruno",
+        role: "voter",
+        isFacilitator: false,
+        hasVoted: false,
+      },
     ];
     expect(room.snapshotFor("ana-id").participants).toEqual(expected);
     expect(room.snapshotFor("bruno-id").participants).toEqual(expected);
@@ -72,8 +90,20 @@ describe("display names", () => {
     expect(room.join("ana-id", "ana")).toEqual({ ok: true });
 
     expect(room.snapshotFor("bruno-id").participants).toEqual([
-      { id: "ana-id", name: "ana", role: "voter", isFacilitator: true },
-      { id: "bruno-id", name: "Bruno", role: "voter", isFacilitator: false },
+      {
+        id: "ana-id",
+        name: "ana",
+        role: "voter",
+        isFacilitator: true,
+        hasVoted: false,
+      },
+      {
+        id: "bruno-id",
+        name: "Bruno",
+        role: "voter",
+        isFacilitator: false,
+        hasVoted: false,
+      },
     ]);
   });
 });
@@ -100,5 +130,109 @@ describe("change notifications", () => {
     room.join("ana-id", "Ana");
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("voting", () => {
+  it("records a Voter's Vote and shows it back to them", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+
+    expect(room.vote("ana-id", 8)).toEqual({ ok: true });
+
+    const snapshot = room.snapshotFor("ana-id");
+    expect(snapshot.myVote).toBe(8);
+    expect(snapshot.participants).toEqual([
+      {
+        id: "ana-id",
+        name: "Ana",
+        role: "voter",
+        isFacilitator: true,
+        hasVoted: true,
+      },
+    ]);
+  });
+
+  it("lets a Voter change their Vote as often as they like", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+
+    expect(room.vote("ana-id", 32)).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").myVote).toBe(32);
+  });
+
+  it("shows everyone who has voted, and who hasn't", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 8);
+
+    const voted = room
+      .snapshotFor("bruno-id")
+      .participants.map((p) => [p.name, p.hasVoted]);
+    expect(voted).toEqual([
+      ["Ana", true],
+      ["Bruno", false],
+    ]);
+  });
+
+  it("never puts another Participant's Vote anywhere in a snapshot before the Reveal", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 64);
+    room.vote("bruno-id", 32);
+
+    const anaSees = JSON.stringify(room.snapshotFor("ana-id"));
+    const brunoSees = JSON.stringify(room.snapshotFor("bruno-id"));
+    expect(anaSees).toContain("64");
+    expect(anaSees).not.toContain("32");
+    expect(brunoSees).toContain("32");
+    expect(brunoSees).not.toContain("64");
+  });
+
+  it("rejects a value that isn't a Card in the Deck and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.vote("ana-id", 3)).toEqual({
+      ok: false,
+      reason: "card-not-in-deck",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+
+  it("rejects a Vote from someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.vote("stranger-id", 8)).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+    expect(room.snapshotFor("stranger-id").myVote).toBeNull();
+  });
+
+  it("lets a Participant who joins mid-Round vote in the current Round", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+
+    room.join("bruno-id", "Bruno");
+    expect(room.vote("bruno-id", 4)).toEqual({ ok: true });
+
+    expect(
+      room.snapshotFor("ana-id").participants.every((p) => p.hasVoted),
+    ).toBe(true);
+    expect(room.snapshotFor("ana-id").myVote).toBe(8);
+    expect(room.snapshotFor("bruno-id").myVote).toBe(4);
   });
 });

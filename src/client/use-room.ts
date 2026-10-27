@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import type {
   ParticipantId,
-  RejectionReason,
+  JoinRejectionReason,
+  Rejection,
   RoomSnapshot,
 } from "../shared/protocol";
+import type { Card } from "../shared/deck";
 import { saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
 
@@ -14,7 +16,7 @@ import { socket } from "./lib/socket";
 export function useRoom(identity: Identity) {
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
-  const [rejection, setRejection] = useState<RejectionReason | null>(null);
+  const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
   const [wantsToJoin, setWantsToJoin] = useState(identity.name !== "");
 
@@ -30,10 +32,12 @@ export function useRoom(identity: Identity) {
       const me = findParticipant(next, identity.id);
       if (me) saveIdentity({ id: identity.id, name: me.name });
     }
-    function onRejected({ reason }: { reason: RejectionReason }) {
+    function onRejected(rejection: Rejection) {
+      // The UI never offers anything else the Room would refuse, so only a refused join is shown.
+      if (rejection.command !== "join") return;
       setWantsToJoin(false);
       setSnapshot(null);
-      setRejection(reason);
+      setRejection(rejection.reason);
     }
 
     socket.on("connect", onConnect);
@@ -60,10 +64,14 @@ export function useRoom(identity: Identity) {
     setWantsToJoin(true);
   }
 
+  function vote(card: Card) {
+    socket.emit("vote", card);
+  }
+
   const me = snapshot ? findParticipant(snapshot, identity.id) : null;
   const joining = me === null && wantsToJoin;
 
-  return { connected, snapshot, me, name, joining, rejection, join };
+  return { connected, snapshot, me, name, joining, rejection, join, vote };
 }
 
 function findParticipant(snapshot: RoomSnapshot, id: ParticipantId) {

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { loadIdentity } from "./lib/identity";
+import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { ParticipantList } from "./participant-list";
 import { useRoom } from "./use-room";
 
 export function App() {
   const [identity] = useState(loadIdentity);
-  const { connected, snapshot, me, name, joining, rejection, join } =
+  const { connected, snapshot, me, name, joining, rejection, join, vote } =
     useRoom(identity);
 
   return (
@@ -18,10 +19,13 @@ export function App() {
         </p>
       )}
       {me && snapshot ? (
-        <ParticipantList
-          participants={snapshot.participants}
-          myId={identity.id}
-        />
+        <>
+          <CardHand myVote={snapshot.myVote} onPlay={vote} />
+          <ParticipantList
+            participants={snapshot.participants}
+            myId={identity.id}
+          />
+        </>
       ) : joining ? (
         connected && <p className="text-muted-foreground text-sm">Joining…</p>
       ) : (

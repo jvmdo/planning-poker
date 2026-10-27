@@ -1,4 +1,5 @@
 import type { ParticipantId, ParticipantView } from "../shared/protocol";
+import { Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -28,6 +29,12 @@ export function ParticipantList({
                 )}
               </span>
               {p.isFacilitator && <Badge>Facilitator</Badge>}
+              {p.hasVoted && (
+                <Badge variant="secondary">
+                  <Check aria-hidden className="size-3" />
+                  Voted
+                </Badge>
+              )}
               <Badge variant="outline" className="ml-auto">
                 {p.role === "voter" ? "Voter" : "Observer"}
               </Badge>

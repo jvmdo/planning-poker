@@ -37,12 +37,21 @@ export function attachRoom(io: RoomServer, room: Room): void {
 
       const result = room.join(id, name);
       if (!result.ok) {
-        socket.emit("rejected", { reason: result.reason });
+        socket.emit("rejected", { command: "join", reason: result.reason });
         return;
       }
       // The change notification fired before this socket was tied to the Participant.
       socket.data.participantId = id;
       socket.emit("snapshot", room.snapshotFor(id));
+    });
+
+    socket.on("vote", (card) => {
+      const { participantId } = socket.data;
+      if (!participantId) return;
+
+      const result = room.vote(participantId, card);
+      if (!result.ok)
+        socket.emit("rejected", { command: "vote", reason: result.reason });
     });
   });
 }
