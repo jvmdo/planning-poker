@@ -81,6 +81,10 @@ export function useRoom(identity: Identity) {
     socket.emit("becomeObserver");
   }
 
+  function handOver(to: ParticipantId) {
+    socket.emit("handOver", to);
+  }
+
   function vote(card: Card) {
     socket.emit("vote", card);
   }
@@ -101,6 +105,7 @@ export function useRoom(identity: Identity) {
     newRound,
     becomeVoter,
     becomeObserver,
+    handOver,
   };
 }
 

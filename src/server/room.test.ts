@@ -489,3 +489,110 @@ describe("Observers", () => {
     );
   });
 });
+
+describe("handing over the Facilitator role", () => {
+  it("moves the role to another Participant, and everyone sees exactly one Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+
+    expect(room.handOver("ana-id", "bruno-id")).toEqual({ ok: true });
+
+    for (const id of ["ana-id", "bruno-id", "carla-id"]) {
+      expect(room.snapshotFor(id).participants).toEqual([
+        participant("ana-id", "Ana"),
+        participant("bruno-id", "Bruno", { isFacilitator: true }),
+        participant("carla-id", "Carla"),
+      ]);
+    }
+  });
+
+  it("rejects a hand-over from anyone but the Facilitator and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.handOver("bruno-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+
+  it("rejects a hand-over to someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.handOver("ana-id", "stranger-id")).toEqual({
+      ok: false,
+      reason: "unknown-participant",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+
+  it("can go to an Observer, who can then Reveal and start a New Round while the previous Facilitator can't", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.becomeObserver("bruno-id");
+    room.vote("ana-id", 8);
+
+    expect(room.handOver("ana-id", "bruno-id")).toEqual({ ok: true });
+
+    expect(room.reveal("ana-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+    expect(room.reveal("bruno-id")).toEqual({ ok: true });
+    expect(room.newRound("ana-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+    expect(room.newRound("bruno-id")).toEqual({ ok: true });
+    expect(room.handOver("ana-id", "ana-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+  });
+
+  it("leaves the Round, its Votes and the Reveal as they were", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 4);
+    room.vote("bruno-id", 8);
+    room.reveal("ana-id");
+
+    room.handOver("ana-id", "bruno-id");
+
+    const anaSees = room.snapshotFor("ana-id");
+    expect(anaSees.revealed).toBe(true);
+    expect(anaSees.result).toBe(6);
+    expect(anaSees.participants.map((p) => [p.name, p.vote])).toEqual([
+      ["Ana", 4],
+      ["Bruno", 8],
+    ]);
+  });
+
+  it("rejects the Facilitator handing the role to themselves, leaving the Room unchanged and nobody notified", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    const before = room.snapshotFor("ana-id");
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+
+    expect(room.handOver("ana-id", "ana-id")).toEqual({
+      ok: false,
+      reason: "already-facilitator",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

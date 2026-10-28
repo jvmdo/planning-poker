@@ -34,6 +34,8 @@ export type RevealRejectionReason =
   "not-facilitator" | "no-votes" | "already-revealed";
 export type NewRoundRejectionReason = "not-facilitator";
 export type RoleRejectionReason = "not-in-room";
+export type HandOverRejectionReason =
+  "not-facilitator" | "already-facilitator" | "unknown-participant";
 
 /** What a Room command returns: success, or the reason it was refused (the Room is then unchanged). */
 export type CommandResult<Reason extends string> =
@@ -46,7 +48,8 @@ export type Rejection =
   | { command: "reveal"; reason: RevealRejectionReason }
   | { command: "newRound"; reason: NewRoundRejectionReason }
   | { command: "becomeVoter"; reason: RoleRejectionReason }
-  | { command: "becomeObserver"; reason: RoleRejectionReason };
+  | { command: "becomeObserver"; reason: RoleRejectionReason }
+  | { command: "handOver"; reason: HandOverRejectionReason };
 
 export interface ClientToServerEvents {
   join: (id: ParticipantId, name: string) => void;
@@ -55,6 +58,7 @@ export interface ClientToServerEvents {
   newRound: () => void;
   becomeVoter: () => void;
   becomeObserver: () => void;
+  handOver: (to: ParticipantId) => void;
 }
 
 export interface ServerToClientEvents {

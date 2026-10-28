@@ -22,6 +22,7 @@ export function App() {
     newRound,
     becomeVoter,
     becomeObserver,
+    handOver,
   } = useRoom(identity);
 
   return (
@@ -56,6 +57,7 @@ export function App() {
             participants={snapshot.participants}
             myId={identity.id}
             revealed={snapshot.revealed}
+            onHandOver={me.isFacilitator ? handOver : undefined}
           />
         </>
       ) : joining ? (

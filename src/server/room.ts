@@ -1,5 +1,6 @@
 import type {
   CommandResult,
+  HandOverRejectionReason,
   JoinRejectionReason,
   NewRoundRejectionReason,
   ParticipantId,
@@ -23,6 +24,10 @@ export interface Room {
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
   reveal(by: ParticipantId): CommandResult<RevealRejectionReason>;
   newRound(by: ParticipantId): CommandResult<NewRoundRejectionReason>;
+  handOver(
+    by: ParticipantId,
+    to: ParticipantId,
+  ): CommandResult<HandOverRejectionReason>;
   becomeVoter(id: ParticipantId): CommandResult<RoleRejectionReason>;
   /** Before the Reveal this discards their Vote; after it, the revealed Vote stays put. */
   becomeObserver(id: ParticipantId): CommandResult<RoleRejectionReason>;
@@ -111,6 +116,17 @@ export function createRoom(): Room {
       if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
       votes.clear();
       revealed = false;
+      notifyChanged();
+      return { ok: true };
+    },
+
+    handOver(by, to) {
+      if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
+      if (to === by) return { ok: false, reason: "already-facilitator" };
+      if (!participants.has(to)) {
+        return { ok: false, reason: "unknown-participant" };
+      }
+      facilitatorId = to;
       notifyChanged();
       return { ok: true };
     },

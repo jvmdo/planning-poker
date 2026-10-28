@@ -75,5 +75,9 @@ export function attachRoom(io: RoomServer, room: Room): void {
     socket.on("becomeObserver", () =>
       act("becomeObserver", (id) => room.becomeObserver(id)),
     );
+    socket.on("handOver", (to) => {
+      if (typeof to !== "string") return;
+      act("handOver", (id) => room.handOver(id, to));
+    });
   });
 }

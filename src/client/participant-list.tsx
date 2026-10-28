@@ -1,5 +1,6 @@
 import type { ParticipantId, ParticipantView } from "../shared/protocol";
-import { Check } from "lucide-react";
+import { Check, Crown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -7,11 +8,22 @@ export function ParticipantList({
   participants,
   myId,
   revealed,
+  onHandOver,
 }: {
   participants: ParticipantView[];
   myId: ParticipantId;
   revealed: boolean;
+  /** Only given to the Facilitator, who can hand the role to anyone else. */
+  onHandOver?: (to: ParticipantId) => void;
 }) {
+  function handOverLabel(p: ParticipantView) {
+    return `Make ${p.name} the Facilitator`;
+  }
+
+  function confirmHandOver(p: ParticipantView) {
+    if (window.confirm(`${handOverLabel(p)}?`)) onHandOver?.(p.id);
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -39,6 +51,18 @@ export function ParticipantList({
                   </Badge>
                 )}
               </div>
+              {onHandOver && !p.isFacilitator && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="size-8 shrink-0 p-0"
+                  aria-label={handOverLabel(p)}
+                  title={handOverLabel(p)}
+                  onClick={() => confirmHandOver(p)}
+                >
+                  <Crown aria-hidden className="size-4" />
+                </Button>
+              )}
               <Badge variant="outline">
                 {p.role === "voter" ? "Voter" : "Observer"}
               </Badge>
