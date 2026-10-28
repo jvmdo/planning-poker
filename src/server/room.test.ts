@@ -379,3 +379,113 @@ describe("a New Round", () => {
     expect(room.snapshotFor("bruno-id")).toEqual(before);
   });
 });
+
+describe("Observers", () => {
+  it("a Voter who switches to Observer is shown as one to everyone, and their Vote is discarded", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("bruno-id", 8);
+
+    expect(room.becomeObserver("bruno-id")).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { role: "observer" }),
+    ]);
+    expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+  });
+
+  it("after the Reveal, switching to Observer leaves the revealed Votes and Result as they were", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 2);
+    room.vote("bruno-id", 8);
+    room.reveal("ana-id");
+
+    expect(room.becomeObserver("bruno-id")).toEqual({ ok: true });
+
+    const anaSees = room.snapshotFor("ana-id");
+    expect(anaSees.participants.map((p) => [p.name, p.role, p.vote])).toEqual([
+      ["Ana", "voter", 2],
+      ["Bruno", "observer", 8],
+    ]);
+    expect(anaSees.result).toBe(5);
+  });
+
+  it("rejects a Vote from an Observer and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.becomeObserver("bruno-id");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.vote("bruno-id", 8)).toEqual({
+      ok: false,
+      reason: "observer-cannot-vote",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+    expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+  });
+
+  it("an Observer who switches back to Voter can vote in the current Round", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.becomeObserver("bruno-id");
+
+    expect(room.becomeVoter("bruno-id")).toEqual({ ok: true });
+    expect(room.vote("bruno-id", 8)).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { hasVoted: true }),
+    ]);
+  });
+
+  it("the Facilitator keeps the role as an Observer, and can still Reveal and start a New Round", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.becomeObserver("ana-id");
+    room.vote("bruno-id", 8);
+
+    expect(room.snapshotFor("bruno-id").participants[0]).toEqual(
+      participant("ana-id", "Ana", { role: "observer", isFacilitator: true }),
+    );
+    expect(room.reveal("ana-id")).toEqual({ ok: true });
+    expect(room.newRound("ana-id")).toEqual({ ok: true });
+  });
+
+  it("rejects a role switch from someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.becomeObserver("stranger-id")).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+    expect(room.becomeVoter("stranger-id")).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+
+  it("stays an Observer after rejoining with the same Participant ID (a page reload)", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.becomeObserver("bruno-id");
+
+    expect(room.join("bruno-id", "Bruno")).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+      participant("bruno-id", "Bruno", { role: "observer" }),
+    );
+  });
+});

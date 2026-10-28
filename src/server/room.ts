@@ -5,6 +5,7 @@ import type {
   ParticipantId,
   ParticipantRole,
   RevealRejectionReason,
+  RoleRejectionReason,
   RoomSnapshot,
   VoteRejectionReason,
 } from "../shared/protocol.js";
@@ -22,6 +23,9 @@ export interface Room {
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
   reveal(by: ParticipantId): CommandResult<RevealRejectionReason>;
   newRound(by: ParticipantId): CommandResult<NewRoundRejectionReason>;
+  becomeVoter(id: ParticipantId): CommandResult<RoleRejectionReason>;
+  /** Before the Reveal this discards their Vote; after it, the revealed Vote stays put. */
+  becomeObserver(id: ParticipantId): CommandResult<RoleRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
@@ -50,6 +54,21 @@ export function createRoom(): Room {
     for (const listener of listeners) listener();
   }
 
+  function setRole(
+    id: ParticipantId,
+    role: ParticipantRole,
+  ): CommandResult<RoleRejectionReason> {
+    const participant = participants.get(id);
+    if (!participant) return { ok: false, reason: "not-in-room" };
+    if (participant.role === role) return { ok: true };
+
+    participant.role = role;
+    // An Observer has no Vote, unless it was already revealed (Votes are locked after the Reveal).
+    if (role === "observer" && !revealed) votes.delete(id);
+    notifyChanged();
+    return { ok: true };
+  }
+
   return {
     join(id, name) {
       const key = nameKey(name);
@@ -60,13 +79,18 @@ export function createRoom(): Room {
       if (taken) return { ok: false, reason: "name-taken" };
 
       if (participants.size === 0) facilitatorId = id;
-      participants.set(id, { id, name: name.trim(), role: "voter" });
+      const role = participants.get(id)?.role ?? "voter";
+      participants.set(id, { id, name: name.trim(), role });
       notifyChanged();
       return { ok: true };
     },
 
     vote(id, card) {
-      if (!participants.has(id)) return { ok: false, reason: "not-in-room" };
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (participant.role === "observer") {
+        return { ok: false, reason: "observer-cannot-vote" };
+      }
       if (!isCard(card)) return { ok: false, reason: "card-not-in-deck" };
       if (revealed) return { ok: false, reason: "round-revealed" };
       votes.set(id, card);
@@ -90,6 +114,9 @@ export function createRoom(): Room {
       notifyChanged();
       return { ok: true };
     },
+
+    becomeVoter: (id) => setRole(id, "voter"),
+    becomeObserver: (id) => setRole(id, "observer"),
 
     snapshotFor(id) {
       return {

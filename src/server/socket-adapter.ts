@@ -69,5 +69,11 @@ export function attachRoom(io: RoomServer, room: Room): void {
     socket.on("vote", (card) => act("vote", (id) => room.vote(id, card)));
     socket.on("reveal", () => act("reveal", (id) => room.reveal(id)));
     socket.on("newRound", () => act("newRound", (id) => room.newRound(id)));
+    socket.on("becomeVoter", () =>
+      act("becomeVoter", (id) => room.becomeVoter(id)),
+    );
+    socket.on("becomeObserver", () =>
+      act("becomeObserver", (id) => room.becomeObserver(id)),
+    );
   });
 }

@@ -3,6 +3,7 @@ import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { ParticipantList } from "./participant-list";
+import { RoleToggle } from "./role-toggle";
 import { RoundPanel } from "./round-panel";
 import { useRoom } from "./use-room";
 
@@ -19,6 +20,8 @@ export function App() {
     vote,
     reveal,
     newRound,
+    becomeVoter,
+    becomeObserver,
   } = useRoom(identity);
 
   return (
@@ -37,11 +40,18 @@ export function App() {
             onReveal={reveal}
             onNewRound={newRound}
           />
-          <CardHand
-            myVote={snapshot.myVote}
-            locked={snapshot.revealed}
-            onPlay={vote}
+          <RoleToggle
+            role={me.role}
+            onBecomeVoter={becomeVoter}
+            onBecomeObserver={becomeObserver}
           />
+          {me.role === "voter" && (
+            <CardHand
+              myVote={snapshot.myVote}
+              locked={snapshot.revealed}
+              onPlay={vote}
+            />
+          )}
           <ParticipantList
             participants={snapshot.participants}
             myId={identity.id}

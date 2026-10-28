@@ -73,6 +73,14 @@ export function useRoom(identity: Identity) {
     socket.emit("newRound");
   }
 
+  function becomeVoter() {
+    socket.emit("becomeVoter");
+  }
+
+  function becomeObserver() {
+    socket.emit("becomeObserver");
+  }
+
   function vote(card: Card) {
     socket.emit("vote", card);
   }
@@ -91,6 +99,8 @@ export function useRoom(identity: Identity) {
     vote,
     reveal,
     newRound,
+    becomeVoter,
+    becomeObserver,
   };
 }
 
