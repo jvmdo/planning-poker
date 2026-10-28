@@ -33,7 +33,8 @@ export function useRoom(identity: Identity) {
       if (me) saveIdentity({ id: identity.id, name: me.name });
     }
     function onRejected(rejection: Rejection) {
-      // The UI never offers anything else the Room would refuse, so only a refused join is shown.
+      // The UI only offers commands the Room accepts. Anything else refused is a race (a Vote
+      // landing just after the Reveal, say) that the next snapshot already corrects.
       if (rejection.command !== "join") return;
       setWantsToJoin(false);
       setSnapshot(null);
@@ -64,6 +65,14 @@ export function useRoom(identity: Identity) {
     setWantsToJoin(true);
   }
 
+  function reveal() {
+    socket.emit("reveal");
+  }
+
+  function newRound() {
+    socket.emit("newRound");
+  }
+
   function vote(card: Card) {
     socket.emit("vote", card);
   }
@@ -71,7 +80,18 @@ export function useRoom(identity: Identity) {
   const me = snapshot ? findParticipant(snapshot, identity.id) : null;
   const joining = me === null && wantsToJoin;
 
-  return { connected, snapshot, me, name, joining, rejection, join, vote };
+  return {
+    connected,
+    snapshot,
+    me,
+    name,
+    joining,
+    rejection,
+    join,
+    vote,
+    reveal,
+    newRound,
+  };
 }
 
 function findParticipant(snapshot: RoomSnapshot, id: ParticipantId) {

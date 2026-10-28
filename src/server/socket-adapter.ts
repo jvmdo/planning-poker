@@ -1,7 +1,9 @@
 import type { Server } from "socket.io";
 import type {
   ClientToServerEvents,
+  CommandResult,
   ParticipantId,
+  Rejection,
   ServerToClientEvents,
 } from "../shared/protocol.js";
 import type { Room } from "./room.js";
@@ -45,13 +47,27 @@ export function attachRoom(io: RoomServer, room: Room): void {
       socket.emit("snapshot", room.snapshotFor(id));
     });
 
-    socket.on("vote", (card) => {
+    /** Runs a command as this socket's Participant and tells only this socket if it's refused. */
+    function act<Command extends Rejection["command"]>(
+      command: Command,
+      run: (
+        id: ParticipantId,
+      ) => CommandResult<Extract<Rejection, { command: Command }>["reason"]>,
+    ) {
       const { participantId } = socket.data;
       if (!participantId) return;
 
-      const result = room.vote(participantId, card);
-      if (!result.ok)
-        socket.emit("rejected", { command: "vote", reason: result.reason });
-    });
+      const result = run(participantId);
+      if (!result.ok) {
+        socket.emit("rejected", {
+          command,
+          reason: result.reason,
+        } as Rejection);
+      }
+    }
+
+    socket.on("vote", (card) => act("vote", (id) => room.vote(id, card)));
+    socket.on("reveal", () => act("reveal", (id) => room.reveal(id)));
+    socket.on("newRound", () => act("newRound", (id) => room.newRound(id)));
   });
 }

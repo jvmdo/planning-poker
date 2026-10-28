@@ -3,12 +3,23 @@ import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { ParticipantList } from "./participant-list";
+import { RoundPanel } from "./round-panel";
 import { useRoom } from "./use-room";
 
 export function App() {
   const [identity] = useState(loadIdentity);
-  const { connected, snapshot, me, name, joining, rejection, join, vote } =
-    useRoom(identity);
+  const {
+    connected,
+    snapshot,
+    me,
+    name,
+    joining,
+    rejection,
+    join,
+    vote,
+    reveal,
+    newRound,
+  } = useRoom(identity);
 
   return (
     <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
@@ -20,10 +31,21 @@ export function App() {
       )}
       {me && snapshot ? (
         <>
-          <CardHand myVote={snapshot.myVote} onPlay={vote} />
+          <RoundPanel
+            snapshot={snapshot}
+            isFacilitator={me.isFacilitator}
+            onReveal={reveal}
+            onNewRound={newRound}
+          />
+          <CardHand
+            myVote={snapshot.myVote}
+            locked={snapshot.revealed}
+            onPlay={vote}
+          />
           <ParticipantList
             participants={snapshot.participants}
             myId={identity.id}
+            revealed={snapshot.revealed}
           />
         </>
       ) : joining ? (

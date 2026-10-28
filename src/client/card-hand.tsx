@@ -10,9 +10,12 @@ import {
 
 export function CardHand({
   myVote,
+  locked,
   onPlay,
 }: {
   myVote: Card | null;
+  /** After the Reveal, Votes can't change until a New Round. */
+  locked: boolean;
   onPlay: (card: Card) => void;
 }) {
   return (
@@ -20,7 +23,9 @@ export function CardHand({
       <CardHeader>
         <CardTitle>Your Card</CardTitle>
         <CardDescription>
-          Estimate in hours. Nobody sees it until the Reveal.
+          {locked
+            ? "Votes are locked until the next Round."
+            : "Estimate in hours. Nobody sees it until the Reveal."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -32,6 +37,7 @@ export function CardHand({
               aria-pressed={card === myVote}
               aria-label={`${card} hours`}
               className="h-16 text-lg font-semibold"
+              disabled={locked}
               onClick={() => onPlay(card)}
             >
               {card}
