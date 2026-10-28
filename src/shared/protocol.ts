@@ -2,6 +2,9 @@ import type { Card } from "./deck.js";
 
 export type ParticipantId = string;
 
+/** How long a Participant whose connection dropped keeps their place before being removed. */
+export const GRACE_PERIOD_MS = 30_000;
+
 export type ParticipantRole = "voter" | "observer";
 
 export interface ParticipantView {
@@ -12,6 +15,8 @@ export interface ParticipantView {
   hasVoted: boolean;
   /** The Card they played. Always null before the Reveal. */
   vote: Card | null;
+  /** False while they're away in their grace period after their connection dropped. */
+  connected: boolean;
 }
 
 /** What one Participant is allowed to see of the Room. Built per recipient, never broadcast. */
@@ -34,6 +39,7 @@ export type RevealRejectionReason =
   "not-facilitator" | "no-votes" | "already-revealed";
 export type NewRoundRejectionReason = "not-facilitator";
 export type RoleRejectionReason = "not-in-room";
+export type DisconnectRejectionReason = "not-in-room";
 export type HandOverRejectionReason =
   "not-facilitator" | "already-facilitator" | "unknown-participant";
 

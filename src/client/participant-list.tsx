@@ -1,5 +1,10 @@
-import type { ParticipantId, ParticipantView } from "../shared/protocol";
-import { Check, Crown } from "lucide-react";
+import {
+  GRACE_PERIOD_MS,
+  type ParticipantId,
+  type ParticipantView,
+} from "../shared/protocol";
+import { Check, Crown, WifiOff } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +37,13 @@ export function ParticipantList({
       <CardContent>
         <ul className="divide-y">
           {participants.map((p) => (
-            <li key={p.id} className="flex items-center gap-2 py-2">
+            <li
+              key={p.id}
+              className={cn(
+                "flex items-center gap-2 py-2",
+                !p.connected && "opacity-60",
+              )}
+            >
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 <span className="min-w-0 truncate font-medium">
                   {p.name}
@@ -44,6 +55,15 @@ export function ParticipantList({
                   )}
                 </span>
                 {p.isFacilitator && <Badge>Facilitator</Badge>}
+                {!p.connected && (
+                  <Badge
+                    variant="outline"
+                    title={`Reconnecting. Removed after ${GRACE_PERIOD_MS / 1000} seconds away.`}
+                  >
+                    <WifiOff aria-hidden className="size-3" />
+                    Away
+                  </Badge>
+                )}
                 {p.hasVoted && (
                   <Badge variant="secondary">
                     <Check aria-hidden className="size-3" />

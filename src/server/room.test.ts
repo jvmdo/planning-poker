@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ParticipantView } from "../shared/protocol.js";
 import { createRoom } from "./room.js";
 
@@ -15,6 +15,7 @@ function participant(
     isFacilitator: false,
     hasVoted: false,
     vote: null,
+    connected: true,
     ...overrides,
   };
 }
@@ -594,5 +595,150 @@ describe("handing over the Facilitator role", () => {
 
     expect(room.snapshotFor("ana-id")).toEqual(before);
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("disconnects and the grace period", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("shows a Participant whose connection drops as away, to everyone", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+
+    expect(room.disconnect("bruno-id")).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { connected: false }),
+    ]);
+  });
+
+  it("removes them and discards their Vote when 30 seconds pass, telling everyone", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 2);
+    room.vote("bruno-id", 8);
+    room.disconnect("bruno-id");
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+
+    vi.advanceTimersByTime(29_999);
+    expect(room.snapshotFor("ana-id").participants).toHaveLength(2);
+    expect(onChange).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true, hasVoted: true }),
+    ]);
+    room.reveal("ana-id");
+    expect(room.snapshotFor("ana-id").result).toBe(2);
+  });
+
+  it("restores a Participant exactly as before when they rejoin at 29 seconds, and keeps them after that", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.vote("bruno-id", 8);
+    room.becomeObserver("carla-id");
+    room.disconnect("bruno-id");
+    room.disconnect("carla-id");
+
+    vi.advanceTimersByTime(29_000);
+    expect(room.join("bruno-id", "Bruno")).toEqual({ ok: true });
+    expect(room.join("carla-id", "Carla")).toEqual({ ok: true });
+    vi.advanceTimersByTime(60_000);
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { hasVoted: true }),
+      participant("carla-id", "Carla", { role: "observer" }),
+    ]);
+    expect(room.snapshotFor("bruno-id").myVote).toBe(8);
+  });
+
+  it("keeps an away Participant's name reserved: nobody else can take it, but they can rejoin with it", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("bruno-id");
+    vi.advanceTimersByTime(10_000);
+
+    expect(room.join("impostor-id", "bruno")).toEqual({
+      ok: false,
+      reason: "name-taken",
+    });
+    expect(room.join("bruno-id", "Bruno")).toEqual({ ok: true });
+  });
+
+  it("keeps the Facilitator's role through a brief disconnect", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(29_000);
+
+    room.join("ana-id", "Ana");
+
+    expect(room.snapshotFor("bruno-id").participants[0]).toEqual(
+      participant("ana-id", "Ana", { isFacilitator: true }),
+    );
+  });
+
+  it("keeps a Participant connected while any of their connections (say, a second tab) is still open", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("bruno-id", "Bruno");
+
+    room.disconnect("bruno-id");
+    vi.advanceTimersByTime(60_000);
+
+    expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+      participant("bruno-id", "Bruno"),
+    );
+
+    room.disconnect("bruno-id");
+    expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+      participant("bruno-id", "Bruno", { connected: false }),
+    );
+  });
+
+  it("rejects a disconnect for someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.disconnect("stranger-id")).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+
+  it("leaves no Facilitator when the Facilitator's grace period expires, even if they come back later", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+
+    expect(room.snapshotFor("bruno-id").participants).toEqual([
+      participant("bruno-id", "Bruno"),
+    ]);
+
+    room.join("ana-id", "Ana");
+    expect(
+      room.snapshotFor("bruno-id").participants.some((p) => p.isFacilitator),
+    ).toBe(false);
   });
 });

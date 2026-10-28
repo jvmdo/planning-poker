@@ -36,15 +36,27 @@ export function attachRoom(io: RoomServer, room: Room): void {
   io.on("connection", (socket) => {
     socket.on("join", (id, name) => {
       if (typeof id !== "string" || typeof name !== "string") return;
+      // Each socket is one connection, so a repeated join from it mustn't be counted twice.
+      if (socket.data.participantId === id) {
+        socket.emit("snapshot", room.snapshotFor(id));
+        return;
+      }
 
       const result = room.join(id, name);
       if (!result.ok) {
         socket.emit("rejected", { command: "join", reason: result.reason });
         return;
       }
+      // This socket no longer speaks for any Participant it joined as before.
+      if (socket.data.participantId) room.disconnect(socket.data.participantId);
       // The change notification fired before this socket was tied to the Participant.
       socket.data.participantId = id;
       socket.emit("snapshot", room.snapshotFor(id));
+    });
+
+    socket.on("disconnect", () => {
+      const { participantId } = socket.data;
+      if (participantId) room.disconnect(participantId);
     });
 
     /** Runs a command as this socket's Participant and tells only this socket if it's refused. */

@@ -1,5 +1,6 @@
 import type {
   CommandResult,
+  DisconnectRejectionReason,
   HandOverRejectionReason,
   JoinRejectionReason,
   NewRoundRejectionReason,
@@ -11,11 +12,14 @@ import type {
   VoteRejectionReason,
 } from "../shared/protocol.js";
 import { isCard, type Card } from "../shared/deck.js";
+import { GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 interface Participant {
   id: ParticipantId;
   name: string;
   role: ParticipantRole;
+  /** Open connections (one per browser tab). Zero means they're away in their grace period. */
+  connections: number;
 }
 
 export interface Room {
@@ -31,6 +35,8 @@ export interface Room {
   becomeVoter(id: ParticipantId): CommandResult<RoleRejectionReason>;
   /** Before the Reveal this discards their Vote; after it, the revealed Vote stays put. */
   becomeObserver(id: ParticipantId): CommandResult<RoleRejectionReason>;
+  /** One of the Participant's connections closed. */
+  disconnect(id: ParticipantId): CommandResult<DisconnectRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
@@ -53,6 +59,7 @@ export function createRoom(): Room {
   let facilitatorId: ParticipantId | null = null;
   const votes = new Map<ParticipantId, Card>();
   let revealed = false;
+  const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
   const listeners = new Set<() => void>();
 
   function notifyChanged() {
@@ -83,9 +90,16 @@ export function createRoom(): Room {
       );
       if (taken) return { ok: false, reason: "name-taken" };
 
+      clearTimeout(graceTimers.get(id));
+      graceTimers.delete(id);
       if (participants.size === 0) facilitatorId = id;
-      const role = participants.get(id)?.role ?? "voter";
-      participants.set(id, { id, name: name.trim(), role });
+      const existing = participants.get(id);
+      participants.set(id, {
+        id,
+        name: name.trim(),
+        role: existing?.role ?? "voter",
+        connections: (existing?.connections ?? 0) + 1,
+      });
       notifyChanged();
       return { ok: true };
     },
@@ -134,6 +148,27 @@ export function createRoom(): Room {
     becomeVoter: (id) => setRole(id, "voter"),
     becomeObserver: (id) => setRole(id, "observer"),
 
+    disconnect(id) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      participant.connections = Math.max(0, participant.connections - 1);
+      if (participant.connections > 0 || graceTimers.has(id)) {
+        return { ok: true };
+      }
+      graceTimers.set(
+        id,
+        setTimeout(() => {
+          graceTimers.delete(id);
+          participants.delete(id);
+          votes.delete(id);
+          if (facilitatorId === id) facilitatorId = null;
+          notifyChanged();
+        }, GRACE_PERIOD_MS),
+      );
+      notifyChanged();
+      return { ok: true };
+    },
+
     snapshotFor(id) {
       return {
         participants: [...participants.values()].map((p) => ({
@@ -143,6 +178,7 @@ export function createRoom(): Room {
           isFacilitator: p.id === facilitatorId,
           hasVoted: votes.has(p.id),
           vote: revealed ? (votes.get(p.id) ?? null) : null,
+          connected: p.connections > 0,
         })),
         myVote: votes.get(id) ?? null,
         revealed,

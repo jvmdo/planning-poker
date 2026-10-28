@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoaderCircle } from "lucide-react";
 import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
@@ -12,6 +13,7 @@ export function App() {
   const {
     connected,
     snapshot,
+    notice,
     me,
     name,
     joining,
@@ -29,8 +31,19 @@ export function App() {
     <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
       <h1 className="text-2xl font-semibold">Planning Poker</h1>
       {!connected && (
-        <p role="status" className="text-muted-foreground text-sm">
-          {snapshot ? "Reconnecting…" : "Connecting…"}
+        <p
+          role="status"
+          className="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+        >
+          <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin" />
+          {snapshot
+            ? "Reconnecting… you'll rejoin automatically."
+            : "Connecting… if the server was asleep, this can take up to a minute."}
+        </p>
+      )}
+      {notice && (
+        <p role="alert" className="bg-muted rounded-md px-3 py-2 text-sm">
+          {notice}
         </p>
       )}
       {me && snapshot ? (

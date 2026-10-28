@@ -9,6 +9,29 @@ import type { Card } from "../shared/deck";
 import { saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
 
+/** How long a notice about a refused command stays on screen. */
+const NOTICE_MS = 4000;
+
+/**
+ * Commands the UI offers can still be refused when the Room changed a moment earlier. These are
+ * the races worth explaining; anything else is corrected by the next snapshot.
+ */
+type RejectionKey = Rejection extends infer R
+  ? R extends Rejection
+    ? `${R["command"]}:${R["reason"]}`
+    : never
+  : never;
+
+const RACE_NOTICES: Partial<Record<RejectionKey, string>> = {
+  "handOver:unknown-participant": "That Participant has just left the Room.",
+  "vote:round-revealed": "The Votes were revealed before your Card arrived.",
+  "reveal:no-votes": "There are no Votes to reveal any more.",
+};
+
+function keyOf(rejection: Rejection): RejectionKey {
+  return `${rejection.command}:${rejection.reason}` as RejectionKey;
+}
+
 /**
  * Connects to the Room and keeps the latest snapshot. Rejoins automatically on every (re)connect
  * once this browser has a name to join with.
@@ -19,6 +42,7 @@ export function useRoom(identity: Identity) {
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
   const [wantsToJoin, setWantsToJoin] = useState(identity.name !== "");
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     function onConnect() {
@@ -33,9 +57,10 @@ export function useRoom(identity: Identity) {
       if (me) saveIdentity({ id: identity.id, name: me.name });
     }
     function onRejected(rejection: Rejection) {
-      // The UI only offers commands the Room accepts. Anything else refused is a race (a Vote
-      // landing just after the Reveal, say) that the next snapshot already corrects.
-      if (rejection.command !== "join") return;
+      if (rejection.command !== "join") {
+        setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
+        return;
+      }
       setWantsToJoin(false);
       setSnapshot(null);
       setRejection(rejection.reason);
@@ -54,6 +79,12 @@ export function useRoom(identity: Identity) {
       socket.disconnect();
     };
   }, [identity.id]);
+
+  useEffect(() => {
+    if (notice === null) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     if (connected && wantsToJoin) socket.emit("join", identity.id, name);
@@ -95,6 +126,7 @@ export function useRoom(identity: Identity) {
   return {
     connected,
     snapshot,
+    notice,
     me,
     name,
     joining,
