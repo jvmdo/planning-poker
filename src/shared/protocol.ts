@@ -24,6 +24,8 @@ export interface RoomSnapshot {
   participants: ParticipantView[];
   /** The recipient's own Vote in this Round. Nobody else's Vote is ever in the snapshot before the Reveal. */
   myVote: Card | null;
+  /** False after the Facilitator's grace period expired, until someone claims the role. */
+  hasFacilitator: boolean;
   revealed: boolean;
   /** The mean of the Votes cast, to one decimal place. Null until the Reveal. */
   result: number | null;
@@ -40,6 +42,8 @@ export type RevealRejectionReason =
 export type NewRoundRejectionReason = "not-facilitator";
 export type RoleRejectionReason = "not-in-room";
 export type DisconnectRejectionReason = "not-in-room";
+export type ClaimFacilitatorRejectionReason =
+  "not-in-room" | "facilitator-exists";
 export type HandOverRejectionReason =
   "not-facilitator" | "already-facilitator" | "unknown-participant";
 
@@ -55,7 +59,8 @@ export type Rejection =
   | { command: "newRound"; reason: NewRoundRejectionReason }
   | { command: "becomeVoter"; reason: RoleRejectionReason }
   | { command: "becomeObserver"; reason: RoleRejectionReason }
-  | { command: "handOver"; reason: HandOverRejectionReason };
+  | { command: "handOver"; reason: HandOverRejectionReason }
+  | { command: "claimFacilitator"; reason: ClaimFacilitatorRejectionReason };
 
 export interface ClientToServerEvents {
   join: (id: ParticipantId, name: string) => void;
@@ -65,6 +70,7 @@ export interface ClientToServerEvents {
   becomeVoter: () => void;
   becomeObserver: () => void;
   handOver: (to: ParticipantId) => void;
+  claimFacilitator: () => void;
 }
 
 export interface ServerToClientEvents {

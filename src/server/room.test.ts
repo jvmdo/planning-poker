@@ -742,3 +742,168 @@ describe("disconnects and the grace period", () => {
     ).toBe(false);
   });
 });
+
+describe("recovering from a lost Facilitator", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("discards the current Round and leaves no Facilitator when the Facilitator's grace period expires", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.vote("ana-id", 4);
+    room.vote("bruno-id", 8);
+    room.reveal("ana-id");
+    room.disconnect("ana-id");
+
+    vi.advanceTimersByTime(30_000);
+
+    for (const id of ["bruno-id", "carla-id"]) {
+      const snapshot = room.snapshotFor(id);
+      expect(snapshot.hasFacilitator).toBe(false);
+      expect(snapshot.revealed).toBe(false);
+      expect(snapshot.result).toBeNull();
+      expect(snapshot.myVote).toBeNull();
+      expect(snapshot.participants).toEqual([
+        participant("bruno-id", "Bruno"),
+        participant("carla-id", "Carla"),
+      ]);
+    }
+  });
+
+  it("lets anyone claim the role while there's no Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+
+    expect(room.claimFacilitator("carla-id")).toEqual({ ok: true });
+
+    const brunoSees = room.snapshotFor("bruno-id");
+    expect(brunoSees.hasFacilitator).toBe(true);
+    expect(brunoSees.participants).toEqual([
+      participant("bruno-id", "Bruno"),
+      participant("carla-id", "Carla", { isFacilitator: true }),
+    ]);
+  });
+
+  it("first claim wins: two claims in a row leave exactly one Facilitator, and the Room unchanged by the second", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+
+    expect(room.claimFacilitator("bruno-id")).toEqual({ ok: true });
+    const afterFirstClaim = room.snapshotFor("carla-id");
+    expect(room.claimFacilitator("carla-id")).toEqual({
+      ok: false,
+      reason: "facilitator-exists",
+    });
+
+    expect(room.snapshotFor("carla-id")).toEqual(afterFirstClaim);
+    expect(afterFirstClaim.participants.filter((p) => p.isFacilitator)).toEqual(
+      [participant("bruno-id", "Bruno", { isFacilitator: true })],
+    );
+  });
+
+  it("rejects a claim while the Facilitator is present and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    const before = room.snapshotFor("bruno-id");
+
+    expect(room.claimFacilitator("bruno-id")).toEqual({
+      ok: false,
+      reason: "facilitator-exists",
+    });
+
+    expect(room.snapshotFor("bruno-id")).toEqual(before);
+  });
+
+  it("rejects a claim from someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+    const before = room.snapshotFor("bruno-id");
+
+    expect(room.claimFacilitator("stranger-id")).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+
+    expect(room.snapshotFor("bruno-id")).toEqual(before);
+  });
+
+  it("keeps the role and the whole Round when the Facilitator reconnects at 29 seconds", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 4);
+    room.vote("bruno-id", 8);
+    room.reveal("ana-id");
+    room.disconnect("ana-id");
+
+    vi.advanceTimersByTime(29_000);
+    room.join("ana-id", "Ana");
+    vi.advanceTimersByTime(60_000);
+
+    const brunoSees = room.snapshotFor("bruno-id");
+    expect(brunoSees.hasFacilitator).toBe(true);
+    expect(brunoSees.revealed).toBe(true);
+    expect(brunoSees.result).toBe(6);
+    expect(
+      brunoSees.participants.map((p) => [p.name, p.isFacilitator, p.vote]),
+    ).toEqual([
+      ["Ana", true, 4],
+      ["Bruno", false, 8],
+    ]);
+  });
+
+  it("lets nobody Reveal or start a New Round while there's no Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+    room.vote("bruno-id", 8);
+    const before = room.snapshotFor("bruno-id");
+
+    expect(room.reveal("bruno-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+    expect(room.newRound("bruno-id")).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+    expect(room.snapshotFor("bruno-id")).toEqual(before);
+  });
+
+  it("makes the first Participant back into an empty Room its Facilitator, as after a server restart", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("ana-id");
+    room.disconnect("bruno-id");
+    vi.advanceTimersByTime(30_000);
+
+    room.join("bruno-id", "Bruno");
+    room.join("ana-id", "Ana");
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("bruno-id", "Bruno", { isFacilitator: true }),
+      participant("ana-id", "Ana"),
+    ]);
+  });
+});

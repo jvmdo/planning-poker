@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
+import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
 import { ParticipantList } from "./participant-list";
 import { RoleToggle } from "./role-toggle";
@@ -25,6 +26,7 @@ export function App() {
     becomeVoter,
     becomeObserver,
     handOver,
+    claimFacilitator,
   } = useRoom(identity);
 
   return (
@@ -48,6 +50,9 @@ export function App() {
       )}
       {me && snapshot ? (
         <>
+          {!snapshot.hasFacilitator && (
+            <ClaimFacilitator onClaim={claimFacilitator} />
+          )}
           <RoundPanel
             snapshot={snapshot}
             isFacilitator={me.isFacilitator}

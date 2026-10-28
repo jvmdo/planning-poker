@@ -91,5 +91,8 @@ export function attachRoom(io: RoomServer, room: Room): void {
       if (typeof to !== "string") return;
       act("handOver", (id) => room.handOver(id, to));
     });
+    socket.on("claimFacilitator", () =>
+      act("claimFacilitator", (id) => room.claimFacilitator(id)),
+    );
   });
 }

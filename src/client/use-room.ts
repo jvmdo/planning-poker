@@ -26,6 +26,8 @@ const RACE_NOTICES: Partial<Record<RejectionKey, string>> = {
   "handOver:unknown-participant": "That Participant has just left the Room.",
   "vote:round-revealed": "The Votes were revealed before your Card arrived.",
   "reveal:no-votes": "There are no Votes to reveal any more.",
+  "claimFacilitator:facilitator-exists":
+    "Someone else became the Facilitator first.",
 };
 
 function keyOf(rejection: Rejection): RejectionKey {
@@ -116,6 +118,10 @@ export function useRoom(identity: Identity) {
     socket.emit("handOver", to);
   }
 
+  function claimFacilitator() {
+    socket.emit("claimFacilitator");
+  }
+
   function vote(card: Card) {
     socket.emit("vote", card);
   }
@@ -138,6 +144,7 @@ export function useRoom(identity: Identity) {
     becomeVoter,
     becomeObserver,
     handOver,
+    claimFacilitator,
   };
 }
 

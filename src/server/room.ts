@@ -1,4 +1,5 @@
 import type {
+  ClaimFacilitatorRejectionReason,
   CommandResult,
   DisconnectRejectionReason,
   HandOverRejectionReason,
@@ -32,6 +33,9 @@ export interface Room {
     by: ParticipantId,
     to: ParticipantId,
   ): CommandResult<HandOverRejectionReason>;
+  claimFacilitator(
+    id: ParticipantId,
+  ): CommandResult<ClaimFacilitatorRejectionReason>;
   becomeVoter(id: ParticipantId): CommandResult<RoleRejectionReason>;
   /** Before the Reveal this discards their Vote; after it, the revealed Vote stays put. */
   becomeObserver(id: ParticipantId): CommandResult<RoleRejectionReason>;
@@ -64,6 +68,11 @@ export function createRoom(): Room {
 
   function notifyChanged() {
     for (const listener of listeners) listener();
+  }
+
+  function discardRound() {
+    votes.clear();
+    revealed = false;
   }
 
   function setRole(
@@ -128,8 +137,7 @@ export function createRoom(): Room {
 
     newRound(by) {
       if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
-      votes.clear();
-      revealed = false;
+      discardRound();
       notifyChanged();
       return { ok: true };
     },
@@ -141,6 +149,16 @@ export function createRoom(): Room {
         return { ok: false, reason: "unknown-participant" };
       }
       facilitatorId = to;
+      notifyChanged();
+      return { ok: true };
+    },
+
+    claimFacilitator(id) {
+      if (!participants.has(id)) return { ok: false, reason: "not-in-room" };
+      if (facilitatorId !== null) {
+        return { ok: false, reason: "facilitator-exists" };
+      }
+      facilitatorId = id;
       notifyChanged();
       return { ok: true };
     },
@@ -161,7 +179,11 @@ export function createRoom(): Room {
           graceTimers.delete(id);
           participants.delete(id);
           votes.delete(id);
-          if (facilitatorId === id) facilitatorId = null;
+          if (facilitatorId === id) {
+            // The Round can't continue without anyone to run it.
+            facilitatorId = null;
+            discardRound();
+          }
           notifyChanged();
         }, GRACE_PERIOD_MS),
       );
@@ -181,6 +203,7 @@ export function createRoom(): Room {
           connected: p.connections > 0,
         })),
         myVote: votes.get(id) ?? null,
+        hasFacilitator: facilitatorId !== null,
         revealed,
         result: revealed ? resultOf(votes.values()) : null,
       };
