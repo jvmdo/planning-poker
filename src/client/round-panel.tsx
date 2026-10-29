@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
+import { LoaderCircle } from "lucide-react";
 import type { RoomSnapshot } from "../shared/protocol";
+import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
 
 /** Where the Round stands, who we're waiting on, and the Facilitator's Reveal and New Round controls. */
@@ -7,9 +10,12 @@ export function RoundPanel({
   isFacilitator,
   onReveal,
   onNewRound,
+  pendingCommand,
 }: {
   snapshot: RoomSnapshot;
   isFacilitator: boolean;
+  /** Sent and not yet answered by the server: both buttons wait until it is. */
+  pendingCommand: PendingCommand["command"] | null;
   onReveal: () => void;
   onNewRound: () => void;
 }) {
@@ -36,11 +42,22 @@ export function RoundPanel({
         {isFacilitator && (
           <div className="ml-auto flex gap-2">
             {!snapshot.revealed && (
-              <Button onClick={onReveal} disabled={!anyVotes}>
+              <Button
+                onClick={onReveal}
+                disabled={!anyVotes || pendingCommand !== null}
+                aria-busy={pendingCommand === "reveal"}
+              >
+                {pendingCommand === "reveal" && <Waiting />}
                 Reveal
               </Button>
             )}
-            <Button variant="outline" onClick={onNewRound}>
+            <Button
+              variant="outline"
+              onClick={onNewRound}
+              disabled={pendingCommand !== null}
+              aria-busy={pendingCommand === "newRound"}
+            >
+              {pendingCommand === "newRound" && <Waiting />}
               New Round
             </Button>
           </div>
@@ -60,5 +77,15 @@ export function RoundPanel({
         />
       </div>
     </div>
+  );
+}
+
+/** Appears only if the server takes noticeably long, so quick answers don't flicker. */
+function Waiting(): ReactNode {
+  return (
+    <LoaderCircle
+      aria-hidden
+      className="size-4 opacity-0 [animation:spin_1s_linear_infinite,appear_0s_150ms_forwards]"
+    />
   );
 }

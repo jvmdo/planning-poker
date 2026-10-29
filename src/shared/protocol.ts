@@ -26,6 +26,8 @@ export interface RoomSnapshot {
   myVote: Card | null;
   /** False after the Facilitator's grace period expired, until someone claims the role. */
   hasFacilitator: boolean;
+  /** Identifies the Round: goes up whenever its Votes are discarded (a New Round, or a lost Facilitator). */
+  round: number;
   revealed: boolean;
   /** The mean of the Votes cast, to one decimal place. Null until the Reveal. */
   result: number | null;

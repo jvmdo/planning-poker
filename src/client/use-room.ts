@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type {
   ParticipantId,
+  ParticipantRole,
   JoinRejectionReason,
   Rejection,
   RoomSnapshot,
@@ -8,6 +9,15 @@ import type {
 import type { Card } from "../shared/deck";
 import { saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
+import {
+  findParticipant,
+  settlePendingCommand,
+  settlePendingRole,
+  settlePendingVote,
+  withPending,
+  type PendingCommand,
+  type PendingVote,
+} from "./pending";
 
 /** How long a notice about a refused command stays on screen. */
 const NOTICE_MS = 4000;
@@ -45,6 +55,11 @@ export function useRoom(identity: Identity) {
   const [name, setName] = useState(identity.name);
   const [wantsToJoin, setWantsToJoin] = useState(identity.name !== "");
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
+  const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
+  const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
+    null,
+  );
 
   useEffect(() => {
     function onConnect() {
@@ -52,13 +67,30 @@ export function useRoom(identity: Identity) {
     }
     function onDisconnect() {
       setConnected(false);
+      // Whatever was in flight may never reach the server. The snapshot after rejoining says.
+      setPendingVote(null);
+      setPendingRole(null);
+      setPendingCommand(null);
     }
     function onSnapshot(next: RoomSnapshot) {
       setSnapshot(next);
+      setPendingVote((pending) => settlePendingVote(pending, next));
+      setPendingRole((pending) =>
+        settlePendingRole(pending, next, identity.id),
+      );
+      setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
       if (me) saveIdentity({ id: identity.id, name: me.name });
     }
     function onRejected(rejection: Rejection) {
+      if (rejection.command === "vote") setPendingVote(null);
+      if (
+        rejection.command === "becomeVoter" ||
+        rejection.command === "becomeObserver"
+      )
+        setPendingRole(null);
+      if (rejection.command === "reveal" || rejection.command === "newRound")
+        setPendingCommand(null);
       if (rejection.command !== "join") {
         setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
         return;
@@ -98,19 +130,38 @@ export function useRoom(identity: Identity) {
     setWantsToJoin(true);
   }
 
+  /**
+   * Commands sent while disconnected would reach the server before this browser has rejoined,
+   * and be ignored without a reply, so they aren't sent and nothing is marked pending.
+   */
+  function canSend() {
+    return socket.connected && snapshot !== null;
+  }
+
+  function sendCommand(command: PendingCommand["command"]) {
+    if (!snapshot || !canSend()) return;
+    setPendingCommand({ command, fromRound: snapshot.round });
+    socket.emit(command);
+  }
+
   function reveal() {
-    socket.emit("reveal");
+    sendCommand("reveal");
   }
 
   function newRound() {
-    socket.emit("newRound");
+    sendCommand("newRound");
   }
 
   function becomeVoter() {
+    if (!canSend()) return;
+    setPendingRole("voter");
     socket.emit("becomeVoter");
   }
 
   function becomeObserver() {
+    if (!canSend()) return;
+    setPendingRole("observer");
+    setPendingVote(null);
     socket.emit("becomeObserver");
   }
 
@@ -123,16 +174,23 @@ export function useRoom(identity: Identity) {
   }
 
   function vote(card: Card) {
+    if (!snapshot || !canSend()) return;
+    setPendingVote({ card, round: snapshot.round });
     socket.emit("vote", card);
   }
 
-  const me = snapshot ? findParticipant(snapshot, identity.id) : null;
+  const displayed =
+    snapshot && withPending(snapshot, identity.id, pendingVote, pendingRole);
+  const me = displayed ? findParticipant(displayed, identity.id) : null;
   const joining = me === null && wantsToJoin;
 
   return {
     connected,
-    snapshot,
+    /** The server's snapshot plus your pending Vote and role: what the screen shows. */
+    snapshot: displayed,
     notice,
+    /** Reveal or New Round, sent and not yet answered by the server. */
+    pendingCommand: pendingCommand?.command ?? null,
     me,
     name,
     joining,
@@ -146,8 +204,4 @@ export function useRoom(identity: Identity) {
     handOver,
     claimFacilitator,
   };
-}
-
-function findParticipant(snapshot: RoomSnapshot, id: ParticipantId) {
-  return snapshot.participants.find((p) => p.id === id) ?? null;
 }

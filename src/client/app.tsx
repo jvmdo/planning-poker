@@ -16,6 +16,7 @@ export function App() {
     connected,
     snapshot,
     notice,
+    pendingCommand,
     me,
     name,
     joining,
@@ -94,6 +95,7 @@ export function App() {
           isFacilitator={me.isFacilitator}
           onReveal={reveal}
           onNewRound={newRound}
+          pendingCommand={pendingCommand}
         />
         <div className="flex flex-col gap-4 p-8">
           {alerts}

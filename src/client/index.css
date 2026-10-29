@@ -53,3 +53,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* For things that should show only if a wait lasts: start at opacity 0 and add a delay. */
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}

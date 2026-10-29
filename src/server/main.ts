@@ -13,6 +13,14 @@ app.use(express.static(clientDir));
 
 const httpServer = createServer(app);
 const io: RoomServer = new Server(httpServer);
+
+// Development only: delays every incoming command, to feel the deployed app's latency locally.
+const simulatedLatencyMs = Number(process.env.SIMULATED_LATENCY_MS ?? 0);
+if (simulatedLatencyMs > 0 && process.env.NODE_ENV !== "production") {
+  io.on("connection", (socket) =>
+    socket.use((_packet, next) => setTimeout(next, simulatedLatencyMs)),
+  );
+}
 attachRoom(io, createRoom());
 
 httpServer.listen(port, () => {

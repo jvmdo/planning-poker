@@ -63,6 +63,7 @@ export function createRoom(): Room {
   let facilitatorId: ParticipantId | null = null;
   const votes = new Map<ParticipantId, Card>();
   let revealed = false;
+  let round = 1;
   const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
   const listeners = new Set<() => void>();
 
@@ -73,6 +74,7 @@ export function createRoom(): Room {
   function discardRound() {
     votes.clear();
     revealed = false;
+    round += 1;
   }
 
   function setRole(
@@ -204,6 +206,7 @@ export function createRoom(): Room {
         })),
         myVote: votes.get(id) ?? null,
         hasFacilitator: facilitatorId !== null,
+        round,
         revealed,
         result: revealed ? resultOf(votes.values()) : null,
       };

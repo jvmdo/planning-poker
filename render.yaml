@@ -11,4 +11,8 @@ services:
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /
+    envVars:
+      # Turns off development-only switches such as SIMULATED_LATENCY_MS.
+      - key: NODE_ENV
+        value: production
     autoDeploy: true
