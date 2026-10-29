@@ -1,0 +1,14 @@
+# Render Blueprint: one free web service serving the client build and Socket.IO.
+services:
+  - type: web
+    name: planning-poker
+    runtime: node
+    plan: free
+    # The Room lives in this one process's memory (docs/adr/0001). A second instance would be a
+    # second, separate Room, so this must stay at 1 whatever the plan.
+    numInstances: 1
+    # Vite and TypeScript are dev dependencies, so install them even if NODE_ENV is production.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
