@@ -1,40 +1,47 @@
 import type { ParticipantRole } from "../shared/protocol";
-import { Button } from "@/components/ui/button";
 
 export function RoleToggle({
+  name,
   role,
   onBecomeVoter,
   onBecomeObserver,
 }: {
+  name: string;
   role: ParticipantRole;
   onBecomeVoter: () => void;
   onBecomeObserver: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <div role="group" aria-label="Your role" className="flex gap-1">
-        <Button
-          size="sm"
-          variant={role === "voter" ? "default" : "outline"}
-          aria-pressed={role === "voter"}
-          onClick={role === "voter" ? undefined : onBecomeVoter}
-        >
-          Voter
-        </Button>
-        <Button
-          size="sm"
-          variant={role === "observer" ? "default" : "outline"}
-          aria-pressed={role === "observer"}
-          onClick={role === "observer" ? undefined : onBecomeObserver}
-        >
-          Observer
-        </Button>
-      </div>
-      <p className="text-muted-foreground text-sm">
-        {role === "voter"
-          ? "You estimate every Round."
-          : "You're watching. The Room won't wait for your Vote."}
+    <div className="flex flex-col gap-2 border-t p-4">
+      <p className="text-sm">
+        You are <span className="font-semibold">{name}</span>
       </p>
+      <div
+        role="group"
+        aria-label="Your role"
+        className="bg-muted inline-flex self-start rounded-md p-0.5"
+      >
+        {(["voter", "observer"] as const).map((r) => (
+          <button
+            key={r}
+            aria-pressed={role === r}
+            onClick={
+              role === r
+                ? undefined
+                : r === "voter"
+                  ? onBecomeVoter
+                  : onBecomeObserver
+            }
+            className={
+              role === r
+                ? "bg-background rounded px-3 py-1 text-sm font-medium shadow-xs"
+                : "text-muted-foreground hover:text-foreground rounded px-3 py-1 text-sm"
+            }
+          >
+            {r === "voter" ? "Voter" : "Observer"}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

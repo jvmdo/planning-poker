@@ -1,50 +1,39 @@
 import { DECK, type Card } from "../shared/deck";
-import { Button } from "@/components/ui/button";
-import {
-  Card as Panel,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export function CardHand({
   myVote,
-  locked,
   onPlay,
 }: {
   myVote: Card | null;
-  /** After the Reveal, Votes can't change until a New Round. */
-  locked: boolean;
   onPlay: (card: Card) => void;
 }) {
   return (
-    <Panel>
-      <CardHeader>
-        <CardTitle>Your Card</CardTitle>
-        <CardDescription>
-          {locked
-            ? "Votes are locked until the next Round."
-            : "Estimate in hours. Nobody sees it until the Reveal."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {DECK.map((card) => (
-            <Button
+    <section className="max-w-4xl">
+      <h2 className="mb-1 text-xl font-semibold">Pick your Card</h2>
+      <p className="text-muted-foreground mb-6 text-sm">
+        Estimate in hours. Nobody sees it until the Reveal.
+      </p>
+      <div className="grid grid-cols-6 gap-4">
+        {DECK.map((card) => {
+          const selected = card === myVote;
+          return (
+            <button
               key={card}
-              variant={card === myVote ? "default" : "outline"}
-              aria-pressed={card === myVote}
+              aria-pressed={selected}
               aria-label={`${card} hours`}
-              className="h-16 text-lg font-semibold"
-              disabled={locked}
               onClick={() => onPlay(card)}
+              className={cn(
+                "hover:border-foreground focus-visible:ring-ring/50 flex aspect-[3/4] flex-col items-center justify-center rounded-xl border-2 text-4xl font-semibold transition-colors outline-none focus-visible:ring-[3px]",
+                selected && "bg-primary text-primary-foreground border-primary",
+              )}
             >
               {card}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Panel>
+              <span className="mt-1 text-xs font-normal opacity-60">hours</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

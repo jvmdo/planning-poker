@@ -5,6 +5,7 @@ import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
 import { ParticipantList } from "./participant-list";
+import { ResultBreakdown } from "./result-breakdown";
 import { RoleToggle } from "./role-toggle";
 import { RoundPanel } from "./round-panel";
 import { useRoom } from "./use-room";
@@ -29,9 +30,8 @@ export function App() {
     claimFacilitator,
   } = useRoom(identity);
 
-  return (
-    <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
-      <h1 className="text-2xl font-semibold">Planning Poker</h1>
+  const alerts = (
+    <>
       {!connected && (
         <p
           role="status"
@@ -48,46 +48,72 @@ export function App() {
           {notice}
         </p>
       )}
-      {me && snapshot ? (
-        <>
+    </>
+  );
+
+  if (!me || !snapshot)
+    return (
+      <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
+        <h1 className="text-2xl font-semibold">Planning Poker</h1>
+        {alerts}
+        {joining ? (
+          connected && <p className="text-muted-foreground text-sm">Joining…</p>
+        ) : (
+          <JoinScreen
+            initialName={name}
+            rejection={rejection}
+            disabled={!connected}
+            onJoin={join}
+          />
+        )}
+      </main>
+    );
+
+  return (
+    <div className="grid h-svh grid-cols-[300px_1fr]">
+      <aside className="bg-muted/40 flex min-h-0 flex-col border-r">
+        <h1 className="border-b px-5 py-4 text-lg font-semibold">
+          Planning Poker
+        </h1>
+        <ParticipantList
+          participants={snapshot.participants}
+          myId={identity.id}
+          revealed={snapshot.revealed}
+          onHandOver={me.isFacilitator ? handOver : undefined}
+        />
+        <RoleToggle
+          name={me.name}
+          role={me.role}
+          onBecomeVoter={becomeVoter}
+          onBecomeObserver={becomeObserver}
+        />
+      </aside>
+      <main className="flex min-h-0 flex-col overflow-y-auto">
+        <RoundPanel
+          snapshot={snapshot}
+          isFacilitator={me.isFacilitator}
+          onReveal={reveal}
+          onNewRound={newRound}
+        />
+        <div className="flex flex-col gap-4 p-8">
+          {alerts}
           {!snapshot.hasFacilitator && (
             <ClaimFacilitator onClaim={claimFacilitator} />
           )}
-          <RoundPanel
-            snapshot={snapshot}
-            isFacilitator={me.isFacilitator}
-            onReveal={reveal}
-            onNewRound={newRound}
-          />
-          <RoleToggle
-            role={me.role}
-            onBecomeVoter={becomeVoter}
-            onBecomeObserver={becomeObserver}
-          />
-          {me.role === "voter" && (
-            <CardHand
-              myVote={snapshot.myVote}
-              locked={snapshot.revealed}
-              onPlay={vote}
+          {snapshot.revealed ? (
+            <ResultBreakdown
+              snapshot={snapshot}
+              isVoter={me.role === "voter"}
             />
+          ) : me.role === "voter" ? (
+            <CardHand myVote={snapshot.myVote} onPlay={vote} />
+          ) : (
+            <p className="text-muted-foreground">
+              You're observing. The Room won't wait for your Vote.
+            </p>
           )}
-          <ParticipantList
-            participants={snapshot.participants}
-            myId={identity.id}
-            revealed={snapshot.revealed}
-            onHandOver={me.isFacilitator ? handOver : undefined}
-          />
-        </>
-      ) : joining ? (
-        connected && <p className="text-muted-foreground text-sm">Joining…</p>
-      ) : (
-        <JoinScreen
-          initialName={name}
-          rejection={rejection}
-          disabled={!connected}
-          onJoin={join}
-        />
-      )}
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }

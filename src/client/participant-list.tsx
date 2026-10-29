@@ -3,11 +3,8 @@ import {
   type ParticipantId,
   type ParticipantView,
 } from "../shared/protocol";
-import { Check, Crown, WifiOff } from "lucide-react";
+import { Check, Clock, Crown, Eye, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ParticipantList({
   participants,
@@ -30,76 +27,78 @@ export function ParticipantList({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Participants ({participants.length})</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {participants.map((p) => (
-            <li
-              key={p.id}
-              className={cn(
-                "flex items-center gap-2 py-2",
-                !p.connected && "opacity-60",
-              )}
-            >
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <span className="min-w-0 truncate font-medium">
-                  {p.name}
-                  {p.id === myId && (
-                    <span className="text-muted-foreground font-normal">
-                      {" "}
-                      (you)
-                    </span>
-                  )}
-                </span>
-                {p.isFacilitator && <Badge>Facilitator</Badge>}
-                {!p.connected && (
-                  <Badge
-                    variant="outline"
-                    title={`Reconnecting. Removed after ${GRACE_PERIOD_MS / 1000} seconds away.`}
-                  >
-                    <WifiOff aria-hidden className="size-3" />
-                    Away
-                  </Badge>
-                )}
-                {p.hasVoted && (
-                  <Badge variant="secondary">
-                    <Check aria-hidden className="size-3" />
-                    Voted
-                  </Badge>
-                )}
-              </div>
-              {onHandOver && !p.isFacilitator && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="size-8 shrink-0 p-0"
-                  aria-label={handOverLabel(p)}
-                  title={handOverLabel(p)}
-                  onClick={() => confirmHandOver(p)}
-                >
-                  <Crown aria-hidden className="size-4" />
-                </Button>
-              )}
-              <Badge variant="outline">
-                {p.role === "voter" ? "Voter" : "Observer"}
-              </Badge>
-              {revealed && (
-                <span
-                  aria-label={
-                    p.vote === null ? "No Vote" : `Voted ${p.vote} hours`
-                  }
-                  className="flex size-9 shrink-0 items-center justify-center rounded-md border font-semibold"
-                >
-                  {p.vote ?? "–"}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    <section aria-labelledby="participants-heading" className="min-h-0 flex-1">
+      <h2
+        id="participants-heading"
+        className="text-muted-foreground px-5 pt-4 pb-2 text-xs font-medium tracking-wide uppercase"
+      >
+        Participants · {participants.length}
+      </h2>
+      <ul className="overflow-y-auto px-2">
+        {participants.map((p) => (
+          <li
+            key={p.id}
+            className={cn(
+              "group hover:bg-background flex items-center gap-2 rounded-md px-3 py-1.5 text-sm",
+              !p.connected && "opacity-50",
+            )}
+          >
+            {p.role === "observer" ? (
+              <Eye
+                aria-label="Observer"
+                className="text-muted-foreground size-4 shrink-0"
+              />
+            ) : p.hasVoted ? (
+              <Check
+                aria-label="Voted"
+                className="size-4 shrink-0 text-emerald-600"
+              />
+            ) : (
+              <Clock
+                aria-label="Not voted yet"
+                className="text-muted-foreground size-4 shrink-0"
+              />
+            )}
+            <span className={cn("truncate", p.id === myId && "font-semibold")}>
+              {p.name}
+              {p.id === myId && " (you)"}
+            </span>
+            {p.isFacilitator && (
+              <Crown
+                aria-label="Facilitator"
+                className="size-3.5 shrink-0 text-amber-600"
+              />
+            )}
+            {!p.connected && (
+              <span
+                title={`Reconnecting. Removed after ${GRACE_PERIOD_MS / 1000} seconds away.`}
+              >
+                <WifiOff aria-label="Away" className="size-3.5 shrink-0" />
+              </span>
+            )}
+            {onHandOver && !p.isFacilitator && (
+              <button
+                aria-label={handOverLabel(p)}
+                title={handOverLabel(p)}
+                onClick={() => confirmHandOver(p)}
+                className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              >
+                <Crown aria-hidden className="size-3.5" />
+              </button>
+            )}
+            {revealed && p.role === "voter" && (
+              <span
+                aria-label={
+                  p.vote === null ? "No Vote" : `Voted ${p.vote} hours`
+                }
+                className="ml-auto font-semibold tabular-nums"
+              >
+                {p.vote ?? "–"}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

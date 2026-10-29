@@ -1,8 +1,7 @@
 import type { RoomSnapshot } from "../shared/protocol";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 
-/** The Result after the Reveal, and the Facilitator's Reveal and New Round controls. */
+/** Where the Round stands, who we're waiting on, and the Facilitator's Reveal and New Round controls. */
 export function RoundPanel({
   snapshot,
   isFacilitator,
@@ -14,21 +13,26 @@ export function RoundPanel({
   onReveal: () => void;
   onNewRound: () => void;
 }) {
-  const anyVotes = snapshot.participants.some((p) => p.hasVoted);
-  if (!snapshot.revealed && !isFacilitator) return null;
+  const voters = snapshot.participants.filter((p) => p.role === "voter");
+  const played = voters.filter((p) => p.hasVoted).length;
+  const waiting = voters.filter((p) => !p.hasVoted);
+  const anyVotes = played > 0;
+  const progress = voters.length ? (played / voters.length) * 100 : 0;
 
   return (
-    <Card>
-      <CardContent className="flex flex-wrap items-center gap-3">
-        {snapshot.result !== null && (
-          <p className="mr-auto">
-            <span className="text-muted-foreground text-sm">Result</span>{" "}
-            <span className="text-3xl font-semibold">
-              {snapshot.result.toFixed(1)}
-            </span>{" "}
-            <span className="text-muted-foreground text-sm">hours</span>
+    <div>
+      <div className="flex items-center gap-4 border-b px-8 py-4">
+        <div>
+          <p className="text-lg font-semibold">
+            {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
-        )}
+          <p className="text-muted-foreground text-sm">
+            {played} of {voters.length} Voters played
+            {!snapshot.revealed && waiting.length > 0 && (
+              <> · waiting on {waiting.map((p) => p.name).join(", ")}</>
+            )}
+          </p>
+        </div>
         {isFacilitator && (
           <div className="ml-auto flex gap-2">
             {!snapshot.revealed && (
@@ -41,7 +45,20 @@ export function RoundPanel({
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+      <div
+        role="progressbar"
+        aria-label="Voters who played"
+        aria-valuemin={0}
+        aria-valuemax={voters.length}
+        aria-valuenow={played}
+        className="bg-muted h-1"
+      >
+        <div
+          className="h-full bg-emerald-500 transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
   );
 }
