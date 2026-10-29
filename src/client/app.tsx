@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
+import { Logo } from "./logo";
 import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
@@ -56,7 +57,10 @@ export function App() {
   if (!me || !snapshot)
     return (
       <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
-        <h1 className="font-display text-2xl font-semibold">Planning Poker</h1>
+        <h1 className="font-display flex items-center gap-3 text-2xl font-semibold">
+          <Logo className="size-12 shrink-0" />
+          Planning Poker
+        </h1>
         {alerts}
         {joining ? (
           connected && <p className="text-muted-foreground text-sm">Joining…</p>
@@ -75,11 +79,11 @@ export function App() {
     <div className="grid h-svh grid-cols-[300px_1fr]">
       <aside className="bg-secondary border-ink flex min-h-0 flex-col border-r-[3px]">
         {/* Same height and rule as the status bar, so the two line up. */}
-        <div className="border-ink flex h-20 shrink-0 items-center gap-2 border-b-4 px-5">
-          <h1 className="font-display mr-auto text-lg font-semibold">
+        <div className="border-ink flex h-20 shrink-0 items-center border-b-4 px-5">
+          <h1 className="font-display flex items-center gap-2 text-lg font-semibold whitespace-nowrap">
+            <Logo className="size-12 shrink-0" />
             Planning Poker
           </h1>
-          <ThemeSwitch />
         </div>
         <ParticipantList
           participants={snapshot.participants}
@@ -87,12 +91,15 @@ export function App() {
           revealed={snapshot.revealed}
           onHandOver={me.isFacilitator ? handOver : undefined}
         />
-        <RoleToggle
-          name={me.name}
-          role={me.role}
-          onBecomeVoter={becomeVoter}
-          onBecomeObserver={becomeObserver}
-        />
+        <div className="flex items-end justify-between gap-2 border-t p-4">
+          <RoleToggle
+            name={me.name}
+            role={me.role}
+            onBecomeVoter={becomeVoter}
+            onBecomeObserver={becomeObserver}
+          />
+          <ThemeSwitch />
+        </div>
       </aside>
       <main className="flex min-h-0 flex-col overflow-y-auto">
         <RoundPanel

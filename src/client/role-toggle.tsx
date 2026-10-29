@@ -12,7 +12,7 @@ export function RoleToggle({
   onBecomeObserver: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 border-t p-4">
+    <div className="flex flex-col gap-2">
       <p className="text-sm">
         You are <span className="font-semibold">{name}</span>
       </p>
