@@ -4,6 +4,10 @@ import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
+import {
+  PROTOTYPE_ENABLED,
+  PrototypeRoom,
+} from "./prototype-desktop-layout/prototype-room";
 import { ParticipantList } from "./participant-list";
 import { RoleToggle } from "./role-toggle";
 import { RoundPanel } from "./round-panel";
@@ -29,9 +33,8 @@ export function App() {
     claimFacilitator,
   } = useRoom(identity);
 
-  return (
-    <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
-      <h1 className="text-2xl font-semibold">Planning Poker</h1>
+  const alerts = (
+    <>
       {!connected && (
         <p
           role="status"
@@ -48,11 +51,22 @@ export function App() {
           {notice}
         </p>
       )}
+      {me && snapshot && !snapshot.hasFacilitator && (
+        <ClaimFacilitator onClaim={claimFacilitator} />
+      )}
+    </>
+  );
+  const hasAlerts =
+    !connected ||
+    notice !== null ||
+    (snapshot !== null && !snapshot.hasFacilitator);
+
+  const page = (
+    <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
+      <h1 className="text-2xl font-semibold">Planning Poker</h1>
+      {alerts}
       {me && snapshot ? (
         <>
-          {!snapshot.hasFacilitator && (
-            <ClaimFacilitator onClaim={claimFacilitator} />
-          )}
           <RoundPanel
             snapshot={snapshot}
             isFacilitator={me.isFacilitator}
@@ -90,4 +104,21 @@ export function App() {
       )}
     </main>
   );
+
+  if (PROTOTYPE_ENABLED && me && snapshot)
+    return (
+      <PrototypeRoom
+        current={page}
+        snapshot={snapshot}
+        me={me}
+        alerts={hasAlerts ? alerts : null}
+        onVote={vote}
+        onReveal={reveal}
+        onNewRound={newRound}
+        onBecomeVoter={becomeVoter}
+        onBecomeObserver={becomeObserver}
+        onHandOver={me.isFacilitator ? handOver : undefined}
+      />
+    );
+  return page;
 }
