@@ -56,23 +56,14 @@ export function App() {
 
   if (!me || !snapshot)
     return (
-      <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
-        <h1 className="font-display flex items-center gap-3 text-2xl font-semibold">
-          <Logo className="size-12 shrink-0" />
-          Planning Poker
-        </h1>
-        {alerts}
-        {joining ? (
-          connected && <p className="text-muted-foreground text-sm">Joining…</p>
-        ) : (
-          <JoinScreen
-            initialName={name}
-            rejection={rejection}
-            disabled={!connected}
-            onJoin={join}
-          />
-        )}
-      </main>
+      <JoinScreen
+        initialName={name}
+        rejection={rejection}
+        disabled={!connected}
+        joining={joining}
+        alerts={alerts}
+        onJoin={join}
+      />
     );
 
   return (
