@@ -6,6 +6,8 @@ const STORAGE_KEY = "planning-poker:identity";
 export interface Identity {
   id: ParticipantId;
   name: string;
+  /** False after they left the Room: the name is kept for the join form, but not rejoined with. */
+  inRoom: boolean;
 }
 
 export function loadIdentity(): Identity {
@@ -13,11 +15,16 @@ export function loadIdentity(): Identity {
     const stored: unknown = JSON.parse(
       localStorage.getItem(STORAGE_KEY) ?? "null",
     );
-    if (isIdentity(stored)) return stored;
+    if (isIdentity(stored)) {
+      // Stored before leaving existed: having a name meant being in the Room.
+      const inRoom =
+        typeof stored.inRoom === "boolean" ? stored.inRoom : stored.name !== "";
+      return { id: stored.id, name: stored.name, inRoom };
+    }
   } catch {
     // Unreadable storage: start over with a fresh identity.
   }
-  const identity = { id: newParticipantId(), name: "" };
+  const identity = { id: newParticipantId(), name: "", inRoom: false };
   saveIdentity(identity);
   return identity;
 }
@@ -30,7 +37,9 @@ export function saveIdentity(identity: Identity): void {
   }
 }
 
-function isIdentity(value: unknown): value is Identity {
+function isIdentity(
+  value: unknown,
+): value is Partial<Identity> & Omit<Identity, "inRoom"> {
   return (
     typeof value === "object" &&
     value !== null &&

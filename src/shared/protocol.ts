@@ -44,6 +44,7 @@ export type RevealRejectionReason =
 export type NewRoundRejectionReason = "not-facilitator";
 export type RoleRejectionReason = "not-in-room";
 export type DisconnectRejectionReason = "not-in-room";
+export type LeaveRejectionReason = "not-in-room";
 export type ClaimFacilitatorRejectionReason =
   "not-in-room" | "facilitator-exists";
 export type HandOverRejectionReason =
@@ -73,9 +74,12 @@ export interface ClientToServerEvents {
   becomeObserver: () => void;
   handOver: (to: ParticipantId) => void;
   claimFacilitator: () => void;
+  leave: () => void;
 }
 
 export interface ServerToClientEvents {
   snapshot: (snapshot: RoomSnapshot) => void;
   rejected: (rejection: Rejection) => void;
+  /** This browser's Participant left the Room, from this tab or another one. */
+  left: () => void;
 }

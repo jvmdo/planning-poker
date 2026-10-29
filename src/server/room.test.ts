@@ -907,3 +907,123 @@ describe("recovering from a lost Facilitator", () => {
     ]);
   });
 });
+
+describe("leaving the Room", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("removes the Participant and their Vote at once, telling everyone, and frees their name", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("bruno-id", 8);
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+
+    expect(room.leave("bruno-id")).toEqual({ ok: true });
+
+    expect(onChange).toHaveBeenCalled();
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+    ]);
+    expect(room.join("carla-id", "Bruno")).toEqual({ ok: true });
+  });
+
+  it("removes them even while another of their connections is still open", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("bruno-id", "Bruno");
+
+    room.leave("bruno-id");
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+    ]);
+  });
+
+  it("cancels the grace period of an away Participant who leaves", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.disconnect("bruno-id");
+    room.leave("bruno-id");
+    room.join("bruno-id", "Bruno");
+
+    vi.advanceTimersByTime(30_000);
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno"),
+    ]);
+  });
+
+  it("hands the Facilitator role on, keeping the Round, its Votes and the Reveal", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 8);
+    room.vote("bruno-id", 16);
+    room.reveal("ana-id");
+    const { round } = room.snapshotFor("bruno-id");
+
+    room.leave("ana-id");
+
+    const snapshot = room.snapshotFor("bruno-id");
+    expect(snapshot.participants).toEqual([
+      participant("bruno-id", "Bruno", {
+        isFacilitator: true,
+        hasVoted: true,
+        vote: 16,
+      }),
+    ]);
+    expect(snapshot).toMatchObject({ round, revealed: true, result: 16 });
+  });
+
+  it("hands the Facilitator role to someone present rather than someone away", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.disconnect("bruno-id");
+
+    room.leave("ana-id");
+
+    expect(room.snapshotFor("carla-id").participants).toEqual([
+      participant("bruno-id", "Bruno", { connected: false }),
+      participant("carla-id", "Carla", { isFacilitator: true }),
+    ]);
+  });
+
+  it("leaves an empty Room when the last Participant leaves, so the next one in is its Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+
+    room.leave("ana-id");
+    room.join("bruno-id", "Bruno");
+
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      participants: [participant("bruno-id", "Bruno", { isFacilitator: true })],
+      myVote: null,
+      revealed: false,
+    });
+  });
+
+  it("rejects a leave from someone who isn't in the Room and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const before = room.snapshotFor("ana-id");
+
+    expect(room.leave("ghost-id")).toEqual({
+      ok: false,
+      reason: "not-in-room",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+  });
+});

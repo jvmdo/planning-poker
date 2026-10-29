@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   ParticipantId,
   ParticipantRole,
@@ -7,7 +7,7 @@ import type {
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card } from "../shared/deck";
-import { saveIdentity, type Identity } from "./lib/identity";
+import { loadIdentity, saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
 import {
   findParticipant,
@@ -53,13 +53,28 @@ export function useRoom(identity: Identity) {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
-  const [wantsToJoin, setWantsToJoin] = useState(identity.name !== "");
+  const [wantsToJoin, setWantsToJoin] = useState(identity.inRoom);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
     null,
   );
+
+  /**
+   * Back to the join form, with the name kept to rejoin with. Read from storage, since this also
+   * runs as a socket listener that outlives the render it was made in.
+   */
+  const resetToJoinScreen = useCallback(() => {
+    const saved = loadIdentity().name;
+    setName((current) => saved || current);
+    setWantsToJoin(false);
+    setSnapshot(null);
+    setPendingVote(null);
+    setPendingRole(null);
+    setPendingCommand(null);
+    saveIdentity({ id: identity.id, name: saved, inRoom: false });
+  }, [identity.id]);
 
   useEffect(() => {
     function onConnect() {
@@ -80,7 +95,7 @@ export function useRoom(identity: Identity) {
       );
       setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
-      if (me) saveIdentity({ id: identity.id, name: me.name });
+      if (me) saveIdentity({ id: identity.id, name: me.name, inRoom: true });
     }
     function onRejected(rejection: Rejection) {
       if (rejection.command === "vote") setPendingVote(null);
@@ -104,15 +119,17 @@ export function useRoom(identity: Identity) {
     socket.on("disconnect", onDisconnect);
     socket.on("snapshot", onSnapshot);
     socket.on("rejected", onRejected);
+    socket.on("left", resetToJoinScreen);
     socket.connect();
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("snapshot", onSnapshot);
       socket.off("rejected", onRejected);
+      socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
-  }, [identity.id]);
+  }, [identity.id, resetToJoinScreen]);
 
   useEffect(() => {
     if (notice === null) return;
@@ -173,6 +190,15 @@ export function useRoom(identity: Identity) {
     socket.emit("claimFacilitator");
   }
 
+  /**
+   * The server tells every tab of this browser that they left. While disconnected, this tab goes
+   * back to the join form on its own and the server removes them when their grace period expires.
+   */
+  function leave() {
+    if (socket.connected) socket.emit("leave");
+    resetToJoinScreen();
+  }
+
   function vote(card: Card) {
     if (!snapshot || !canSend()) return;
     setPendingVote({ card, round: snapshot.round });
@@ -203,5 +229,6 @@ export function useRoom(identity: Identity) {
     becomeObserver,
     handOver,
     claimFacilitator,
+    leave,
   };
 }

@@ -4,6 +4,7 @@ import type {
   DisconnectRejectionReason,
   HandOverRejectionReason,
   JoinRejectionReason,
+  LeaveRejectionReason,
   NewRoundRejectionReason,
   ParticipantId,
   ParticipantRole,
@@ -41,6 +42,11 @@ export interface Room {
   becomeObserver(id: ParticipantId): CommandResult<RoleRejectionReason>;
   /** One of the Participant's connections closed. */
   disconnect(id: ParticipantId): CommandResult<DisconnectRejectionReason>;
+  /**
+   * Removes the Participant at once, from every connection. A leaving Facilitator hands the role to
+   * another Participant, preferring one who isn't away.
+   */
+  leave(id: ParticipantId): CommandResult<LeaveRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
@@ -90,6 +96,19 @@ export function createRoom(): Room {
     if (role === "observer" && !revealed) votes.delete(id);
     notifyChanged();
     return { ok: true };
+  }
+
+  function remove(id: ParticipantId) {
+    clearTimeout(graceTimers.get(id));
+    graceTimers.delete(id);
+    participants.delete(id);
+    votes.delete(id);
+    if (facilitatorId === id) {
+      // The Round can't continue without anyone to run it.
+      facilitatorId = null;
+      discardRound();
+    }
+    notifyChanged();
   }
 
   return {
@@ -177,19 +196,21 @@ export function createRoom(): Room {
       }
       graceTimers.set(
         id,
-        setTimeout(() => {
-          graceTimers.delete(id);
-          participants.delete(id);
-          votes.delete(id);
-          if (facilitatorId === id) {
-            // The Round can't continue without anyone to run it.
-            facilitatorId = null;
-            discardRound();
-          }
-          notifyChanged();
-        }, GRACE_PERIOD_MS),
+        setTimeout(() => remove(id), GRACE_PERIOD_MS),
       );
       notifyChanged();
+      return { ok: true };
+    },
+
+    leave(id) {
+      if (!participants.has(id)) return { ok: false, reason: "not-in-room" };
+      if (facilitatorId === id) {
+        const others = [...participants.values()].filter((p) => p.id !== id);
+        const successor =
+          others.find((p) => p.connections > 0) ?? others[0] ?? null;
+        if (successor) facilitatorId = successor.id;
+      }
+      remove(id);
       return { ok: true };
     },
 

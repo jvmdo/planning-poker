@@ -1,10 +1,11 @@
+import { Button } from "@/components/ui/button";
+import { LoaderCircle, LogOut } from "lucide-react";
 import { useState } from "react";
-import { LoaderCircle } from "lucide-react";
-import { Logo } from "./logo";
-import { loadIdentity } from "./lib/identity";
 import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
+import { loadIdentity } from "./lib/identity";
+import { Logo } from "./logo";
 import { ParticipantList } from "./participant-list";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoleToggle } from "./role-toggle";
@@ -31,6 +32,7 @@ export function App() {
     becomeObserver,
     handOver,
     claimFacilitator,
+    leave,
   } = useRoom(identity);
 
   const alerts = (
@@ -89,7 +91,19 @@ export function App() {
             onBecomeVoter={becomeVoter}
             onBecomeObserver={becomeObserver}
           />
-          <ThemeSwitch />
+          {/* The theme switch sets the width; Leave stretches to match it. */}
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7.5 gap-1.5 px-0"
+              onClick={leave}
+            >
+              <LogOut aria-hidden className="size-4" />
+              Leave
+            </Button>
+            <ThemeSwitch />
+          </div>
         </div>
       </aside>
       <main className="flex min-h-0 flex-col overflow-y-auto">

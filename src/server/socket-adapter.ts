@@ -94,5 +94,16 @@ export function attachRoom(io: RoomServer, room: Room): void {
     socket.on("claimFacilitator", () =>
       act("claimFacilitator", (id) => room.claimFacilitator(id)),
     );
+    socket.on("leave", () => {
+      const { participantId } = socket.data;
+      if (!participantId) return;
+      // Every tab of this browser is the same Participant, so they all leave together.
+      const tabs = [...io.sockets.sockets.values()].filter(
+        (s) => s.data.participantId === participantId,
+      );
+      for (const tab of tabs) tab.data.participantId = undefined;
+      room.leave(participantId);
+      for (const tab of tabs) tab.emit("left");
+    });
   });
 }
