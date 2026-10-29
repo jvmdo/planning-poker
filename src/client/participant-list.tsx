@@ -3,9 +3,13 @@ import {
   type ParticipantId,
   type ParticipantView,
 } from "../shared/protocol";
-import { Check, Clock, Crown, Eye, WifiOff } from "lucide-react";
+import { Crown, Eye, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * Who's in the Room. Each Voter has a little Card at the end of their row: an empty slot until they
+ * play, face-down once they have, face-up with their Vote after the Reveal.
+ */
 export function ParticipantList({
   participants,
   myId,
@@ -18,6 +22,9 @@ export function ParticipantList({
   /** Only given to the Facilitator, who can hand the role to anyone else. */
   onHandOver?: (to: ParticipantId) => void;
 }) {
+  const voters = participants.filter((p) => p.role === "voter");
+  const played = voters.filter((p) => p.hasVoted).length;
+
   function handOverLabel(p: ParticipantView) {
     return `Make ${p.name} the Facilitator`;
   }
@@ -30,35 +37,24 @@ export function ParticipantList({
     <section aria-labelledby="participants-heading" className="min-h-0 flex-1">
       <h2
         id="participants-heading"
-        className="text-muted-foreground px-5 pt-4 pb-2 text-xs font-bold tracking-wide uppercase"
+        className="text-muted-foreground flex px-5 pt-4 pb-2 text-xs font-bold tracking-wide uppercase"
       >
         Participants · {participants.length}
+        {!revealed && voters.length > 0 && (
+          <span className="text-foreground ml-auto">
+            {played}/{voters.length} played
+          </span>
+        )}
       </h2>
-      <ul className="overflow-y-auto px-2">
+      <ul className="flex flex-col gap-1 overflow-y-auto px-2">
         {participants.map((p) => (
           <li
             key={p.id}
             className={cn(
-              "group hover:bg-background flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm",
+              "group hover:bg-background flex h-10 items-center gap-2 rounded-xl px-3 text-sm",
               !p.connected && "opacity-50",
             )}
           >
-            {p.role === "observer" ? (
-              <Eye
-                aria-label="Observer"
-                className="text-muted-foreground size-4 shrink-0"
-              />
-            ) : p.hasVoted ? (
-              <Check
-                aria-label="Voted"
-                className="size-4 shrink-0 text-emerald-600"
-              />
-            ) : (
-              <Clock
-                aria-label="Not voted yet"
-                className="text-muted-foreground size-4 shrink-0"
-              />
-            )}
             <span className={cn("truncate", p.id === myId && "font-semibold")}>
               {p.name}
               {p.id === myId && " (you)"}
@@ -86,19 +82,59 @@ export function ParticipantList({
                 <Crown aria-hidden className="size-3.5" />
               </button>
             )}
-            {revealed && p.role === "voter" && (
-              <span
-                aria-label={
-                  p.vote === null ? "No Vote" : `Voted ${p.vote} hours`
-                }
-                className="font-display border-ink bg-pop-4 animate-pop ml-auto min-w-7 rounded-full border-2 px-1.5 text-center font-semibold text-ink tabular-nums"
-              >
-                {p.vote ?? "–"}
-              </span>
-            )}
+            <span className="ml-auto flex shrink-0 items-center">
+              <VoteStatus participant={p} revealed={revealed} />
+            </span>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Small Cards, sized to sit at the end of a row. */
+const SMALL_CARD = "h-8 w-6 rounded-[5px] border-2";
+
+function VoteStatus({
+  participant: p,
+  revealed,
+}: {
+  participant: ParticipantView;
+  revealed: boolean;
+}) {
+  if (p.role === "observer")
+    return (
+      <Eye aria-label="Observer" className="text-muted-foreground size-4" />
+    );
+  if (revealed)
+    return (
+      <span
+        role="img"
+        aria-label={p.vote === null ? "No Vote" : `Voted ${p.vote} hours`}
+        className={cn(
+          SMALL_CARD,
+          "font-display border-ink bg-card shadow-hard-sm animate-pop grid rotate-3 place-items-center text-xs font-semibold tabular-nums",
+        )}
+      >
+        {p.vote ?? "–"}
+      </span>
+    );
+  if (p.hasVoted)
+    return (
+      <span
+        role="img"
+        aria-label="Voted"
+        className={cn(
+          SMALL_CARD,
+          "border-ink shadow-hard-sm animate-pop rotate-6 bg-[repeating-linear-gradient(45deg,var(--pop-2)_0_4px,var(--secondary)_4px_6px)]",
+        )}
+      />
+    );
+  return (
+    <span
+      role="img"
+      aria-label="Not voted yet"
+      className={cn(SMALL_CARD, "border-muted-foreground/60 border-dashed")}
+    />
   );
 }
