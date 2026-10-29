@@ -30,7 +30,7 @@ export function ParticipantList({
     <section aria-labelledby="participants-heading" className="min-h-0 flex-1">
       <h2
         id="participants-heading"
-        className="text-muted-foreground px-5 pt-4 pb-2 text-xs font-medium tracking-wide uppercase"
+        className="text-muted-foreground px-5 pt-4 pb-2 text-xs font-bold tracking-wide uppercase"
       >
         Participants · {participants.length}
       </h2>
@@ -39,7 +39,7 @@ export function ParticipantList({
           <li
             key={p.id}
             className={cn(
-              "group hover:bg-background flex items-center gap-2 rounded-md px-3 py-1.5 text-sm",
+              "group hover:bg-background flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm",
               !p.connected && "opacity-50",
             )}
           >
@@ -91,7 +91,7 @@ export function ParticipantList({
                 aria-label={
                   p.vote === null ? "No Vote" : `Voted ${p.vote} hours`
                 }
-                className="ml-auto font-semibold tabular-nums"
+                className="font-display border-ink bg-pop-4 animate-pop ml-auto min-w-7 rounded-full border-2 px-1.5 text-center font-semibold text-ink tabular-nums"
               >
                 {p.vote ?? "–"}
               </span>

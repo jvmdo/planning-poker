@@ -19,7 +19,7 @@ export function RoleToggle({
       <div
         role="group"
         aria-label="Your role"
-        className="bg-muted inline-flex self-start rounded-md p-0.5"
+        className="bg-card border-ink shadow-hard-sm inline-flex self-start rounded-full border-2 p-[3px]"
       >
         {(["voter", "observer"] as const).map((r) => (
           <button
@@ -34,8 +34,8 @@ export function RoleToggle({
             }
             className={
               role === r
-                ? "bg-background rounded px-3 py-1 text-sm font-medium shadow-xs"
-                : "text-muted-foreground hover:text-foreground rounded px-3 py-1 text-sm"
+                ? "bg-foreground text-background rounded-full px-3 py-1 text-sm font-bold"
+                : "text-foreground hover:bg-muted rounded-full px-3 py-1 text-sm font-bold"
             }
           >
             {r === "voter" ? "Voter" : "Observer"}

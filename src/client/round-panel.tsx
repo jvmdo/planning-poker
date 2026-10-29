@@ -26,10 +26,10 @@ export function RoundPanel({
   const progress = voters.length ? (played / voters.length) * 100 : 0;
 
   return (
-    <div>
-      <div className="flex items-center gap-4 border-b px-8 py-4">
+    <div className="relative">
+      <div className="flex h-20 items-center gap-4 border-b px-8">
         <div>
-          <p className="text-lg font-semibold">
+          <p className="font-display text-lg font-semibold">
             {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
           <p className="text-muted-foreground text-sm">
@@ -69,10 +69,10 @@ export function RoundPanel({
         aria-valuemin={0}
         aria-valuemax={voters.length}
         aria-valuenow={played}
-        className="bg-muted h-1"
+        className="bg-ink absolute inset-x-0 bottom-0 h-1"
       >
         <div
-          className="h-full bg-emerald-500 transition-all"
+          className="bg-pop-1 h-full transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>

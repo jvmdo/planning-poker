@@ -8,6 +8,7 @@ import { ParticipantList } from "./participant-list";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoleToggle } from "./role-toggle";
 import { RoundPanel } from "./round-panel";
+import { ThemeSwitch } from "./theme-switch";
 import { useRoom } from "./use-room";
 
 export function App() {
@@ -55,7 +56,7 @@ export function App() {
   if (!me || !snapshot)
     return (
       <main className="mx-auto flex min-h-svh max-w-xl flex-col gap-4 px-4 py-6">
-        <h1 className="text-2xl font-semibold">Planning Poker</h1>
+        <h1 className="font-display text-2xl font-semibold">Planning Poker</h1>
         {alerts}
         {joining ? (
           connected && <p className="text-muted-foreground text-sm">Joining…</p>
@@ -72,10 +73,14 @@ export function App() {
 
   return (
     <div className="grid h-svh grid-cols-[300px_1fr]">
-      <aside className="bg-muted/40 flex min-h-0 flex-col border-r">
-        <h1 className="border-b px-5 py-4 text-lg font-semibold">
-          Planning Poker
-        </h1>
+      <aside className="bg-secondary border-ink flex min-h-0 flex-col border-r-[3px]">
+        {/* Same height and rule as the status bar, so the two line up. */}
+        <div className="border-ink flex h-20 shrink-0 items-center gap-2 border-b-4 px-5">
+          <h1 className="font-display mr-auto text-lg font-semibold">
+            Planning Poker
+          </h1>
+          <ThemeSwitch />
+        </div>
         <ParticipantList
           participants={snapshot.participants}
           myId={identity.id}
