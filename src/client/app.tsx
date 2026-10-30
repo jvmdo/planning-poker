@@ -15,6 +15,7 @@ export function App() {
   const [identity] = useState(loadIdentity);
   const {
     connected,
+    reconnecting,
     snapshot,
     notice,
     pendingCommand,
@@ -36,22 +37,6 @@ export function App() {
     throwAt,
   } = useRoom(identity);
 
-  const alerts = (
-    <>
-      {!connected && (
-        <p
-          role="status"
-          className="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
-        >
-          <LoaderCircle aria-hidden className="size-4 shrink-0 animate-spin" />
-          {snapshot
-            ? "Reconnecting… you'll rejoin automatically."
-            : "Connecting… if the server was asleep, this can take up to a minute."}
-        </p>
-      )}
-    </>
-  );
-
   if (!me || !snapshot)
     return (
       <JoinScreen
@@ -59,7 +44,21 @@ export function App() {
         rejection={rejection}
         disabled={!connected}
         joining={joining}
-        alerts={alerts}
+        alerts={
+          !connected && (
+            <p
+              role="status"
+              className="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
+            >
+              <LoaderCircle
+                aria-hidden
+                className="size-4 shrink-0 animate-spin"
+              />
+              Connecting… if the server was asleep, this can take up to a
+              minute.
+            </p>
+          )
+        }
         onJoin={join}
       />
     );
@@ -79,17 +78,17 @@ export function App() {
         <RoundPanel
           snapshot={snapshot}
           isFacilitator={me.isFacilitator}
+          reconnecting={reconnecting}
           onReveal={reveal}
           onNewRound={newRound}
           onSetDeck={setDeck}
           pendingCommand={pendingCommand}
         />
-        <div className="flex flex-col gap-3 px-8 pt-3 empty:hidden">
-          {alerts}
-          {!snapshot.hasFacilitator && (
+        {!snapshot.hasFacilitator && (
+          <div className="flex flex-col gap-3 px-8 pt-3">
             <ClaimFacilitator onClaim={claimFacilitator} />
-          )}
-        </div>
+          </div>
+        )}
         <div className="relative flex min-h-0 flex-1 flex-col">
           <RoomTable
             snapshot={snapshot}

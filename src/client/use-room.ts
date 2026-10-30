@@ -57,6 +57,8 @@ function keyOf(rejection: Rejection): RejectionKey {
  */
 export function useRoom(identity: Identity) {
   const [connected, setConnected] = useState(false);
+  /** The snapshot came after the latest (re)connect, so it isn't stale. */
+  const [rejoined, setRejoined] = useState(false);
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
@@ -91,6 +93,7 @@ export function useRoom(identity: Identity) {
     }
     function onDisconnect() {
       setConnected(false);
+      setRejoined(false);
       // Whatever was in flight may never reach the server. The snapshot after rejoining says.
       setPendingVote(null);
       setPendingRole(null);
@@ -98,6 +101,7 @@ export function useRoom(identity: Identity) {
     }
     function onSnapshot(next: RoomSnapshot) {
       setSnapshot(next);
+      setRejoined(true);
       setPendingVote((pending) => settlePendingVote(pending, next));
       setPendingRole((pending) =>
         settlePendingRole(pending, next, identity.id),
@@ -162,11 +166,11 @@ export function useRoom(identity: Identity) {
   }
 
   /**
-   * Commands sent while disconnected would reach the server before this browser has rejoined,
-   * and be ignored without a reply, so they aren't sent and nothing is marked pending.
+   * Commands sent before the snapshot after rejoining would reach the server before this browser
+   * has rejoined, and be ignored without a reply, so they aren't sent and nothing is marked pending.
    */
   function canSend() {
-    return socket.connected && snapshot !== null;
+    return socket.connected && rejoined && snapshot !== null;
   }
 
   /** Marks the command pending in this Round, or says it can't be sent. */
@@ -252,6 +256,8 @@ export function useRoom(identity: Identity) {
 
   return {
     connected,
+    /** Lost the connection after a snapshot, and its snapshot after rejoining hasn't come yet. */
+    reconnecting: displayed !== null && !rejoined,
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
     notice,

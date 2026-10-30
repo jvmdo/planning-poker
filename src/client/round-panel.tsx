@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
 import type { RoomSnapshot } from "../shared/protocol";
 import { DeckDialog } from "./deck-dialog";
@@ -5,13 +6,17 @@ import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
 
+const RECONNECTING = "Reconnecting… you'll rejoin automatically.";
+
 /**
  * Where the Round stands, who we're waiting on, and the Facilitator's controls: Reveal, New Round
- * and the Deck.
+ * and the Deck. While the connection is down it says so instead of who we're waiting on, and the
+ * controls wait for the Room's snapshot after rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
   snapshot,
   isFacilitator,
+  reconnecting,
   onReveal,
   onNewRound,
   onSetDeck,
@@ -19,6 +24,8 @@ export function RoundPanel({
 }: {
   snapshot: RoomSnapshot;
   isFacilitator: boolean;
+  /** Lost the connection, and not back in the Room yet. */
+  reconnecting: boolean;
   /** Sent and not yet answered by the server: every button waits until it is. */
   pendingCommand: PendingCommand["command"] | null;
   onReveal: () => void;
@@ -30,6 +37,7 @@ export function RoundPanel({
   const waiting = voters.filter((p) => !p.hasVoted);
   const anyVotes = played > 0;
   const progress = voters.length ? (played / voters.length) * 100 : 0;
+  const locked = reconnecting || pendingCommand !== null;
 
   return (
     <div className="relative">
@@ -38,11 +46,25 @@ export function RoundPanel({
           <p className="font-display text-lg font-semibold">
             {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
-          <p className="text-muted-foreground text-sm">
-            {played} of {voters.length} Voters played
-            {!snapshot.revealed && waiting.length > 0 && (
-              <> · waiting on {waiting.map((p) => p.name).join(", ")}</>
-            )}
+          {reconnecting ? (
+            <p
+              aria-hidden
+              className="text-muted-foreground flex items-center gap-1.5 text-sm"
+            >
+              <LoaderCircle className="size-4 shrink-0 animate-spin" />
+              {RECONNECTING}
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              {played} of {voters.length} Voters played
+              {!snapshot.revealed && waiting.length > 0 && (
+                <> · waiting on {waiting.map((p) => p.name).join(", ")}</>
+              )}
+            </p>
+          )}
+          {/* Always mounted, so screen readers hear the message when it fills. */}
+          <p role="status" className="sr-only">
+            {reconnecting && RECONNECTING}
           </p>
         </div>
         {isFacilitator && (
@@ -50,7 +72,7 @@ export function RoundPanel({
             {!snapshot.revealed && (
               <Button
                 onClick={onReveal}
-                disabled={!anyVotes || pendingCommand !== null}
+                disabled={!anyVotes || locked}
                 aria-busy={pendingCommand === "reveal"}
               >
                 {pendingCommand === "reveal" && <Waiting />}
@@ -60,7 +82,7 @@ export function RoundPanel({
             <Button
               variant="outline"
               onClick={onNewRound}
-              disabled={pendingCommand !== null}
+              disabled={locked}
               aria-busy={pendingCommand === "newRound"}
             >
               {pendingCommand === "newRound" && <Waiting />}
@@ -69,7 +91,7 @@ export function RoundPanel({
             <DeckDialog
               deck={snapshot.deck}
               votesCast={snapshot.participants.filter((p) => p.hasVoted).length}
-              disabled={pendingCommand !== null}
+              disabled={locked}
               busy={pendingCommand === "setDeck"}
               onApply={onSetDeck}
             />
