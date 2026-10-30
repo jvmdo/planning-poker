@@ -30,6 +30,8 @@ export function App() {
     handOver,
     claimFacilitator,
     leave,
+    react,
+    throwAt,
   } = useRoom(identity);
 
   const alerts = (
@@ -90,7 +92,12 @@ export function App() {
             <ClaimFacilitator onClaim={claimFacilitator} />
           )}
         </div>
-        <RoomTable snapshot={snapshot} myId={identity.id} />
+        <RoomTable
+          snapshot={snapshot}
+          myId={identity.id}
+          onReact={react}
+          onThrow={throwAt}
+        />
         {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
         <div className="h-(--hand-height) shrink-0">
           {snapshot.revealed ? (

@@ -21,8 +21,8 @@ export type RoomServer = Server<
 
 /**
  * Translates socket events into Room commands and sends each socket its own snapshot after every
- * change. Holds no rules: never broadcast one payload to everyone, because what a Participant may
- * see depends on who they are.
+ * change. Holds no rules: never broadcast a snapshot to everyone, because what a Participant may
+ * see depends on who they are. Reactions and Throws hold no Votes, so they are broadcast.
  */
 export function attachRoom(io: RoomServer, room: Room): void {
   room.subscribe(() => {
@@ -30,6 +30,12 @@ export function attachRoom(io: RoomServer, room: Room): void {
       const { participantId } = socket.data;
       if (participantId)
         socket.emit("snapshot", room.snapshotFor(participantId));
+    }
+  });
+
+  room.subscribeToFun((event) => {
+    for (const socket of io.sockets.sockets.values()) {
+      if (socket.data.participantId) socket.emit("fun", event);
     }
   });
 
@@ -94,6 +100,14 @@ export function attachRoom(io: RoomServer, room: Room): void {
     socket.on("claimFacilitator", () =>
       act("claimFacilitator", (id) => room.claimFacilitator(id)),
     );
+    socket.on("react", (reaction) => {
+      if (typeof reaction !== "string") return;
+      act("react", (id) => room.react(id, reaction));
+    });
+    socket.on("throwAt", (to, item) => {
+      if (typeof to !== "string" || typeof item !== "string") return;
+      act("throwAt", (id) => room.throwAt(id, to, item));
+    });
     socket.on("leave", () => {
       const { participantId } = socket.data;
       if (!participantId) return;

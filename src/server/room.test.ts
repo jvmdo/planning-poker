@@ -1027,3 +1027,185 @@ describe("leaving the Room", () => {
     expect(room.snapshotFor("ana-id")).toEqual(before);
   });
 });
+
+describe("Reactions and Throws", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Ana and Bruno are Voters; Carla is an Observer. Everyone's snapshots so far, to compare. */
+  function tableOfThree() {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.becomeObserver("carla-id");
+    room.vote("ana-id", 8);
+    const fun = vi.fn();
+    room.subscribeToFun(fun);
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+    const before = () =>
+      ["ana-id", "bruno-id", "carla-id"].map((id) => room.snapshotFor(id));
+    return { room, fun, onChange, snapshots: before(), before };
+  }
+
+  it("sends a Voter's Reaction to everyone once, changing nothing in the Room", () => {
+    const { room, fun, onChange, snapshots, before } = tableOfThree();
+
+    expect(room.react("ana-id", "🎉")).toEqual({ ok: true });
+
+    expect(fun).toHaveBeenCalledExactlyOnceWith({
+      kind: "reaction",
+      from: "ana-id",
+      reaction: "🎉",
+    });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(before()).toEqual(snapshots);
+  });
+
+  it("sends a Throw at another Voter to everyone once, from Voters and Observers alike", () => {
+    const { room, fun, onChange, snapshots, before } = tableOfThree();
+
+    expect(room.throwAt("bruno-id", "ana-id", "tomato")).toEqual({ ok: true });
+    expect(room.throwAt("carla-id", "ana-id", "flowers")).toEqual({
+      ok: true,
+    });
+
+    expect(fun.mock.calls).toEqual([
+      [{ kind: "throw", from: "bruno-id", to: "ana-id", item: "tomato" }],
+      [{ kind: "throw", from: "carla-id", to: "ana-id", item: "flowers" }],
+    ]);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(before()).toEqual(snapshots);
+  });
+
+  it("works after the Reveal too", () => {
+    const { room, fun } = tableOfThree();
+    room.reveal("ana-id");
+
+    expect(room.react("bruno-id", "😱")).toEqual({ ok: true });
+    expect(room.throwAt("bruno-id", "ana-id", "egg")).toEqual({ ok: true });
+    expect(fun).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["an Observer", "carla-id", "🎉", "observer-cannot-react"],
+    ["someone who isn't in the Room", "ghost-id", "🎉", "not-in-room"],
+    ["something that isn't a Reaction", "ana-id", "💩", "not-a-reaction"],
+  ] as const)(
+    "rejects a Reaction from %s, sending nothing and leaving the Room unchanged",
+    (_, from, reaction, reason) => {
+      const { room, fun, onChange, snapshots, before } = tableOfThree();
+
+      expect(room.react(from, reaction)).toEqual({ ok: false, reason });
+
+      expect(fun).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(before()).toEqual(snapshots);
+    },
+  );
+
+  it.each([
+    [
+      "from someone who isn't in the Room",
+      "ghost-id",
+      "ana-id",
+      "rock",
+      "not-in-room",
+    ],
+    [
+      "at someone who isn't in the Room",
+      "ana-id",
+      "ghost-id",
+      "rock",
+      "unknown-participant",
+    ],
+    ["at yourself", "ana-id", "ana-id", "rock", "cannot-throw-at-yourself"],
+    [
+      "at an Observer",
+      "ana-id",
+      "carla-id",
+      "rock",
+      "cannot-throw-at-observer",
+    ],
+    [
+      "of something that isn't throwable",
+      "ana-id",
+      "bruno-id",
+      "piano",
+      "not-throwable",
+    ],
+  ] as const)(
+    "rejects a Throw %s, sending nothing and leaving the Room unchanged",
+    (_, by, to, item, reason) => {
+      const { room, fun, onChange, snapshots, before } = tableOfThree();
+
+      expect(room.throwAt(by, to, item)).toEqual({ ok: false, reason });
+
+      expect(fun).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(before()).toEqual(snapshots);
+    },
+  );
+
+  it("allows a burst of 3, then one more each second, shared between Reactions and Throws", () => {
+    const { room, fun } = tableOfThree();
+
+    expect(room.react("ana-id", "🔥")).toEqual({ ok: true });
+    expect(room.throwAt("ana-id", "bruno-id", "rock")).toEqual({ ok: true });
+    expect(room.react("ana-id", "🔥")).toEqual({ ok: true });
+    expect(room.throwAt("ana-id", "bruno-id", "rock")).toEqual({
+      ok: false,
+      reason: "burst-used-up",
+    });
+
+    vi.advanceTimersByTime(999);
+    expect(room.react("ana-id", "🔥")).toEqual({
+      ok: false,
+      reason: "burst-used-up",
+    });
+    vi.advanceTimersByTime(1);
+    expect(room.react("ana-id", "🔥")).toEqual({ ok: true });
+
+    expect(fun).toHaveBeenCalledTimes(4);
+  });
+
+  it("saves up no more than 3, however long the pause", () => {
+    const { room } = tableOfThree();
+    for (let i = 0; i < 3; i++) room.react("ana-id", "👍");
+
+    vi.advanceTimersByTime(60_000);
+
+    for (let i = 0; i < 3; i++)
+      expect(room.react("ana-id", "👍")).toEqual({ ok: true });
+    expect(room.react("ana-id", "👍")).toEqual({
+      ok: false,
+      reason: "burst-used-up",
+    });
+  });
+
+  it("counts each Participant's burst separately, and a rejected one doesn't use it up", () => {
+    const { room } = tableOfThree();
+    for (let i = 0; i < 3; i++) room.react("ana-id", "🤔");
+    room.throwAt("bruno-id", "carla-id", "fish");
+
+    for (let i = 0; i < 3; i++)
+      expect(room.throwAt("bruno-id", "ana-id", "fish")).toEqual({ ok: true });
+  });
+
+  it("stops sending to a subscriber once they unsubscribe", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const fun = vi.fn();
+    const unsubscribe = room.subscribeToFun(fun);
+
+    unsubscribe();
+    room.react("ana-id", "🎉");
+
+    expect(fun).not.toHaveBeenCalled();
+  });
+});

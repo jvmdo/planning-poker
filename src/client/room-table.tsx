@@ -3,19 +3,34 @@ import type {
   ParticipantView,
   RoomSnapshot,
 } from "../shared/protocol";
-import { cn } from "@/lib/utils";
-import { VoteCard } from "./vote-card";
+import {
+  REACTIONS,
+  THROWABLES,
+  type FunEvent,
+  type Reaction,
+  type Throwable,
+} from "../shared/fun";
+import { useEffect, useRef, useState } from "react";
+import { floatReaction, flyThrow } from "./lib/fun-animations";
+import { TableSeat, type DeckItem } from "./table-seat";
+import { useFunEvents } from "./use-fun-events";
 
 /**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
- * bottom nearest your hand. Its centre shows who we're waiting on, then the Result.
+ * bottom nearest your hand. Its centre shows who we're waiting on, then the Result. Your own Card
+ * opens a deck of Reactions; anyone else's, a deck of things to Throw at them.
  */
 export function RoomTable({
   snapshot,
   myId,
+  onReact,
+  onThrow,
 }: {
   snapshot: RoomSnapshot;
   myId: ParticipantId;
+  /** Both say false when nothing was sent, because the burst is used up. */
+  onReact: (reaction: Reaction) => boolean;
+  onThrow: (to: ParticipantId, item: Throwable) => boolean;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const seated = [
@@ -23,6 +38,52 @@ export function RoomTable({
     ...voters.filter((p) => p.id !== myId),
   ];
   const observers = snapshot.participants.filter((p) => p.role === "observer");
+  const [openSeat, setOpenSeat] = useState<ParticipantId | null>(null);
+  const cards = useRef(new Map<ParticipantId, HTMLElement>());
+  const watching = useRef<HTMLParagraphElement>(null);
+
+  // One whose sender or target has left the table by now is skipped.
+  useFunEvents((event: FunEvent) => {
+    if (event.kind === "reaction") {
+      const card = cards.current.get(event.from);
+      if (card) floatReaction(event.reaction, card);
+      return;
+    }
+    // Observers have no seat, so their Throws come from the "Watching" line.
+    const thrower = snapshot.participants.find((p) => p.id === event.from);
+    const from =
+      thrower?.role === "observer"
+        ? watching.current
+        : cards.current.get(event.from);
+    const to = cards.current.get(event.to);
+    if (from && to) flyThrow(THROWABLES[event.item].emoji, from, to);
+  });
+
+  // A deck opened by a click closes on a click anywhere outside a seat.
+  useEffect(() => {
+    if (openSeat === null) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!(event.target as Element).closest("[data-seat]")) setOpenSeat(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [openSeat]);
+
+  function deckFor(p: ParticipantView): DeckItem[] {
+    if (p.id === myId)
+      return REACTIONS.map((reaction) => ({
+        key: reaction,
+        emoji: reaction,
+        label: `React ${reaction}`,
+        onPick: () => onReact(reaction),
+      }));
+    return (Object.keys(THROWABLES) as Throwable[]).map((item) => ({
+      key: item,
+      emoji: THROWABLES[item].emoji,
+      label: `Throw ${THROWABLES[item].phrase} at ${p.name}`,
+      onPick: () => onThrow(p.id, item),
+    }));
+  }
 
   return (
     <section
@@ -42,61 +103,56 @@ export function RoomTable({
           {seated.map((p, i) => {
             // From the bottom (90°), clockwise round the ellipse.
             const angle = Math.PI / 2 + (i * 2 * Math.PI) / seated.length;
+            const isMe = p.id === myId;
             return (
-              <Seat
+              <TableSeat
                 key={p.id}
                 participant={p}
-                isMe={p.id === myId}
+                isMe={isMe}
                 revealed={snapshot.revealed}
                 left={50 + 50 * Math.cos(angle)}
                 top={50 + 50 * Math.sin(angle)}
+                deck={deckFor(p)}
+                deckLabel={isMe ? "Reactions" : `Throw at ${p.name}`}
+                cardLabel={
+                  isMe
+                    ? "Your Card: send a Reaction"
+                    : `Throw something at ${p.name}`
+                }
+                open={openSeat === p.id}
+                onToggle={() =>
+                  setOpenSeat((open) => (open === p.id ? null : p.id))
+                }
+                onHover={() => {
+                  // Only one deck at a time: moving on closes one a click left open.
+                  if (openSeat !== p.id) setOpenSeat(null);
+                  const focused = document.activeElement;
+                  if (
+                    focused instanceof HTMLElement &&
+                    focused.closest("[data-seat]") &&
+                    !cards.current.get(p.id)?.parentElement?.contains(focused)
+                  )
+                    focused.blur();
+                }}
+                onClose={() => setOpenSeat(null)}
+                cardRef={(element) => {
+                  if (element) cards.current.set(p.id, element);
+                  else cards.current.delete(p.id);
+                }}
               />
             );
           })}
         </ul>
       </div>
       {observers.length > 0 && (
-        <p className="text-muted-foreground absolute top-3 right-6 max-w-[40%] truncate text-xs">
+        <p
+          ref={watching}
+          className="text-muted-foreground absolute top-3 right-6 max-w-[40%] truncate text-xs"
+        >
           Watching: {observers.map((p) => p.name).join(", ")}
         </p>
       )}
     </section>
-  );
-}
-
-function Seat({
-  participant: p,
-  isMe,
-  revealed,
-  left,
-  top,
-}: {
-  participant: ParticipantView;
-  isMe: boolean;
-  revealed: boolean;
-  /** Where on the table's edge, as percentages of its box. */
-  left: number;
-  top: number;
-}) {
-  return (
-    <li
-      style={{ left: `${left}%`, top: `${top}%` }}
-      className={cn(
-        "absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1",
-        !p.connected && "opacity-50",
-      )}
-    >
-      <VoteCard participant={p} revealed={revealed} size="seat" />
-      <span
-        className={cn(
-          "bg-card border-ink max-w-28 truncate rounded-full border-2 px-2 text-xs",
-          isMe && "font-semibold",
-        )}
-      >
-        {p.name}
-        {isMe && " (you)"}
-      </span>
-    </li>
   );
 }
 

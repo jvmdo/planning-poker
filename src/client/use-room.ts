@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ParticipantId,
   ParticipantRole,
@@ -7,6 +7,12 @@ import type {
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card } from "../shared/deck";
+import {
+  spendBurst,
+  type Burst,
+  type Reaction,
+  type Throwable,
+} from "../shared/fun";
 import { loadIdentity, saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
 import {
@@ -60,6 +66,8 @@ export function useRoom(identity: Identity) {
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
     null,
   );
+  /** This browser's count of the Reactions and Throws left; the server keeps the real one. */
+  const burst = useRef<Burst | undefined>(undefined);
 
   /**
    * Back to the join form, with the name kept to rejoin with. Read from storage, since this also
@@ -205,6 +213,27 @@ export function useRoom(identity: Identity) {
     socket.emit("vote", card);
   }
 
+  /** False, sending nothing, when the server would refuse it: the burst is used up, or offline. */
+  function spend() {
+    if (!canSend()) return false;
+    const next = spendBurst(burst.current, Date.now());
+    if (!next) return false;
+    burst.current = next;
+    return true;
+  }
+
+  function react(reaction: Reaction) {
+    if (!spend()) return false;
+    socket.emit("react", reaction);
+    return true;
+  }
+
+  function throwAt(to: ParticipantId, item: Throwable) {
+    if (!spend()) return false;
+    socket.emit("throwAt", to, item);
+    return true;
+  }
+
   const displayed =
     snapshot && withPending(snapshot, identity.id, pendingVote, pendingRole);
   const me = displayed ? findParticipant(displayed, identity.id) : null;
@@ -230,5 +259,7 @@ export function useRoom(identity: Identity) {
     handOver,
     claimFacilitator,
     leave,
+    react,
+    throwAt,
   };
 }

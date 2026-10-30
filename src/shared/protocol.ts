@@ -1,4 +1,5 @@
 import type { Card } from "./deck.js";
+import type { FunEvent } from "./fun.js";
 
 export type ParticipantId = string;
 
@@ -49,6 +50,15 @@ export type ClaimFacilitatorRejectionReason =
   "not-in-room" | "facilitator-exists";
 export type HandOverRejectionReason =
   "not-facilitator" | "already-facilitator" | "unknown-participant";
+export type ReactRejectionReason =
+  "not-in-room" | "observer-cannot-react" | "not-a-reaction" | "burst-used-up";
+export type ThrowRejectionReason =
+  | "not-in-room"
+  | "unknown-participant"
+  | "cannot-throw-at-yourself"
+  | "cannot-throw-at-observer"
+  | "not-throwable"
+  | "burst-used-up";
 
 /** What a Room command returns: success, or the reason it was refused (the Room is then unchanged). */
 export type CommandResult<Reason extends string> =
@@ -63,7 +73,9 @@ export type Rejection =
   | { command: "becomeVoter"; reason: RoleRejectionReason }
   | { command: "becomeObserver"; reason: RoleRejectionReason }
   | { command: "handOver"; reason: HandOverRejectionReason }
-  | { command: "claimFacilitator"; reason: ClaimFacilitatorRejectionReason };
+  | { command: "claimFacilitator"; reason: ClaimFacilitatorRejectionReason }
+  | { command: "react"; reason: ReactRejectionReason }
+  | { command: "throwAt"; reason: ThrowRejectionReason };
 
 export interface ClientToServerEvents {
   join: (id: ParticipantId, name: string) => void;
@@ -75,6 +87,8 @@ export interface ClientToServerEvents {
   handOver: (to: ParticipantId) => void;
   claimFacilitator: () => void;
   leave: () => void;
+  react: (reaction: string) => void;
+  throwAt: (to: ParticipantId, item: string) => void;
 }
 
 export interface ServerToClientEvents {
@@ -82,4 +96,6 @@ export interface ServerToClientEvents {
   rejected: (rejection: Rejection) => void;
   /** This browser's Participant left the Room, from this tab or another one. */
   left: () => void;
+  /** A Reaction or Throw, sent to everyone. It holds no Votes, so it's the one broadcast. */
+  fun: (event: FunEvent) => void;
 }

@@ -8,12 +8,21 @@ import type {
   NewRoundRejectionReason,
   ParticipantId,
   ParticipantRole,
+  ReactRejectionReason,
   RevealRejectionReason,
   RoleRejectionReason,
   RoomSnapshot,
+  ThrowRejectionReason,
   VoteRejectionReason,
 } from "../shared/protocol.js";
 import { isCard, type Card } from "../shared/deck.js";
+import {
+  isReaction,
+  isThrowable,
+  spendBurst,
+  type Burst,
+  type FunEvent,
+} from "../shared/fun.js";
 import { GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 interface Participant {
@@ -47,9 +56,25 @@ export interface Room {
    * another Participant, preferring one who isn't away.
    */
   leave(id: ParticipantId): CommandResult<LeaveRejectionReason>;
+  /** Takes any string, since callers pass untrusted input; only listed Reactions are accepted. */
+  react(
+    id: ParticipantId,
+    reaction: string,
+  ): CommandResult<ReactRejectionReason>;
+  /** Takes any string as the item; only listed Throwables are accepted. */
+  throwAt(
+    by: ParticipantId,
+    to: ParticipantId,
+    item: string,
+  ): CommandResult<ThrowRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
+  /**
+   * Calls `listener` with every accepted Reaction and Throw. They change nothing in the Room, so
+   * they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
+   */
+  subscribeToFun(listener: (event: FunEvent) => void): () => void;
 }
 
 /** Names are compared after trimming and ignoring case. */
@@ -72,6 +97,9 @@ export function createRoom(): Room {
   let round = 1;
   const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
   const listeners = new Set<() => void>();
+  const funListeners = new Set<(event: FunEvent) => void>();
+  /** Each Participant's Reactions and Throws left; shared between the two. */
+  const bursts = new Map<ParticipantId, Burst>();
 
   function notifyChanged() {
     for (const listener of listeners) listener();
@@ -98,10 +126,23 @@ export function createRoom(): Room {
     return { ok: true };
   }
 
+  /** Spends one of the Participant's burst, if they have any left, and sends the event out. */
+  function sendFun(
+    id: ParticipantId,
+    event: FunEvent,
+  ): CommandResult<"burst-used-up"> {
+    const burst = spendBurst(bursts.get(id), Date.now());
+    if (!burst) return { ok: false, reason: "burst-used-up" };
+    bursts.set(id, burst);
+    for (const listener of funListeners) listener(event);
+    return { ok: true };
+  }
+
   function remove(id: ParticipantId) {
     clearTimeout(graceTimers.get(id));
     graceTimers.delete(id);
     participants.delete(id);
+    bursts.delete(id);
     votes.delete(id);
     if (facilitatorId === id) {
       // The Round can't continue without anyone to run it.
@@ -214,6 +255,28 @@ export function createRoom(): Room {
       return { ok: true };
     },
 
+    react(id, reaction) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (participant.role === "observer") {
+        return { ok: false, reason: "observer-cannot-react" };
+      }
+      if (!isReaction(reaction)) return { ok: false, reason: "not-a-reaction" };
+      return sendFun(id, { kind: "reaction", from: id, reaction });
+    },
+
+    throwAt(by, to, item) {
+      if (!participants.has(by)) return { ok: false, reason: "not-in-room" };
+      const target = participants.get(to);
+      if (!target) return { ok: false, reason: "unknown-participant" };
+      if (to === by) return { ok: false, reason: "cannot-throw-at-yourself" };
+      if (target.role === "observer") {
+        return { ok: false, reason: "cannot-throw-at-observer" };
+      }
+      if (!isThrowable(item)) return { ok: false, reason: "not-throwable" };
+      return sendFun(by, { kind: "throw", from: by, to, item });
+    },
+
     snapshotFor(id) {
       return {
         participants: [...participants.values()].map((p) => ({
@@ -236,6 +299,11 @@ export function createRoom(): Room {
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+
+    subscribeToFun(listener) {
+      funListeners.add(listener);
+      return () => funListeners.delete(listener);
     },
   };
 }
