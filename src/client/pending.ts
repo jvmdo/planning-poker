@@ -2,8 +2,8 @@
  * What this browser has sent and the server hasn't answered yet.
  *
  * A Vote or a role change affects only the person clicking, so it is shown before the server
- * confirms it. Reveal, New Round and a new Deck change everyone's screen, so they are never shown
- * early: they only mark their buttons busy. Each pending thing stays until a snapshot confirms it,
+ * confirms it. Reveal, New Round, a new Deck and claiming the Facilitator role change everyone's
+ * screen, so they are never shown early: they only mark their buttons busy. Each pending thing stays until a snapshot confirms it,
  * the server refuses it, or it stops making sense. A snapshot that merely predates it, such as one
  * caused by someone else's Vote, doesn't drop it, so it never flashes back.
  */
@@ -43,7 +43,12 @@ export function settlePendingRole(
 }
 
 /** The commands that change everyone's screen, so they wait on the server. */
-export const PENDING_COMMANDS = ["reveal", "newRound", "setDeck"] as const;
+export const PENDING_COMMANDS = [
+  "reveal",
+  "newRound",
+  "setDeck",
+  "claimFacilitator",
+] as const;
 
 export function isPendingCommand(
   command: string,
@@ -60,13 +65,18 @@ export interface PendingCommand {
   fromRound: number;
 }
 
-/** Drops the pending command once the snapshot shows its effect. */
+/**
+ * Drops the pending command once the snapshot shows its effect. A claim is answered once anyone is
+ * the Facilitator: if it wasn't you, the server's refusal says so.
+ */
 export function settlePendingCommand(
   pending: PendingCommand | null,
   snapshot: RoomSnapshot,
 ): PendingCommand | null {
   if (!pending || snapshot.round !== pending.fromRound) return null;
   if (pending.command === "reveal" && snapshot.revealed) return null;
+  if (pending.command === "claimFacilitator" && snapshot.hasFacilitator)
+    return null;
   return pending;
 }
 

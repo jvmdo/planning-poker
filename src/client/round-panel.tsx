@@ -7,11 +7,14 @@ import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
 
 const RECONNECTING = "Reconnecting… you'll rejoin automatically.";
+const FACILITATOR_LEFT = "The Facilitator left and the Round was discarded.";
 
 /**
  * Where the Round stands, who we're waiting on, and the Facilitator's controls: Reveal, New Round
- * and the Deck. While the connection is down it says so instead of who we're waiting on, and the
- * controls wait for the Room's snapshot after rejoining, since nothing they send would arrive.
+ * and the Deck. While the Room has no Facilitator it says so, and offers everyone "Become
+ * Facilitator" where those controls would be: the first click wins. While the connection is down it
+ * says so instead, and the buttons wait for the Room's snapshot after rejoining, since nothing they
+ * send would arrive.
  */
 export function RoundPanel({
   snapshot,
@@ -20,6 +23,7 @@ export function RoundPanel({
   onReveal,
   onNewRound,
   onSetDeck,
+  onClaimFacilitator,
   pendingCommand,
 }: {
   snapshot: RoomSnapshot;
@@ -31,6 +35,7 @@ export function RoundPanel({
   onReveal: () => void;
   onNewRound: () => void;
   onSetDeck: (deck: Deck) => void;
+  onClaimFacilitator: () => void;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
@@ -38,6 +43,11 @@ export function RoundPanel({
   const anyVotes = played > 0;
   const progress = voters.length ? (played / voters.length) * 100 : 0;
   const locked = reconnecting || pendingCommand !== null;
+  const status = reconnecting
+    ? RECONNECTING
+    : !snapshot.hasFacilitator
+      ? FACILITATOR_LEFT
+      : null;
 
   return (
     <div className="relative">
@@ -46,13 +56,15 @@ export function RoundPanel({
           <p className="font-display text-lg font-semibold">
             {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
-          {reconnecting ? (
+          {status ? (
             <p
               aria-hidden
               className="text-muted-foreground flex items-center gap-1.5 text-sm"
             >
-              <LoaderCircle className="size-4 shrink-0 animate-spin" />
-              {RECONNECTING}
+              {reconnecting && (
+                <LoaderCircle className="size-4 shrink-0 animate-spin" />
+              )}
+              {status}
             </p>
           ) : (
             <p className="text-muted-foreground text-sm">
@@ -64,9 +76,20 @@ export function RoundPanel({
           )}
           {/* Always mounted, so screen readers hear the message when it fills. */}
           <p role="status" className="sr-only">
-            {reconnecting && RECONNECTING}
+            {status}
           </p>
         </div>
+        {!snapshot.hasFacilitator && (
+          <Button
+            className="ml-auto"
+            onClick={onClaimFacilitator}
+            disabled={locked}
+            aria-busy={pendingCommand === "claimFacilitator"}
+          >
+            {pendingCommand === "claimFacilitator" && <Waiting />}
+            Become Facilitator
+          </Button>
+        )}
         {isFacilitator && (
           <div className="ml-auto flex gap-2">
             {!snapshot.revealed && (

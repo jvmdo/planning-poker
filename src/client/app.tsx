@@ -1,7 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { CardHand } from "./card-hand";
-import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
 import { NoticeToast } from "./notice-toast";
@@ -82,13 +81,9 @@ export function App() {
           onReveal={reveal}
           onNewRound={newRound}
           onSetDeck={setDeck}
+          onClaimFacilitator={claimFacilitator}
           pendingCommand={pendingCommand}
         />
-        {!snapshot.hasFacilitator && (
-          <div className="flex flex-col gap-3 px-8 pt-3">
-            <ClaimFacilitator onClaim={claimFacilitator} />
-          </div>
-        )}
         <div className="relative flex min-h-0 flex-1 flex-col">
           <RoomTable
             snapshot={snapshot}

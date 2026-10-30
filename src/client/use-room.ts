@@ -210,7 +210,7 @@ export function useRoom(identity: Identity) {
   }
 
   function claimFacilitator() {
-    socket.emit("claimFacilitator");
+    if (startCommand("claimFacilitator")) socket.emit("claimFacilitator");
   }
 
   /**

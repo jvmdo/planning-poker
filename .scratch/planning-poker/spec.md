@@ -205,8 +205,10 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - The Card hand.
   - The Voter/Observer toggle.
   - Facilitator controls: Reveal (disabled with zero Votes), New Round, hand-over, and the Deck dialog (presets, free input, a preview of the hand).
-  - The "Become Facilitator" button when there's no Facilitator.
-- Connecting/reconnecting state, covering Render's ~1-minute wake-up.
+  - A status bar above the table: where the Round stands and who we're waiting on, with the Facilitator's Reveal, New Round and Deck on its right. When there's no Facilitator, its second line says the Facilitator left and the Round was discarded, and the "Become Facilitator" button takes the controls' place, for everyone.
+  - Notices (a command refused, the Deck changed) appear as a toast over the table and fade on their own.
+  - Nothing sits between the status bar and the table, so the table only changes size with the window.
+- Connecting state on the join screen, covering Render's ~1-minute wake-up. After joining, a lost connection shows "Reconnecting…" as the status bar's second line, and its buttons are disabled until the snapshot after rejoining arrives.
 - The client keeps no Room state of its own beyond the latest snapshot. It renders that and sends commands.
 - Socket.IO's automatic reconnect plus the stored ID give silent rejoin, including after a server restart.
 - UI: shadcn/ui components with Tailwind, responsive from the start (the Card hand becomes a wrapping grid on narrow screens), English only.
