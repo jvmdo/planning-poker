@@ -84,7 +84,7 @@
 
 @theme {
   --animate-pop: pop 380ms cubic-bezier(0.3, 1.8, 0.5, 1) both;
-  --animate-grow: grow 700ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  --animate-grow-up: grow-up 700ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
 
   @keyframes pop {
     0% {
@@ -97,9 +97,9 @@
       transform: scale(1);
     }
   }
-  @keyframes grow {
+  @keyframes grow-up {
     from {
-      transform: scaleX(0);
+      transform: scaleY(0);
     }
   }
 }
@@ -118,4 +118,13 @@
   to {
     opacity: 1;
   }
+}
+
+/*
+ * The hand's Cards grow with both the width and the height of the screen, so the hand fits at
+ * 1024×720. The breakdown after the Reveal takes the hand's height, so the table never moves.
+ */
+:root {
+  --hand-card-width: clamp(56px, min(6.4vw, 10.5vh), 118px);
+  --hand-height: calc(var(--hand-card-width) * 4 / 3 + clamp(40px, 6vh, 64px));
 }

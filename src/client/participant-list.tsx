@@ -3,8 +3,9 @@ import {
   type ParticipantId,
   type ParticipantView,
 } from "../shared/protocol";
-import { Crown, Eye, WifiOff } from "lucide-react";
+import { Crown, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VoteCard } from "./vote-card";
 
 /**
  * Who's in the Room. Each Voter has a little Card at the end of their row: an empty slot until they
@@ -83,58 +84,11 @@ export function ParticipantList({
               </button>
             )}
             <span className="ml-auto flex shrink-0 items-center">
-              <VoteStatus participant={p} revealed={revealed} />
+              <VoteCard participant={p} revealed={revealed} size="small" />
             </span>
           </li>
         ))}
       </ul>
     </section>
-  );
-}
-
-/** Small Cards, sized to sit at the end of a row. */
-const SMALL_CARD = "h-8 w-6 rounded-[5px] border-2";
-
-function VoteStatus({
-  participant: p,
-  revealed,
-}: {
-  participant: ParticipantView;
-  revealed: boolean;
-}) {
-  if (p.role === "observer")
-    return (
-      <Eye aria-label="Observer" className="text-muted-foreground size-4" />
-    );
-  if (revealed)
-    return (
-      <span
-        role="img"
-        aria-label={p.vote === null ? "No Vote" : `Voted ${p.vote} hours`}
-        className={cn(
-          SMALL_CARD,
-          "font-display border-ink bg-card shadow-hard-sm animate-pop grid rotate-3 place-items-center text-xs font-semibold tabular-nums",
-        )}
-      >
-        {p.vote ?? "–"}
-      </span>
-    );
-  if (p.hasVoted)
-    return (
-      <span
-        role="img"
-        aria-label="Voted"
-        className={cn(
-          SMALL_CARD,
-          "border-ink shadow-hard-sm animate-pop rotate-6 bg-[repeating-linear-gradient(45deg,var(--pop-2)_0_4px,var(--secondary)_4px_6px)]",
-        )}
-      />
-    );
-  return (
-    <span
-      role="img"
-      aria-label="Not voted yet"
-      className={cn(SMALL_CARD, "border-muted-foreground/60 border-dashed")}
-    />
   );
 }

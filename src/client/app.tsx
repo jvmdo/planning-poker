@@ -1,16 +1,13 @@
-import { Button } from "@/components/ui/button";
-import { LoaderCircle, LogOut } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
-import { Logo } from "./logo";
-import { ParticipantList } from "./participant-list";
 import { ResultBreakdown } from "./result-breakdown";
-import { RoleToggle } from "./role-toggle";
+import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
-import { ThemeSwitch } from "./theme-switch";
+import { Sidebar } from "./sidebar";
 import { useRoom } from "./use-room";
 
 export function App() {
@@ -69,44 +66,17 @@ export function App() {
     );
 
   return (
-    <div className="grid h-svh grid-cols-[300px_1fr]">
-      <aside className="bg-secondary border-ink flex min-h-0 flex-col border-r-[3px]">
-        {/* Same height and rule as the status bar, so the two line up. */}
-        <div className="border-ink flex h-20 shrink-0 items-center border-b-4 px-5">
-          <h1 className="font-display flex items-center gap-2 text-lg font-semibold whitespace-nowrap">
-            <Logo className="size-12 shrink-0" />
-            Planning Poker
-          </h1>
-        </div>
-        <ParticipantList
-          participants={snapshot.participants}
-          myId={identity.id}
-          revealed={snapshot.revealed}
-          onHandOver={me.isFacilitator ? handOver : undefined}
-        />
-        <div className="flex items-end justify-between gap-2 border-t p-4">
-          <RoleToggle
-            name={me.name}
-            role={me.role}
-            onBecomeVoter={becomeVoter}
-            onBecomeObserver={becomeObserver}
-          />
-          {/* The theme switch sets the width; Leave stretches to match it. */}
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7.5 gap-1.5 px-0"
-              onClick={leave}
-            >
-              <LogOut aria-hidden className="size-4" />
-              Leave
-            </Button>
-            <ThemeSwitch />
-          </div>
-        </div>
-      </aside>
-      <main className="flex min-h-0 flex-col overflow-y-auto">
+    <div className="flex h-svh">
+      <Sidebar
+        snapshot={snapshot}
+        me={me}
+        myId={identity.id}
+        onHandOver={me.isFacilitator ? handOver : undefined}
+        onBecomeVoter={becomeVoter}
+        onBecomeObserver={becomeObserver}
+        onLeave={leave}
+      />
+      <main className="flex min-w-0 flex-1 flex-col">
         <RoundPanel
           snapshot={snapshot}
           isFacilitator={me.isFacilitator}
@@ -114,20 +84,21 @@ export function App() {
           onNewRound={newRound}
           pendingCommand={pendingCommand}
         />
-        <div className="flex flex-col gap-4 p-8">
+        <div className="flex flex-col gap-3 px-8 pt-3 empty:hidden">
           {alerts}
           {!snapshot.hasFacilitator && (
             <ClaimFacilitator onClaim={claimFacilitator} />
           )}
+        </div>
+        <RoomTable snapshot={snapshot} myId={identity.id} />
+        {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
+        <div className="h-(--hand-height) shrink-0">
           {snapshot.revealed ? (
-            <ResultBreakdown
-              snapshot={snapshot}
-              isVoter={me.role === "voter"}
-            />
+            <ResultBreakdown snapshot={snapshot} />
           ) : me.role === "voter" ? (
             <CardHand myVote={snapshot.myVote} onPlay={vote} />
           ) : (
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground grid h-full place-items-center text-sm">
               You're observing. The Room won't wait for your Vote.
             </p>
           )}
