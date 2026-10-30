@@ -1,15 +1,17 @@
+import type { FunEvent } from "../shared/fun";
 import type { ParticipantView } from "../shared/protocol";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { shake } from "./lib/fun-animations";
 import { VoteCard } from "./vote-card";
 
-/** One choice in a seat's deck: a Reaction, or something to Throw. False when it wasn't sent. */
+/** One choice in a seat's deck: a Reaction, or something to Throw. Picking it says what was sent. */
 export interface DeckItem {
   key: string;
   emoji: string;
   label: string;
-  onPick: () => boolean;
+  /** Null when nothing was sent, because the burst is used up. */
+  onPick: () => FunEvent | null;
 }
 
 /**
@@ -29,6 +31,7 @@ export function TableSeat({
   onToggle,
   onHover,
   onClose,
+  onSent,
   cardRef,
 }: {
   participant: ParticipantView;
@@ -44,6 +47,8 @@ export function TableSeat({
   onToggle: () => void;
   onHover: () => void;
   onClose: () => void;
+  /** Plays what you just sent at once, rather than waiting for the server's echo. */
+  onSent: (event: FunEvent) => void;
   cardRef: (element: HTMLButtonElement | null) => void;
 }) {
   const deckRef = useRef<HTMLDivElement>(null);
@@ -105,7 +110,9 @@ export function TableSeat({
               aria-label={item.label}
               title={item.label}
               onClick={() => {
-                if (!item.onPick() && deckRef.current) shake(deckRef.current);
+                const sent = item.onPick();
+                if (sent) onSent(sent);
+                else if (deckRef.current) shake(deckRef.current);
               }}
               // The deck fans out a little, like the hand.
               style={{ rotate: `${(i - (deck.length - 1) / 2) * 4}deg` }}

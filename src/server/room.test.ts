@@ -1152,7 +1152,7 @@ describe("Reactions and Throws", () => {
     },
   );
 
-  it("allows a burst of 3, then one more each second, shared between Reactions and Throws", () => {
+  it("allows a burst of 3, then one more every 300 ms, shared between Reactions and Throws", () => {
     const { room, fun } = tableOfThree();
 
     expect(room.react("ana-id", "🔥")).toEqual({ ok: true });
@@ -1163,7 +1163,7 @@ describe("Reactions and Throws", () => {
       reason: "burst-used-up",
     });
 
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(299);
     expect(room.react("ana-id", "🔥")).toEqual({
       ok: false,
       reason: "burst-used-up",

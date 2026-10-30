@@ -88,7 +88,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 49. As a Voter, I want to hover or click my own Card and send a Reaction that everyone sees float up from it, so that I can show how I feel about the Round without talking over someone.
 50. As a Participant, I want to hover or click another Voter's Card and Throw something at it (a paper ball, a rock, a tomato, an egg, a fish, flowers) that everyone sees fly from me to them, so that nudging a slow Voter or teasing an outlier is fun.
 51. As an Observer, I want to Throw too, from where the Observers are listed, since I have no seat at the table.
-52. As a Participant, I want to fire off a quick volley of up to 3 Reactions or Throws, then one more each second, so that teasing feels lively but nobody can flood everyone's screen.
+52. As a Participant, I want to fire off a quick volley of up to 3 Reactions or Throws, then one more every 300 ms, so that teasing feels lively but nobody can flood everyone's screen.
 53. As a Participant, I want Reactions and Throws to work at any time, by mouse, touch or keyboard, and to change nothing about the Round, so that they're never in the way.
 
 ## Implementation Decisions
@@ -146,7 +146,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - Votes can change freely until the Reveal and are locked after it.
   - `newRound` is allowed at any time and clears all Votes and the Reveal.
 - **Result:** the arithmetic mean of the Votes cast by Participants still present, rounded to one decimal place. It is computed only at the Reveal and shown only after it.
-- **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every second, and never more than 3 are saved up.
+- **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every 300 ms, and never more than 3 are saved up.
 - **Names:** compared after trimming and ignoring case. A name already used by a present Participant, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
 
 **Shared contract (shared area).**
@@ -208,7 +208,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - a Facilitator expiry discards the Round and enables claiming
   - two claims result in exactly one Facilitator
 - Every rejection listed under the Room module gets a test showing the Room is unchanged afterwards.
-- **Reactions and Throws** are tested through their event subscriber: an accepted one reaches it once, a rejected one doesn't, and snapshots don't change. The burst limit is tested with fake timers: 3 Throws in a row are accepted and a 4th is rejected; another at 999 ms is still rejected, at 1000 ms accepted; after a long pause, 3 are accepted again but not a 4th.
+- **Reactions and Throws** are tested through their event subscriber: an accepted one reaches it once, a rejected one doesn't, and snapshots don't change. The burst limit is tested with fake timers: 3 Throws in a row are accepted and a 4th is rejected; another at 299 ms is still rejected, at 300 ms accepted; after a long pause, 3 are accepted again but not a 4th.
 - **No tests for the socket adapter or the React UI for now.** They hold no rules by design. End-to-end browser tests can come later if the UI grows tricky.
 - **Prior art:** none. The repo is empty, and these tests set the pattern.
 

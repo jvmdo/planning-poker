@@ -28,7 +28,7 @@ export function RoomTable({
 }: {
   snapshot: RoomSnapshot;
   myId: ParticipantId;
-  /** Both say false when nothing was sent, because the burst is used up. */
+  /** Both say false when nothing was sent, because the burst is used up. True plays it at once. */
   onReact: (reaction: Reaction) => boolean;
   onThrow: (to: ParticipantId, item: Throwable) => boolean;
 }) {
@@ -42,8 +42,8 @@ export function RoomTable({
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
 
-  // One whose sender or target has left the table by now is skipped.
-  useFunEvents((event: FunEvent) => {
+  /** Animates a Reaction or Throw. One whose sender or target has left the table is skipped. */
+  function play(event: FunEvent) {
     if (event.kind === "reaction") {
       const card = cards.current.get(event.from);
       if (card) floatReaction(event.reaction, card);
@@ -57,6 +57,11 @@ export function RoomTable({
         : cards.current.get(event.from);
     const to = cards.current.get(event.to);
     if (from && to) flyThrow(THROWABLES[event.item].emoji, from, to);
+  }
+
+  // Your own already played on the click, without waiting for the server, so its echo is skipped.
+  useFunEvents((event) => {
+    if (event.from !== myId) play(event);
   });
 
   // A deck opened by a click closes on a click anywhere outside a seat.
@@ -75,13 +80,17 @@ export function RoomTable({
         key: reaction,
         emoji: reaction,
         label: `React ${reaction}`,
-        onPick: () => onReact(reaction),
+        onPick: () =>
+          onReact(reaction) ? { kind: "reaction", from: myId, reaction } : null,
       }));
     return (Object.keys(THROWABLES) as Throwable[]).map((item) => ({
       key: item,
       emoji: THROWABLES[item].emoji,
       label: `Throw ${THROWABLES[item].phrase} at ${p.name}`,
-      onPick: () => onThrow(p.id, item),
+      onPick: () =>
+        onThrow(p.id, item)
+          ? { kind: "throw", from: myId, to: p.id, item }
+          : null,
     }));
   }
 
@@ -135,6 +144,7 @@ export function RoomTable({
                     focused.blur();
                 }}
                 onClose={() => setOpenSeat(null)}
+                onSent={(event) => play(event)}
                 cardRef={(element) => {
                   if (element) cards.current.set(p.id, element);
                   else cards.current.delete(p.id);

@@ -33,7 +33,7 @@ export type FunEvent =
 /** How many Reactions or Throws a Participant can send in a row. */
 export const BURST_SIZE = 3;
 /** After a burst, one more becomes available this often. */
-export const BURST_REFILL_MS = 1000;
+export const BURST_REFILL_MS = 300;
 
 /** How many a Participant has left, as of `at` (ms). Fractions are part of the way to the next. */
 export interface Burst {
