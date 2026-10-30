@@ -1,23 +1,29 @@
-import type { ReactNode } from "react";
-import { LoaderCircle } from "lucide-react";
+import type { Deck } from "../shared/deck";
 import type { RoomSnapshot } from "../shared/protocol";
+import { DeckDialog } from "./deck-dialog";
+import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
 
-/** Where the Round stands, who we're waiting on, and the Facilitator's Reveal and New Round controls. */
+/**
+ * Where the Round stands, who we're waiting on, and the Facilitator's controls: Reveal, New Round
+ * and the Deck.
+ */
 export function RoundPanel({
   snapshot,
   isFacilitator,
   onReveal,
   onNewRound,
+  onSetDeck,
   pendingCommand,
 }: {
   snapshot: RoomSnapshot;
   isFacilitator: boolean;
-  /** Sent and not yet answered by the server: both buttons wait until it is. */
+  /** Sent and not yet answered by the server: every button waits until it is. */
   pendingCommand: PendingCommand["command"] | null;
   onReveal: () => void;
   onNewRound: () => void;
+  onSetDeck: (deck: Deck) => void;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
@@ -60,6 +66,13 @@ export function RoundPanel({
               {pendingCommand === "newRound" && <Waiting />}
               New Round
             </Button>
+            <DeckDialog
+              deck={snapshot.deck}
+              votesCast={snapshot.participants.filter((p) => p.hasVoted).length}
+              disabled={pendingCommand !== null}
+              busy={pendingCommand === "setDeck"}
+              onApply={onSetDeck}
+            />
           </div>
         )}
       </div>
@@ -77,15 +90,5 @@ export function RoundPanel({
         />
       </div>
     </div>
-  );
-}
-
-/** Appears only if the server takes noticeably long, so quick answers don't flicker. */
-function Waiting(): ReactNode {
-  return (
-    <LoaderCircle
-      aria-hidden
-      className="size-4 opacity-0 [animation:spin_1s_linear_infinite,appear_0s_150ms_forwards]"
-    />
   );
 }

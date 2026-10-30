@@ -8,7 +8,7 @@ The team (~15 people) estimates task durations in hours during a remote meeting.
 
 ## Solution
 
-A real-time web app with a single **Room** at the root URL. Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from a fixed hours **Deck**. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
+A real-time web app with a single **Room** at the root URL. Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from the Room's **Deck** of hours, which the Facilitator can change. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
 
 The vocabulary used below is defined in `GLOSSARY.md`.
 
@@ -26,7 +26,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 ### Voting
 
-8. As a Voter, I want to see the Deck `1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64` as Cards, so that I can pick an Estimate in hours.
+8. As a Voter, I want to see the Deck (by default `1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64`) as Cards, so that I can pick an Estimate in hours.
 9. As a Voter, I want to play a Card with one click or tap, so that voting is fast.
 10. As a Voter, I want my chosen Card clearly highlighted, so that I know my Vote was registered.
 11. As a Voter, I want to change my Vote as many times as I like before the Reveal, so that I can reconsider while others are still thinking.
@@ -91,6 +91,13 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 52. As a Participant, I want to fire off a quick volley of up to 3 Reactions or Throws, then one more every 300 ms, so that teasing feels lively but nobody can flood everyone's screen.
 53. As a Participant, I want Reactions and Throws to work at any time, by mouse, touch or keyboard, and to change nothing about the Round, so that they're never in the way.
 
+### Choosing the Deck
+
+54. As the Facilitator, I want to pick a preset Deck (Hours, Fibonacci, Powers of two) or type my own Cards, so that the team estimates on the scale that suits its tasks.
+55. As the Facilitator, I want to see the hand as Voters will see it before I apply a Deck, and be told how many Votes applying it will clear, so that I don't surprise the team.
+56. As a Participant, I want a changed Deck to start a new Round for everyone, with a short notice saying the Facilitator changed it, so that no Vote is left on a Card that no longer exists.
+57. As a Participant, I want the Deck the Facilitator set to still be there at the next meeting, so that the team doesn't set it up again every time.
+
 ## Implementation Decisions
 
 ### Shape (see ADR 0001)
@@ -119,12 +126,15 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - `claimFacilitator(id)`
   - `react(id, reaction)`
   - `throwAt(by, to, item)`
+  - `setDeck(by, cards)`
 - A command that breaks a rule returns a rejection with a reason and leaves the Room unchanged. Rejected cases include:
   - the name is already taken
   - the caller isn't the Facilitator
   - an Observer tries to vote
   - a Vote after the Reveal
-  - a Card not in the Deck
+  - a Card not in the Room's Deck
+  - a Deck the same as the Room's, in any order
+  - a Deck with fewer than 2 or more than 15 Cards, or a Card that isn't a whole number from 1 to 99
   - a Reveal with zero Votes
   - a claim while a Facilitator exists
   - a hand-over to an unknown Participant
@@ -145,13 +155,16 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 - **Round rules:**
   - Votes can change freely until the Reveal and are locked after it.
   - `newRound` is allowed at any time and clears all Votes and the Reveal.
+  - `setDeck` is the Facilitator's, at any time. A Deck different from the current one discards the Round, like `newRound`; the same Deck is refused, so every Deck sent gets an answer. Duplicates are dropped and the Cards sorted ascending.
+  - A new Room starts with the default Deck. The Deck stays when the last Participant leaves; only a restart, which makes a new Room, brings back the default.
 - **Result:** the arithmetic mean of the Votes cast by Participants still present, rounded to one decimal place. It is computed only at the Reveal and shown only after it.
 - **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every 300 ms, and never more than 3 are saved up.
+- **Deck changes:** besides the snapshots, an accepted new Deck is passed to a separate subscriber with who changed it, for the adapter to send on, so everyone else can be told.
 - **Names:** compared after trimming and ignoring case. A name already used by a present Participant, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
 
 **Shared contract (shared area).**
 
-- The Deck constant: `1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64`.
+- The default Deck, `1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64`, the Deck limits (2 to 15 Cards, each a whole number from 1 to 99) and the function that parses and checks a Deck, used by both the Room and the Facilitator's dialog.
 - The Room snapshot type.
 - The Socket.IO typed event maps for client-to-server commands and server-to-client snapshots and rejections.
 - Both sides import it, so they can't drift apart.
@@ -166,6 +179,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - whether they've voted in this Round
 - Whether a Facilitator currently exists (drives the "Become Facilitator" button).
 - Whether the Round is revealed.
+- The Room's Deck.
 - Before the Reveal: the recipient's own Vote and no other Vote values anywhere in the payload.
 - After the Reveal: every Vote value and the Result.
 
@@ -174,7 +188,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 - Thin glue: on connection the client sends its stored ID and name.
 - The adapter calls `join` or `reconnect`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
 - On every Room change notification it sends each connected socket its own `snapshotFor`.
-- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions and Throws are the one exception: they hold no Votes, so the adapter broadcasts them to every socket as their own event.
+- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions, Throws and Deck changes are the exceptions: they hold no Votes, so the adapter broadcasts them to every socket as their own events.
 - It contains no rules.
 
 **HTTP entry (server).**
@@ -190,7 +204,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - The Result after the Reveal.
   - The Card hand.
   - The Voter/Observer toggle.
-  - Facilitator controls: Reveal (disabled with zero Votes), New Round, hand-over.
+  - Facilitator controls: Reveal (disabled with zero Votes), New Round, hand-over, and the Deck dialog (presets, free input, a preview of the hand).
   - The "Become Facilitator" button when there's no Facilitator.
 - Connecting/reconnecting state, covering Render's ~1-minute wake-up.
 - The client keeps no Room state of its own beyond the latest snapshot. It renders that and sends commands.
@@ -200,8 +214,9 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 ## Testing Decisions
 
 - **One seam: the Room module.** Tests drive it only through its commands and assert only on what `snapshotFor` returns, from each relevant Participant's point of view, and on rejections. They never reach into internal state, so the module's internals can be refactored freely.
+- **One exception: `parseDeck`.** It reads the Cards the Facilitator types, which only the dialog does, so the Room can't reach it; it's tested directly. The Deck rules it shares with the Room are still tested through `setDeck`.
 - A good test reads like a scenario from a meeting: "Ana and Bruno join; Ana votes 8; Bruno's snapshot shows Ana has voted but contains no value 8; Ana reveals; both snapshots show 8 and the Result 8.0".
-- **Hidden Votes get dedicated tests.** Before the Reveal, a non-owner's snapshot contains no Vote values anywhere in its serialized form, not just in the obvious field.
+- **Hidden Votes get dedicated tests.** Before the Reveal, a non-owner's snapshot contains no Vote values anywhere in its serialized form, not just in the obvious field. The Deck lists every Card for everyone, so it's left out of that search and checked instead to be exactly the Room's Deck.
 - **Grace periods and Facilitator recovery** are tested with Vitest fake timers:
   - a reconnect at 29 seconds keeps everything
   - an expiry at 30 seconds removes the Participant and their Vote
@@ -216,7 +231,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 - More than one Room, or sub-teams estimating in parallel.
 - Accounts, login, SSO, or a Room passcode.
-- Configurable or preset Decks, and non-numeric Cards (`?`, ☕).
+- Non-numeric or fractional Cards (`?`, ☕, ½), and a different Deck per Participant.
 - Task titles, a backlog, or Jira/issue-tracker integration.
 - Persistence of any kind: Round history, final estimates, exports.
 - A Facilitator-recorded final estimate. The team agrees on the number out loud.

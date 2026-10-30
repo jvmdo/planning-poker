@@ -11,7 +11,7 @@ Anyone currently in the Room, identified by a display name they chose.
 _Avoid_: User, player, member
 
 **Facilitator**:
-The one Participant who runs the Room: the only one who can Reveal and start a new Round.
+The one Participant who runs the Room: the only one who can Reveal, start a new Round and change the Deck.
 _Avoid_: Moderator, host, Scrum Master, admin
 
 **Voter**:
@@ -35,7 +35,7 @@ One estimation of one task, from the first Vote until the next Round starts.
 _Avoid_: Game, hand, iteration
 
 **Deck**:
-The fixed set of Cards every Voter chooses from.
+The set of Cards every Voter chooses from, the same for everyone in the Room. It starts as the default hours Deck and only the Facilitator can change it.
 
 **Card**:
 One value in the Deck that a Voter can play.

@@ -22,7 +22,8 @@ export type RoomServer = Server<
 /**
  * Translates socket events into Room commands and sends each socket its own snapshot after every
  * change. Holds no rules: never broadcast a snapshot to everyone, because what a Participant may
- * see depends on who they are. Reactions and Throws hold no Votes, so they are broadcast.
+ * see depends on who they are. Reactions, Throws and Deck changes hold no Votes, so they are
+ * broadcast.
  */
 export function attachRoom(io: RoomServer, room: Room): void {
   room.subscribe(() => {
@@ -33,10 +34,19 @@ export function attachRoom(io: RoomServer, room: Room): void {
     }
   });
 
+  /** Every socket that has joined as a Participant: who gets what holds no Votes. */
+  function joinedSockets() {
+    return [...io.sockets.sockets.values()].filter(
+      (socket) => socket.data.participantId,
+    );
+  }
+
   room.subscribeToFun((event) => {
-    for (const socket of io.sockets.sockets.values()) {
-      if (socket.data.participantId) socket.emit("fun", event);
-    }
+    for (const socket of joinedSockets()) socket.emit("fun", event);
+  });
+
+  room.subscribeToDeckChanges((by) => {
+    for (const socket of joinedSockets()) socket.emit("deckChanged", by);
   });
 
   io.on("connection", (socket) => {
@@ -87,6 +97,10 @@ export function attachRoom(io: RoomServer, room: Room): void {
     socket.on("vote", (card) => act("vote", (id) => room.vote(id, card)));
     socket.on("reveal", () => act("reveal", (id) => room.reveal(id)));
     socket.on("newRound", () => act("newRound", (id) => room.newRound(id)));
+    socket.on("setDeck", (cards) => {
+      if (!Array.isArray(cards)) return;
+      act("setDeck", (id) => room.setDeck(id, cards));
+    });
     socket.on("becomeVoter", () =>
       act("becomeVoter", (id) => room.becomeVoter(id)),
     );

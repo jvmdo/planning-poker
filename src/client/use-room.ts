@@ -6,7 +6,7 @@ import type {
   Rejection,
   RoomSnapshot,
 } from "../shared/protocol";
-import type { Card } from "../shared/deck";
+import type { Card, Deck } from "../shared/deck";
 import {
   spendBurst,
   type Burst,
@@ -17,6 +17,7 @@ import { loadIdentity, saveIdentity, type Identity } from "./lib/identity";
 import { socket } from "./lib/socket";
 import {
   findParticipant,
+  isPendingCommand,
   settlePendingCommand,
   settlePendingRole,
   settlePendingVote,
@@ -105,6 +106,10 @@ export function useRoom(identity: Identity) {
       const me = findParticipant(next, identity.id);
       if (me) saveIdentity({ id: identity.id, name: me.name, inRoom: true });
     }
+    function onDeckChanged(by: ParticipantId) {
+      // The Facilitator knows: they changed it.
+      if (by !== identity.id) setNotice("The Facilitator changed the Deck.");
+    }
     function onRejected(rejection: Rejection) {
       if (rejection.command === "vote") setPendingVote(null);
       if (
@@ -112,8 +117,7 @@ export function useRoom(identity: Identity) {
         rejection.command === "becomeObserver"
       )
         setPendingRole(null);
-      if (rejection.command === "reveal" || rejection.command === "newRound")
-        setPendingCommand(null);
+      if (isPendingCommand(rejection.command)) setPendingCommand(null);
       if (rejection.command !== "join") {
         setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
         return;
@@ -127,6 +131,7 @@ export function useRoom(identity: Identity) {
     socket.on("disconnect", onDisconnect);
     socket.on("snapshot", onSnapshot);
     socket.on("rejected", onRejected);
+    socket.on("deckChanged", onDeckChanged);
     socket.on("left", resetToJoinScreen);
     socket.connect();
     return () => {
@@ -134,6 +139,7 @@ export function useRoom(identity: Identity) {
       socket.off("disconnect", onDisconnect);
       socket.off("snapshot", onSnapshot);
       socket.off("rejected", onRejected);
+      socket.off("deckChanged", onDeckChanged);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
@@ -163,18 +169,23 @@ export function useRoom(identity: Identity) {
     return socket.connected && snapshot !== null;
   }
 
-  function sendCommand(command: PendingCommand["command"]) {
-    if (!snapshot || !canSend()) return;
+  /** Marks the command pending in this Round, or says it can't be sent. */
+  function startCommand(command: PendingCommand["command"]) {
+    if (!snapshot || !canSend()) return false;
     setPendingCommand({ command, fromRound: snapshot.round });
-    socket.emit(command);
+    return true;
   }
 
   function reveal() {
-    sendCommand("reveal");
+    if (startCommand("reveal")) socket.emit("reveal");
   }
 
   function newRound() {
-    sendCommand("newRound");
+    if (startCommand("newRound")) socket.emit("newRound");
+  }
+
+  function setDeck(deck: Deck) {
+    if (startCommand("setDeck")) socket.emit("setDeck", [...deck]);
   }
 
   function becomeVoter() {
@@ -244,7 +255,7 @@ export function useRoom(identity: Identity) {
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
     notice,
-    /** Reveal or New Round, sent and not yet answered by the server. */
+    /** Reveal, New Round or a new Deck, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,
     name,
@@ -254,6 +265,7 @@ export function useRoom(identity: Identity) {
     vote,
     reveal,
     newRound,
+    setDeck,
     becomeVoter,
     becomeObserver,
     handOver,

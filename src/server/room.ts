@@ -12,10 +12,18 @@ import type {
   RevealRejectionReason,
   RoleRejectionReason,
   RoomSnapshot,
+  SetDeckRejectionReason,
   ThrowRejectionReason,
   VoteRejectionReason,
 } from "../shared/protocol.js";
-import { isCard, type Card } from "../shared/deck.js";
+import {
+  DEFAULT_DECK,
+  inDeck,
+  sameDeck,
+  toDeck,
+  type Card,
+  type Deck,
+} from "../shared/deck.js";
 import {
   isReaction,
   isThrowable,
@@ -39,6 +47,14 @@ export interface Room {
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
   reveal(by: ParticipantId): CommandResult<RevealRejectionReason>;
   newRound(by: ParticipantId): CommandResult<NewRoundRejectionReason>;
+  /**
+   * Takes any values, since callers pass untrusted input. A new Deck discards the Round, as a New
+   * Round does; the current Deck is refused, so every Deck sent gets an answer.
+   */
+  setDeck(
+    by: ParticipantId,
+    cards: readonly unknown[],
+  ): CommandResult<SetDeckRejectionReason>;
   handOver(
     by: ParticipantId,
     to: ParticipantId,
@@ -75,6 +91,11 @@ export interface Room {
    * they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
    */
   subscribeToFun(listener: (event: FunEvent) => void): () => void;
+  /**
+   * Calls `listener` with the Facilitator's ID each time they change the Deck, after `subscribe`'s
+   * listeners. Returns a function that unsubscribes.
+   */
+  subscribeToDeckChanges(listener: (by: ParticipantId) => void): () => void;
 }
 
 /** Names are compared after trimming and ignoring case. */
@@ -95,11 +116,14 @@ export function createRoom(): Room {
   const votes = new Map<ParticipantId, Card>();
   let revealed = false;
   let round = 1;
+  /** Kept when everyone leaves: only a new Room (a server start) begins with the default. */
+  let deck: Deck = DEFAULT_DECK;
   const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
   const listeners = new Set<() => void>();
   const funListeners = new Set<(event: FunEvent) => void>();
   /** Each Participant's Reactions and Throws left; shared between the two. */
   const bursts = new Map<ParticipantId, Burst>();
+  const deckListeners = new Set<(by: ParticipantId) => void>();
 
   function notifyChanged() {
     for (const listener of listeners) listener();
@@ -181,7 +205,7 @@ export function createRoom(): Room {
       if (participant.role === "observer") {
         return { ok: false, reason: "observer-cannot-vote" };
       }
-      if (!isCard(card)) return { ok: false, reason: "card-not-in-deck" };
+      if (!inDeck(card, deck)) return { ok: false, reason: "card-not-in-deck" };
       if (revealed) return { ok: false, reason: "round-revealed" };
       votes.set(id, card);
       notifyChanged();
@@ -201,6 +225,21 @@ export function createRoom(): Room {
       if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
       discardRound();
       notifyChanged();
+      return { ok: true };
+    },
+
+    setDeck(by, cards) {
+      if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
+      const next = toDeck(cards);
+      if (!next.ok) return next;
+      if (sameDeck(next.deck, deck)) {
+        return { ok: false, reason: "deck-unchanged" };
+      }
+      deck = next.deck;
+      // A Vote may be on a Card that's gone, so the Round starts again.
+      discardRound();
+      notifyChanged();
+      for (const listener of deckListeners) listener(by);
       return { ok: true };
     },
 
@@ -293,6 +332,7 @@ export function createRoom(): Room {
         round,
         revealed,
         result: revealed ? resultOf(votes.values()) : null,
+        deck,
       };
     },
 
@@ -304,6 +344,11 @@ export function createRoom(): Room {
     subscribeToFun(listener) {
       funListeners.add(listener);
       return () => funListeners.delete(listener);
+    },
+
+    subscribeToDeckChanges(listener) {
+      deckListeners.add(listener);
+      return () => deckListeners.delete(listener);
     },
   };
 }

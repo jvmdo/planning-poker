@@ -1,6 +1,5 @@
 import type { RoomSnapshot } from "../shared/protocol";
 import { cn } from "@/lib/utils";
-import { DECK } from "../shared/deck";
 import { popBackground } from "./lib/pop";
 
 /**
@@ -10,10 +9,12 @@ import { popBackground } from "./lib/pop";
 export function ResultBreakdown({ snapshot }: { snapshot: RoomSnapshot }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const votes = voters.flatMap((p) => (p.vote === null ? [] : [p.vote]));
-  const groups = DECK.map((card) => ({
-    card,
-    names: voters.filter((p) => p.vote === card).map((p) => p.name),
-  })).filter((g) => g.names.length > 0);
+  const groups = snapshot.deck
+    .map((card) => ({
+      card,
+      names: voters.filter((p) => p.vote === card).map((p) => p.name),
+    }))
+    .filter((g) => g.names.length > 0);
   const most = Math.max(1, ...groups.map((g) => g.names.length));
   const missing = voters.filter((p) => p.vote === null);
   const low = Math.min(...votes);

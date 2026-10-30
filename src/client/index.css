@@ -128,3 +128,38 @@
   --hand-card-width: clamp(56px, min(6.4vw, 10.5vh), 118px);
   --hand-height: calc(var(--hand-card-width) * 4 / 3 + clamp(40px, 6vh, 64px));
 }
+
+/*
+ * The hand is a container, so its Cards fit it whatever the Deck's size: as wide as
+ * `--hand-card-width`, which the hand's height is made for, or narrower when there are many. The
+ * fan turns each Card a little and drops it towards the ends. The end Cards keep the same tilt and
+ * drop for any Deck, and neighbours are never more than 2.2° apart.
+ *
+ * Every child of the hand must be a Card: `sibling-count()` is the Deck's size and
+ * `sibling-index()` (from 1) the Card's place. They measure the element whose style uses them, so
+ * the width is set here on the Card's wrapper, not in a variable the button would read. The
+ * wrapper is a container too, so the button sizes its number from the Card's width.
+ */
+@layer components {
+  .card-hand {
+    container-type: inline-size;
+  }
+  .card-hand > * {
+    container-type: inline-size;
+    width: min(var(--hand-card-width), 100cqi / (sibling-count() + 0.5));
+    --middle: calc((sibling-count() - 1) / 2);
+    --offset: calc(sibling-index() - 1 - var(--middle));
+    --drop: calc(
+      var(--offset) * var(--offset) *
+        min(0.9px, 22.5px / (var(--middle) * var(--middle)))
+    );
+    rotate: calc(var(--offset) * min(2.2deg, 11deg / var(--middle)));
+    translate: 0 var(--drop);
+    /* The drop takes room below the Card, so a hand centred vertically centres its fan. */
+    margin-block-end: var(--drop);
+  }
+  .card-hand > [data-selected] {
+    translate: 0 -10px;
+    z-index: 5;
+  }
+}

@@ -1,4 +1,4 @@
-import type { Card } from "./deck.js";
+import type { Card, Deck, InvalidDeckReason } from "./deck.js";
 import type { FunEvent } from "./fun.js";
 
 export type ParticipantId = string;
@@ -32,6 +32,8 @@ export interface RoomSnapshot {
   revealed: boolean;
   /** The mean of the Votes cast, to one decimal place. Null until the Reveal. */
   result: number | null;
+  /** The Cards Voters choose from, set by the Facilitator. */
+  deck: Deck;
 }
 
 export type JoinRejectionReason = "name-empty" | "name-taken";
@@ -43,6 +45,8 @@ export type VoteRejectionReason =
 export type RevealRejectionReason =
   "not-facilitator" | "no-votes" | "already-revealed";
 export type NewRoundRejectionReason = "not-facilitator";
+export type SetDeckRejectionReason =
+  "not-facilitator" | "deck-unchanged" | InvalidDeckReason;
 export type RoleRejectionReason = "not-in-room";
 export type DisconnectRejectionReason = "not-in-room";
 export type LeaveRejectionReason = "not-in-room";
@@ -70,6 +74,7 @@ export type Rejection =
   | { command: "vote"; reason: VoteRejectionReason }
   | { command: "reveal"; reason: RevealRejectionReason }
   | { command: "newRound"; reason: NewRoundRejectionReason }
+  | { command: "setDeck"; reason: SetDeckRejectionReason }
   | { command: "becomeVoter"; reason: RoleRejectionReason }
   | { command: "becomeObserver"; reason: RoleRejectionReason }
   | { command: "handOver"; reason: HandOverRejectionReason }
@@ -82,6 +87,7 @@ export interface ClientToServerEvents {
   vote: (card: number) => void;
   reveal: () => void;
   newRound: () => void;
+  setDeck: (cards: number[]) => void;
   becomeVoter: () => void;
   becomeObserver: () => void;
   handOver: (to: ParticipantId) => void;
@@ -96,6 +102,8 @@ export interface ServerToClientEvents {
   rejected: (rejection: Rejection) => void;
   /** This browser's Participant left the Room, from this tab or another one. */
   left: () => void;
-  /** A Reaction or Throw, sent to everyone. It holds no Votes, so it's the one broadcast. */
+  /** A Reaction or Throw, sent to everyone. It holds no Votes, so it's broadcast. */
   fun: (event: FunEvent) => void;
+  /** The Facilitator (`by`) changed the Deck, It holds no Votes, so it's broadcast. */
+  deckChanged: (by: ParticipantId) => void;
 }

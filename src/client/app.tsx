@@ -25,6 +25,7 @@ export function App() {
     vote,
     reveal,
     newRound,
+    setDeck,
     becomeVoter,
     becomeObserver,
     handOver,
@@ -84,6 +85,7 @@ export function App() {
           isFacilitator={me.isFacilitator}
           onReveal={reveal}
           onNewRound={newRound}
+          onSetDeck={setDeck}
           pendingCommand={pendingCommand}
         />
         <div className="flex flex-col gap-3 px-8 pt-3 empty:hidden">
@@ -103,7 +105,11 @@ export function App() {
           {snapshot.revealed ? (
             <ResultBreakdown snapshot={snapshot} />
           ) : me.role === "voter" ? (
-            <CardHand myVote={snapshot.myVote} onPlay={vote} />
+            <CardHand
+              deck={snapshot.deck}
+              myVote={snapshot.myVote}
+              onPlay={vote}
+            />
           ) : (
             <p className="text-muted-foreground grid h-full place-items-center text-sm">
               You're observing. The Room won't wait for your Vote.

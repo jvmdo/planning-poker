@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import type { JoinRejectionReason } from "../shared/protocol";
-import { DECK, type Card } from "../shared/deck";
+import { DEFAULT_DECK, type Card } from "../shared/deck";
 import { Logo } from "./logo";
 import { useCardFlair } from "./lib/use-card-flair";
 import { PlayingCard } from "./playing-card";
@@ -202,7 +202,7 @@ function NameCard({
   );
 }
 
-/** The Deck in a row, to play with while waiting. Nothing is sent to the Room. */
+/** The default Deck in a row, to play with while waiting. Nothing is sent to the Room. */
 function WarmUpDeck() {
   const [picked, setPicked] = useState<Card | null>(null);
   const { play, flairOf } = useCardFlair();
@@ -213,7 +213,7 @@ function WarmUpDeck() {
         Warm up while you wait: play a Card.
       </p>
       <div className="flex justify-center gap-3">
-        {DECK.map((card, index) => (
+        {DEFAULT_DECK.map((card, index) => (
           <PlayingCard
             key={card}
             card={card}
@@ -224,7 +224,6 @@ function WarmUpDeck() {
               play(card, event);
               setPicked(card);
             }}
-            showUnit={false}
             className="h-15 w-11 text-xl"
           />
         ))}

@@ -2,10 +2,10 @@
  * What this browser has sent and the server hasn't answered yet.
  *
  * A Vote or a role change affects only the person clicking, so it is shown before the server
- * confirms it. Reveal and New Round change everyone's screen, so they are never shown early: they
- * only mark their buttons busy. Each pending thing stays until a snapshot confirms it, the server
- * refuses it, or it stops making sense. A snapshot that merely predates it, such as one caused by
- * someone else's Vote, doesn't drop it, so it never flashes back.
+ * confirms it. Reveal, New Round and a new Deck change everyone's screen, so they are never shown
+ * early: they only mark their buttons busy. Each pending thing stays until a snapshot confirms it,
+ * the server refuses it, or it stops making sense. A snapshot that merely predates it, such as one
+ * caused by someone else's Vote, doesn't drop it, so it never flashes back.
  */
 import type {
   ParticipantId,
@@ -42,9 +42,21 @@ export function settlePendingRole(
   return pending;
 }
 
+/** The commands that change everyone's screen, so they wait on the server. */
+export const PENDING_COMMANDS = ["reveal", "newRound", "setDeck"] as const;
+
+export function isPendingCommand(
+  command: string,
+): command is PendingCommand["command"] {
+  return (PENDING_COMMANDS as readonly string[]).includes(command);
+}
+
 export interface PendingCommand {
-  command: "reveal" | "newRound";
-  /** The Round it was sent in. Either command is answered once that Round is over. */
+  command: (typeof PENDING_COMMANDS)[number];
+  /**
+   * The Round it was sent in. Each command is answered once that Round is over: a New Round, and a
+   * changed Deck, start the next one.
+   */
   fromRound: number;
 }
 

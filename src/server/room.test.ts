@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ParticipantView } from "../shared/protocol.js";
+import { DEFAULT_DECK } from "../shared/deck.js";
+import type { ParticipantView, RoomSnapshot } from "../shared/protocol.js";
 import { createRoom } from "./room.js";
 
 /** How a Participant appears in anyone's snapshot, unless the test says otherwise. */
@@ -18,6 +19,15 @@ function participant(
     connected: true,
     ...overrides,
   };
+}
+
+/**
+ * A snapshot as text to search for Votes. The Deck lists every Card for everyone, so it's left out
+ * of the text and checked instead: it must be exactly the Room's Deck, here the default.
+ */
+function serializedVotes(snapshot: RoomSnapshot): string {
+  expect(snapshot.deck).toEqual(DEFAULT_DECK);
+  return JSON.stringify({ ...snapshot, deck: undefined });
 }
 
 describe("joining the Room", () => {
@@ -168,8 +178,8 @@ describe("voting", () => {
     room.vote("ana-id", 64);
     room.vote("bruno-id", 32);
 
-    const anaSees = JSON.stringify(room.snapshotFor("ana-id"));
-    const brunoSees = JSON.stringify(room.snapshotFor("bruno-id"));
+    const anaSees = serializedVotes(room.snapshotFor("ana-id"));
+    const brunoSees = serializedVotes(room.snapshotFor("bruno-id"));
     expect(anaSees).toContain("64");
     expect(anaSees).not.toContain("32");
     expect(brunoSees).toContain("32");
@@ -362,7 +372,7 @@ describe("a New Round", () => {
       ["Bruno", null],
     ]);
     expect(brunoSees.result).toBe(2);
-    expect(JSON.stringify(brunoSees)).not.toMatch(/\b(64|32)\b/);
+    expect(serializedVotes(brunoSees)).not.toMatch(/\b(64|32)\b/);
   });
 
   it("rejects a New Round from anyone but the Facilitator and leaves the Room unchanged", () => {
@@ -1207,5 +1217,190 @@ describe("Reactions and Throws", () => {
     room.react("ana-id", "🎉");
 
     expect(fun).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Deck", () => {
+  it("starts as the default hours Deck, the same for everyone", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+
+    const deck = [1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64];
+    expect(room.snapshotFor("ana-id").deck).toEqual(deck);
+    expect(room.snapshotFor("bruno-id").deck).toEqual(deck);
+  });
+
+  it("is changed by the Facilitator for everyone, sorted and without duplicates", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+
+    expect(room.setDeck("ana-id", [8, 3, 1, 5, 3, 2])).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").deck).toEqual([1, 2, 3, 5, 8]);
+    expect(room.snapshotFor("bruno-id").deck).toEqual([1, 2, 3, 5, 8]);
+  });
+
+  it("accepts Votes only for Cards in the Room's Deck", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setDeck("ana-id", [1, 3, 5, 99]);
+
+    expect(room.vote("ana-id", 4)).toEqual({
+      ok: false,
+      reason: "card-not-in-deck",
+    });
+    expect(room.vote("ana-id", 99)).toEqual({ ok: true });
+    expect(room.vote("ana-id", 1)).toEqual({ ok: true });
+    expect(room.snapshotFor("ana-id").myVote).toBe(1);
+  });
+
+  it("before the Reveal, a changed Deck discards the Votes unseen and starts a new Round", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 8);
+    room.vote("bruno-id", 64);
+    const { round } = room.snapshotFor("ana-id");
+
+    room.setDeck("ana-id", [1, 2, 3, 5, 8]);
+
+    for (const id of ["ana-id", "bruno-id"]) {
+      expect(room.snapshotFor(id)).toMatchObject({
+        participants: [
+          participant("ana-id", "Ana", { isFacilitator: true }),
+          participant("bruno-id", "Bruno"),
+        ],
+        myVote: null,
+        round: round + 1,
+        revealed: false,
+        result: null,
+      });
+    }
+  });
+
+  it("after the Reveal, a changed Deck clears the Votes and the Reveal, and starts a new Round", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+    room.reveal("ana-id");
+    const { round } = room.snapshotFor("ana-id");
+
+    room.setDeck("ana-id", [1, 2, 3]);
+
+    expect(room.snapshotFor("ana-id")).toMatchObject({
+      myVote: null,
+      round: round + 1,
+      revealed: false,
+      result: null,
+    });
+  });
+
+  it("tells Deck change subscribers once, with who changed it", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    const listener = vi.fn();
+    room.subscribeToDeckChanges(listener);
+
+    room.setDeck("bruno-id", [1, 2, 3]);
+    room.setDeck("ana-id", [1, 2, 3]);
+    room.setDeck("ana-id", [3, 2, 1]);
+    room.setDeck("ana-id", [1, 200]);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith("ana-id");
+  });
+
+  it("rejects the Deck the Room already has, even typed in another order, and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setDeck("ana-id", [1, 2, 3]);
+    room.vote("ana-id", 2);
+    const before = room.snapshotFor("ana-id");
+    const listener = vi.fn();
+    room.subscribe(listener);
+
+    expect(room.setDeck("ana-id", [3, 2, 1, 1])).toEqual({
+      ok: false,
+      reason: "deck-unchanged",
+    });
+
+    expect(room.snapshotFor("ana-id")).toEqual(before);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("can be set by an Observer who is the Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.becomeObserver("ana-id");
+
+    expect(room.setDeck("ana-id", [1, 2])).toEqual({ ok: true });
+    expect(room.snapshotFor("ana-id").deck).toEqual([1, 2]);
+  });
+
+  it("rejects a Deck from anyone but the Facilitator and leaves the Room unchanged", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("bruno-id", 8);
+    const before = room.snapshotFor("bruno-id");
+
+    expect(room.setDeck("bruno-id", [1, 2, 3])).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+
+    expect(room.snapshotFor("bruno-id")).toEqual(before);
+  });
+
+  it.each([
+    { cards: [1], reason: "too-few-cards" },
+    { cards: [5, 5], reason: "too-few-cards" },
+    { cards: [], reason: "too-few-cards" },
+    {
+      cards: Array.from({ length: 16 }, (_, i) => i + 1),
+      reason: "too-many-cards",
+    },
+    { cards: [1, 2.5], reason: "not-a-card" },
+    { cards: [-1, 2], reason: "not-a-card" },
+    { cards: [0, 2], reason: "not-a-card" },
+    { cards: [1, 100], reason: "not-a-card" },
+    { cards: [1, "2"], reason: "not-a-card" },
+    { cards: [1, null], reason: "not-a-card" },
+    { cards: [1, Number.NaN], reason: "not-a-card" },
+  ])(
+    "rejects $cards as $reason and leaves the Room unchanged",
+    ({ cards, reason }) => {
+      const room = createRoom();
+      room.join("ana-id", "Ana");
+      room.vote("ana-id", 8);
+      const before = room.snapshotFor("ana-id");
+
+      expect(room.setDeck("ana-id", cards)).toEqual({ ok: false, reason });
+
+      expect(room.snapshotFor("ana-id")).toEqual(before);
+    },
+  );
+
+  it("accepts 15 Cards from 1 to 99", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    const cards = [1, 2, 3, 5, 8, 13, 21, 34, 40, 55, 60, 70, 80, 89, 99];
+
+    expect(room.setDeck("ana-id", cards)).toEqual({ ok: true });
+    expect(room.snapshotFor("ana-id").deck).toEqual(cards);
+  });
+
+  it("stays as the Facilitator set it after the last Participant leaves, for the next one in", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setDeck("ana-id", [1, 2, 3, 5, 8]);
+
+    room.leave("ana-id");
+    room.join("bruno-id", "Bruno");
+
+    expect(room.snapshotFor("bruno-id").deck).toEqual([1, 2, 3, 5, 8]);
   });
 });
