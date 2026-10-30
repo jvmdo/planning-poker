@@ -27,6 +27,9 @@ _Avoid_: Spectator, viewer, guest
 The single shared space where the whole team estimates together. There is exactly one.
 _Avoid_: Session, table, lobby
 
+**Table**:
+The oval in the middle of the Room's screen, where each Voter's Card sits at their seat. A place on the screen, not another name for the Room.
+
 **Round**:
 One estimation of one task, from the first Vote until the next Round starts.
 _Avoid_: Game, hand, iteration
@@ -52,3 +55,13 @@ _Avoid_: Final estimate, average, score
 **Estimate**:
 A duration in hours. It is the unit of every Card and of every Result.
 _Avoid_: Points, story points, effort
+
+### Fun
+
+**Reaction**:
+An emoji a Voter sends up from their own Card, seen by everyone for a moment. It changes nothing in the Round.
+_Avoid_: Emote, sticker
+
+**Throw**:
+Something silly a Participant tosses at another Voter's Card (a paper ball, a tomato, flowers), seen by everyone for a moment. It changes nothing in the Round.
+_Avoid_: Mock, attack, poke

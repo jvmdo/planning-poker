@@ -79,6 +79,17 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 44. As a Participant on a phone, I want the Cards to wrap into a tappable grid and the board to fit a narrow screen, so that I can vote from my phone while on the call from my laptop.
 45. As a Participant, I want the whole UI in English, so that it matches the team's working language.
+46. As a Participant on a wide desktop screen, I want the Room to fill the screen with a table where every Voter's Card sits at their seat, so that the space isn't wasted and I can see at a glance who has played.
+47. As a Participant on a small desktop screen (down to 1024×720), I want to collapse the sidebar to just the logo, each Voter's Card and the Voter/Observer switch as icons, so that the table still has room.
+48. As a Participant, I want the table to stay where it is at the Reveal, with the Result in its centre and the breakdown where my hand was, so that nothing jumps around when the Cards flip.
+
+### Reactions and Throws
+
+49. As a Voter, I want to hover or click my own Card and send a Reaction that everyone sees float up from it, so that I can show how I feel about the Round without talking over someone.
+50. As a Participant, I want to hover or click another Voter's Card and Throw something at it (a paper ball, a rock, a tomato, an egg, a fish, flowers) that everyone sees fly from me to them, so that nudging a slow Voter or teasing an outlier is fun.
+51. As an Observer, I want to Throw too, from where the Observers are listed, since I have no seat at the table.
+52. As a Participant, I want to fire off a quick volley of up to 3 Reactions or Throws, then one more each second, so that teasing feels lively but nobody can flood everyone's screen.
+53. As a Participant, I want Reactions and Throws to work at any time, by mouse, touch or keyboard, and to change nothing about the Round, so that they're never in the way.
 
 ## Implementation Decisions
 
@@ -106,6 +117,8 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - `newRound(by)`
   - `handOver(by, to)`
   - `claimFacilitator(id)`
+  - `react(id, reaction)`
+  - `throwAt(by, to, item)`
 - A command that breaks a rule returns a rejection with a reason and leaves the Room unchanged. Rejected cases include:
   - the name is already taken
   - the caller isn't the Facilitator
@@ -115,6 +128,9 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - a Reveal with zero Votes
   - a claim while a Facilitator exists
   - a hand-over to an unknown Participant
+  - a Reaction from an Observer, or one not in the Reactions list
+  - a Throw at yourself, at an Observer or at an unknown Participant, or one not in the Throws list
+  - a Reaction or Throw when the Participant has none left (see the burst limit below)
 - **Query:** `snapshotFor(id)` returns the exact view that Participant is allowed to see.
 - **Change notification:** a subscribe callback fires after every state change, including ones triggered by timers, so the adapter knows to send fresh snapshots.
 - **Grace periods:** 30 seconds, using ordinary timers inside the module, which tests control with fake timers.
@@ -130,6 +146,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - Votes can change freely until the Reveal and are locked after it.
   - `newRound` is allowed at any time and clears all Votes and the Reveal.
 - **Result:** the arithmetic mean of the Votes cast by Participants still present, rounded to one decimal place. It is computed only at the Reveal and shown only after it.
+- **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every second, and never more than 3 are saved up.
 - **Names:** compared after trimming and ignoring case. A name already used by a present Participant, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
 
 **Shared contract (shared area).**
@@ -157,7 +174,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 - Thin glue: on connection the client sends its stored ID and name.
 - The adapter calls `join` or `reconnect`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
 - On every Room change notification it sends each connected socket its own `snapshotFor`.
-- It never sends a broadcast that is the same for everyone, because hidden Votes depend on the recipient.
+- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions and Throws are the one exception: they hold no Votes, so the adapter broadcasts them to every socket as their own event.
 - It contains no rules.
 
 **HTTP entry (server).**
@@ -191,6 +208,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - a Facilitator expiry discards the Round and enables claiming
   - two claims result in exactly one Facilitator
 - Every rejection listed under the Room module gets a test showing the Room is unchanged afterwards.
+- **Reactions and Throws** are tested through their event subscriber: an accepted one reaches it once, a rejected one doesn't, and snapshots don't change. The burst limit is tested with fake timers: 3 Throws in a row are accepted and a 4th is rejected; another at 999 ms is still rejected, at 1000 ms accepted; after a long pause, 3 are accepted again but not a 4th.
 - **No tests for the socket adapter or the React UI for now.** They hold no rules by design. End-to-end browser tests can come later if the UI grows tricky.
 - **Prior art:** none. The repo is empty, and these tests set the pattern.
 
@@ -213,4 +231,4 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 - Render's free tier sleeps after ~15 minutes without traffic and takes ~1 minute to wake. Free services can't scale past one instance, which ADR 0001 relies on. Render may restart the service at any time.
 - If Render's wake-up gets annoying, the same build runs unchanged on Fly.io (pinned to one machine) or on a laptop behind a tunnel (ngrok or Cloudflare Tunnel).
-- Votes stay hidden because the server filters each snapshot per recipient. Never replace the per-recipient sends with one broadcast.
+- Votes stay hidden because the server filters each snapshot per recipient. Never replace the per-recipient snapshot sends with one broadcast.
