@@ -4,6 +4,7 @@ import { CardHand } from "./card-hand";
 import { ClaimFacilitator } from "./claim-facilitator";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
+import { NoticeToast } from "./notice-toast";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
@@ -48,11 +49,6 @@ export function App() {
             : "Connecting… if the server was asleep, this can take up to a minute."}
         </p>
       )}
-      {notice && (
-        <p role="alert" className="bg-muted rounded-md px-3 py-2 text-sm">
-          {notice}
-        </p>
-      )}
     </>
   );
 
@@ -94,12 +90,15 @@ export function App() {
             <ClaimFacilitator onClaim={claimFacilitator} />
           )}
         </div>
-        <RoomTable
-          snapshot={snapshot}
-          myId={identity.id}
-          onReact={react}
-          onThrow={throwAt}
-        />
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <RoomTable
+            snapshot={snapshot}
+            myId={identity.id}
+            onReact={react}
+            onThrow={throwAt}
+          />
+          <NoticeToast notice={notice} />
+        </div>
         {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
         <div className="h-(--hand-height) shrink-0">
           {snapshot.revealed ? (

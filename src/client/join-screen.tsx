@@ -31,7 +31,7 @@ export function JoinScreen({
   disabled: boolean;
   /** Joined already, waiting for the Room to answer. */
   joining: boolean;
-  /** The connecting banner and notices. */
+  /** The connecting banner. */
   alerts: ReactNode;
   onJoin: (name: string) => void;
 }) {
