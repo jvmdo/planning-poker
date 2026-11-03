@@ -11,7 +11,7 @@ export default defineConfig({
   build: { outDir: "dist/client" },
   server: {
     proxy: {
-      "/socket.io": { target: "http://localhost:3000", ws: true },
+      "/socket.io": { target: "http://localhost:8000", ws: true },
     },
   },
 });

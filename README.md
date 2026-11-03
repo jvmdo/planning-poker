@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Vite serves the client with hot reload and proxies Socket.IO to the server on port 3000, which restarts on change. Open a second browser profile or a private window to join as another Participant.
+Open http://localhost:5173. Vite serves the client with hot reload and proxies Socket.IO to the server on port 8000, which restarts on change. Open a second browser profile or a private window to join as another Participant.
 
 Other scripts: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format`.
 
@@ -21,7 +21,7 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run lint`, `npm run format`
 
 ```sh
 npm run build   # client into dist/client, server into dist/server
-npm start       # serves both on $PORT (default 3000)
+npm start       # serves both on $PORT (default 8000)
 ```
 
 ## Deploy to Render
@@ -50,7 +50,7 @@ npm run build && npm start
 
 Then, in another terminal, either:
 
-- **Cloudflare Tunnel** (no account needed): `cloudflared tunnel --url http://localhost:3000`, and share the `https://….trycloudflare.com` URL it prints.
-- **ngrok** (free account): `ngrok http 3000`, and share the `https://….ngrok-free.app` URL. Visitors click through ngrok's warning page once.
+- **Cloudflare Tunnel** (no account needed): `cloudflared tunnel --url http://localhost:8000`, and share the `https://….trycloudflare.com` URL it prints.
+- **ngrok** (free account): `ngrok http 8000`, and share the `https://….ngrok-free.app` URL. Visitors click through ngrok's warning page once.
 
 The Room lives on your machine, so it ends when you stop the server or your computer sleeps.

@@ -5,7 +5,7 @@ import { Server } from "socket.io";
 import { createRoom } from "./room.js";
 import { attachRoom, type RoomServer } from "./socket-adapter.js";
 
-const port = Number(process.env.PORT ?? 3000);
+const port = Number(process.env.PORT ?? 8000);
 const clientDir = fileURLToPath(new URL("../../dist/client", import.meta.url));
 
 const app = express();
