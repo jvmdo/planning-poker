@@ -1,6 +1,7 @@
-import { LoaderCircle } from "lucide-react";
+import { Copy, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
-import type { RoomSnapshot } from "../shared/protocol";
+import type { RoomId, RoomSnapshot } from "../shared/protocol";
+import { shortRoomId } from "./lib/page-room";
 import { DeckDialog } from "./deck-dialog";
 import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
@@ -8,15 +9,19 @@ import { Button } from "@/components/ui/button";
 
 const RECONNECTING = "Reconnecting… you'll rejoin automatically.";
 const FACILITATOR_LEFT = "The Facilitator left and the Round was discarded.";
+/** Longer Room IDs are cut short, so the status bar never pushes the Facilitator's controls. */
+const ROOM_ID_SHOWN = 16;
 
 /**
- * Where the Round stands, who we're waiting on, and the Facilitator's controls: Reveal, New Round
- * and the Deck. While the Room has no Facilitator it says so, and offers everyone "Become
- * Facilitator" where those controls would be: the first click wins. While the connection is down it
- * says so instead, and the buttons wait for the Room's snapshot after rejoining, since nothing they
- * send would arrive.
+ * The Room ID with a button that copies its Share link, where the Round stands, who we're waiting
+ * on, and the Facilitator's controls: Reveal, New Round and the Deck. While the Room has no
+ * Facilitator it says so, and offers everyone "Become Facilitator" where those controls would be:
+ * the first click wins. While the connection is down it says so instead, and the buttons wait for
+ * the Room's snapshot after rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
+  roomId,
+  onCopyLink,
   snapshot,
   isFacilitator,
   reconnecting,
@@ -26,6 +31,8 @@ export function RoundPanel({
   onClaimFacilitator,
   pendingCommand,
 }: {
+  roomId: RoomId;
+  onCopyLink: () => void;
   snapshot: RoomSnapshot;
   isFacilitator: boolean;
   /** Lost the connection, and not back in the Room yet. */
@@ -52,8 +59,22 @@ export function RoundPanel({
   return (
     <div className="relative">
       <div className="flex h-20 items-center gap-4 border-b px-8">
-        <div>
-          <p className="font-display text-lg font-semibold">
+        <div className="min-w-0">
+          <p className="font-display flex items-center text-lg font-semibold whitespace-nowrap">
+            <span title={roomId}>{shortRoomId(roomId, ROOM_ID_SHOWN)}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Copy Share link"
+              title="Copy Share link"
+              onClick={onCopyLink}
+              className="text-muted-foreground mx-1 size-8 px-0"
+            >
+              <Copy aria-hidden className="size-4" />
+            </Button>
+            <span aria-hidden className="text-muted-foreground mr-1">
+              ·
+            </span>
             {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
           {status ? (

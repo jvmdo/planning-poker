@@ -40,3 +40,13 @@ export function showInAddressBar(roomId: RoomId): void {
 
 /** Read once, when the page loads. */
 export const pageRoom: PageRoom = readPageRoom();
+
+/** The Room's Share link: its full URL on this site. */
+export function shareLinkOf(roomId: RoomId): string {
+  return `${location.origin}/${roomId}`;
+}
+
+/** The Room ID cut short with "…" after `max` characters, for the status bar and the tab title. */
+export function shortRoomId(roomId: RoomId, max: number): string {
+  return roomId.length > max ? `${roomId.slice(0, max)}…` : roomId;
+}

@@ -27,8 +27,11 @@ import {
   type PendingVote,
 } from "./pending";
 
-/** How long a notice about a refused command stays on screen. */
+/** How long a notice stays on screen, unless it asks for longer. */
 const NOTICE_MS = 4000;
+
+/** A notice in the toast, and how long it stays. */
+type Notice = { text: string; ms: number };
 
 /**
  * Commands the UI offers can still be refused when the Room changed a moment earlier. These are
@@ -69,7 +72,7 @@ export function useRoom(
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
   const [wantsToJoin, setWantsToJoin] = useState(rejoin);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
@@ -79,6 +82,10 @@ export function useRoom(
   const burst = useRef<Burst | undefined>(undefined);
   /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
   const joinedFromJoinScreen = useRef(false);
+
+  const showNotice = useCallback((text: string | null, ms = NOTICE_MS) => {
+    setNotice(text === null ? null : { text, ms });
+  }, []);
 
   /**
    * Back to the join form, with the name kept to rejoin with. Read from storage, since this also
@@ -131,7 +138,7 @@ export function useRoom(
     }
     function onDeckChanged(by: ParticipantId) {
       // The Facilitator knows: they changed it.
-      if (by !== identity.id) setNotice("The Facilitator changed the Deck.");
+      if (by !== identity.id) showNotice("The Facilitator changed the Deck.");
     }
     function onRejected(rejection: Rejection) {
       if (rejection.command === "vote") setPendingVote(null);
@@ -142,7 +149,7 @@ export function useRoom(
         setPendingRole(null);
       if (isPendingCommand(rejection.command)) setPendingCommand(null);
       if (rejection.command !== "join") {
-        setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
+        showNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
         return;
       }
       joinedFromJoinScreen.current = false;
@@ -167,11 +174,11 @@ export function useRoom(
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
-  }, [identity.id, roomId, resetToJoinScreen]);
+  }, [identity.id, roomId, resetToJoinScreen, showNotice]);
 
   useEffect(() => {
     if (notice === null) return;
-    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    const timer = setTimeout(() => setNotice(null), notice.ms);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -281,7 +288,9 @@ export function useRoom(
     reconnecting: displayed !== null && !rejoined,
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
-    notice,
+    notice: notice?.text ?? null,
+    /** Shows a notice of the page's own in the toast, for `ms` milliseconds. */
+    showNotice,
     /** Reveal, New Round or a new Deck, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,

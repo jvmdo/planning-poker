@@ -1,17 +1,22 @@
 import { LoaderCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { RoomId } from "../shared/protocol";
 import { randomRoomId } from "../shared/room-id";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
-import { showInAddressBar } from "./lib/page-room";
+import { shareLinkOf, shortRoomId, showInAddressBar } from "./lib/page-room";
 import { NoticeToast } from "./notice-toast";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
 import { Sidebar } from "./sidebar";
 import { useRoom } from "./use-room";
+
+/** Longer Room IDs are cut short in the tab title. */
+const ROOM_ID_IN_TITLE = 24;
+/** Long enough to copy the Share link by hand. */
+const COPY_BY_HAND_MS = 12000;
 
 /**
  * The page of the Room `startRoomId`, which it rejoins without the join screen when `rejoin` is
@@ -32,6 +37,7 @@ export function App({
     reconnecting,
     snapshot,
     notice,
+    showNotice,
     pendingCommand,
     me,
     name,
@@ -51,6 +57,27 @@ export function App({
     throwAt,
   } = useRoom(identity, roomId, rejoin);
 
+  // The tab title names the Room, on the join screen too, so two open tabs are easy to tell apart.
+  useEffect(() => {
+    document.title = roomId
+      ? `${shortRoomId(roomId, ROOM_ID_IN_TITLE)} · Planning Poker`
+      : "Planning Poker";
+  }, [roomId]);
+
+  /** The clipboard needs a secure origin, so plain-HTTP LAN access gets the link to copy by hand. */
+  async function copyShareLink(roomIdToShare: RoomId) {
+    const link = shareLinkOf(roomIdToShare);
+    try {
+      await navigator.clipboard.writeText(link);
+      showNotice("Link copied");
+    } catch {
+      showNotice(
+        `Couldn't copy the link. Copy it from the address bar: ${link}`,
+        COPY_BY_HAND_MS,
+      );
+    }
+  }
+
   function createRoom(nameToJoinWith: string) {
     const newRoomId = randomRoomId();
     showInAddressBar(newRoomId);
@@ -61,7 +88,7 @@ export function App({
   /** At `/`, nothing connects until a Room is created. */
   const connecting = roomId !== null && !connected;
 
-  if (!me || !snapshot)
+  if (!me || !snapshot || roomId === null)
     return (
       <JoinScreen
         roomId={roomId}
@@ -101,6 +128,8 @@ export function App({
       />
       <main className="flex min-w-0 flex-1 flex-col">
         <RoundPanel
+          roomId={roomId}
+          onCopyLink={() => void copyShareLink(roomId)}
           snapshot={snapshot}
           isFacilitator={me.isFacilitator}
           reconnecting={reconnecting}

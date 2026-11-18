@@ -26,7 +26,7 @@ export function NoticeToast({ notice }: { notice: string | null }) {
       >
         <p
           className={cn(
-            "bg-card text-card-foreground border-ink shadow-hard-sm pointer-events-none absolute top-2 right-5 z-10 max-w-[clamp(14rem,22vw,26rem)] rounded-lg border-[3px] px-3 py-2 text-sm leading-snug font-semibold text-balance transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-opacity",
+            "bg-card text-card-foreground border-ink shadow-hard-sm pointer-events-none absolute top-2 right-5 z-10 max-w-[clamp(14rem,22vw,26rem)] rounded-lg border-[3px] px-3 py-2 text-sm leading-snug font-semibold text-balance wrap-anywhere transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-opacity",
             notice === null &&
               "translate-x-6 opacity-0 motion-reduce:translate-x-0",
           )}
