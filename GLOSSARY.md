@@ -1,13 +1,13 @@
 # Planning Poker
 
-A real-time planning poker app for a single team to estimate how many hours their tasks will take.
+A real-time planning poker app where teams estimate how many hours their tasks will take, each in its own Room.
 
 ## Language
 
 ### People
 
 **Participant**:
-Anyone currently in the Room, identified by a display name they chose.
+Anyone currently in a Room, identified by a display name they chose, unique within that Room.
 _Avoid_: User, player, member
 
 **Facilitator**:
@@ -24,8 +24,20 @@ _Avoid_: Spectator, viewer, guest
 ### Estimating
 
 **Room**:
-The single shared space where the whole team estimates together. There is exactly one.
+A shared space where one team estimates together, named by its Room ID. Each Room has its own Participants, Facilitator, Round and Deck.
 _Avoid_: Session, table, lobby
+
+**Room ID**:
+The name of a Room, as it appears in its URL. Anyone who has it can join the Room.
+_Avoid_: Room code, room name, room number
+
+**Share link**:
+The URL of a Room, which a Participant copies to invite others.
+_Avoid_: Invite, invitation link
+
+**Leave**:
+A Participant removing themselves from a Room at once, rather than waiting out a dropped connection.
+_Avoid_: Logout, sign out, exit
 
 **Table**:
 The oval in the middle of the Room's screen, where each Voter's Card sits at their seat. A place on the screen, not another name for the Room.

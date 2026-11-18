@@ -231,7 +231,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 ## Out of Scope
 
-- More than one Room, or sub-teams estimating in parallel.
+- More than one Room, or sub-teams estimating in parallel. (Since added: see `.scratch/rooms/spec.md`.)
 - Accounts, login, SSO, or a Room passcode.
 - Non-numeric or fractional Cards (`?`, ☕, ½), and a different Deck per Participant.
 - Task titles, a backlog, or Jira/issue-tracker integration.
