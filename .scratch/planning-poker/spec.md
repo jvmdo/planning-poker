@@ -160,7 +160,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 - **Result:** the arithmetic mean of the Votes cast by Participants still present, rounded to one decimal place. It is computed only at the Reveal and shown only after it.
 - **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every 300 ms, and never more than 3 are saved up.
 - **Deck changes:** besides the snapshots, an accepted new Deck is passed to a separate subscriber with who changed it, for the adapter to send on, so everyone else can be told.
-- **Names:** compared after trimming and ignoring case. A name already used by a present Participant, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
+- **Names:** compared after trimming and ignoring case, and unique only within a Room: the same name can be in two Rooms. A name already used by a present Participant of the Room, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
 
 **Shared contract (shared area).**
 
@@ -185,7 +185,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 **Socket adapter (server).**
 
-- Thin glue: on connection the client sends its stored ID and name.
+- Thin glue. Rooms are per URL: the client sends its page's Room ID once, in the Socket.IO handshake, and the adapter drops a connection whose Room ID isn't valid. No command carries a Room ID; every command acts on the socket's Room. After connecting, the client sends its stored ID and name to join.
 - The adapter calls `join`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
 - A socket that joins goes into the Socket.IO room named after its Room ID. Updates go only to that Room's sockets, never to every socket on the server: a Room's updates must never reach another Room.
 - On every Room change notification it sends each of that Room's sockets its own `snapshotFor`.
@@ -195,6 +195,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 **HTTP entry (server).**
 
 - Serves the built client's static files and the Socket.IO endpoint from the same process.
+- Any other path without a dot gets `index.html`, so a Room's URL such as `/team-alpha` loads the app (which says when a path isn't a valid Room).
 - Listens on the port the host provides.
 
 **Client (React SPA).**

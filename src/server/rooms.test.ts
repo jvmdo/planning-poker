@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_DECK } from "../shared/deck.js";
 import { createRooms } from "./rooms.js";
 
 describe("the Rooms registry", () => {
@@ -57,5 +58,97 @@ describe("the Rooms registry", () => {
     });
 
     expect(created).toEqual([]);
+  });
+});
+
+describe("removing an empty Room", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A registry whose Room team-alpha has a Deck of its own, a later Round, and nobody in it. */
+  function roomLeftEmpty() {
+    const rooms = createRooms();
+    const joined = rooms.join("team-alpha", "ana-id", "Ana");
+    if (!joined.ok) throw new Error("the join should succeed");
+    joined.room.setDeck("ana-id", [1, 2, 3]);
+    return { rooms, room: joined.room };
+  }
+
+  it("keeps an empty Room for a minute: a join at 59 s finds it with its Deck and Round", () => {
+    const { rooms, room } = roomLeftEmpty();
+    room.leave("ana-id");
+    const round = room.snapshotFor("ana-id").round;
+
+    vi.advanceTimersByTime(59_999);
+    const back = rooms.join("team-alpha", "bruno-id", "Bruno");
+
+    expect(back.ok && back.room).toBe(room);
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      deck: [1, 2, 3],
+      round,
+    });
+  });
+
+  it("removes an empty Room after a minute: its Room ID then gives a new Room with the default Deck", () => {
+    const { rooms, room } = roomLeftEmpty();
+    const created: string[] = [];
+    rooms.subscribeToNewRooms((roomId) => created.push(roomId));
+    room.leave("ana-id");
+
+    vi.advanceTimersByTime(60_000);
+    const back = rooms.join("team-alpha", "bruno-id", "Bruno");
+
+    if (!back.ok) throw new Error("the join should succeed");
+    expect(back.room).not.toBe(room);
+    expect(back.room.snapshotFor("bruno-id").deck).toEqual(DEFAULT_DECK);
+    expect(created).toEqual(["team-alpha"]);
+  });
+
+  it("starts the minute again each time the Room empties, after a join cancelled it", () => {
+    const { rooms, room } = roomLeftEmpty();
+    room.leave("ana-id");
+    vi.advanceTimersByTime(59_000);
+    rooms.join("team-alpha", "bruno-id", "Bruno");
+    room.leave("bruno-id");
+
+    vi.advanceTimersByTime(59_000);
+    const back = rooms.join("team-alpha", "carla-id", "Carla");
+
+    expect(back.ok && back.room).toBe(room);
+  });
+
+  it("counts a Participant in their grace period: the minute starts when it ends", () => {
+    const { rooms, room } = roomLeftEmpty();
+    room.disconnect("ana-id");
+
+    vi.advanceTimersByTime(30_000 + 59_999);
+    expect(room.isEmpty()).toBe(true);
+    const back = rooms.join("team-alpha", "bruno-id", "Bruno");
+
+    expect(back.ok && back.room).toBe(room);
+  });
+
+  it("removes the Room a minute after the last grace period ends", () => {
+    const { rooms, room } = roomLeftEmpty();
+    room.disconnect("ana-id");
+
+    vi.advanceTimersByTime(30_000 + 60_000);
+    const back = rooms.join("team-alpha", "bruno-id", "Bruno");
+
+    expect(back.ok && back.room).not.toBe(room);
+  });
+
+  it("removes only the Room that emptied", () => {
+    const { rooms, room } = roomLeftEmpty();
+    const beta = rooms.join("team-beta", "bruno-id", "Bruno");
+    room.leave("ana-id");
+
+    vi.advanceTimersByTime(60_000);
+
+    expect(rooms.join("team-beta", "carla-id", "Carla")).toEqual(beta);
   });
 });

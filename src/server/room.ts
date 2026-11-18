@@ -84,6 +84,8 @@ export interface Room {
     item: string,
   ): CommandResult<ThrowRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
+  /** No Participants, counting those away in their grace period. */
+  isEmpty(): boolean;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
   /**
@@ -334,6 +336,10 @@ export function createRoom(): Room {
         result: revealed ? resultOf(votes.values()) : null,
         deck,
       };
+    },
+
+    isEmpty() {
+      return participants.size === 0;
     },
 
     subscribe(listener) {

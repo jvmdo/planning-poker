@@ -8,7 +8,10 @@ import { createRoom, type Room } from "./room.js";
 export type JoinRoomResult =
   { ok: true; room: Room } | { ok: false; reason: JoinRejectionReason };
 
-/** Owns every Room by its Room ID. Knows nothing of sockets. */
+/**
+ * Owns every Room by its Room ID. Knows nothing of sockets. A Room is removed a minute after it
+ * becomes empty (counting Participants in their grace period); a join during that minute keeps it.
+ */
 export interface Rooms {
   /**
    * Joins the Participant to the Room with this ID, creating the Room if it doesn't exist yet. A
@@ -24,9 +27,30 @@ export interface Rooms {
   ): () => void;
 }
 
+/** How long an empty Room is kept, so a team that drops off together comes back to its Deck. */
+const EMPTY_ROOM_LIFETIME_MS = 60_000;
+
 export function createRooms(): Rooms {
   const rooms = new Map<RoomId, Room>();
+  /** The Rooms that are empty, each with the timer that removes it. */
+  const removals = new Map<RoomId, ReturnType<typeof setTimeout>>();
   const newRoomListeners = new Set<(roomId: RoomId, room: Room) => void>();
+
+  function scheduleRemoval(roomId: RoomId, room: Room) {
+    if (removals.has(roomId)) return;
+    removals.set(
+      roomId,
+      setTimeout(() => {
+        removals.delete(roomId);
+        if (rooms.get(roomId) === room) rooms.delete(roomId);
+      }, EMPTY_ROOM_LIFETIME_MS),
+    );
+  }
+
+  function cancelRemoval(roomId: RoomId) {
+    clearTimeout(removals.get(roomId));
+    removals.delete(roomId);
+  }
 
   return {
     join(roomId, id, name) {
@@ -36,6 +60,11 @@ export function createRooms(): Rooms {
       if (!result.ok) return result;
       if (!existing) {
         rooms.set(roomId, room);
+        // A Room only empties through a change, so each change is when to look.
+        room.subscribe(() => {
+          if (room.isEmpty()) scheduleRemoval(roomId, room);
+          else cancelRemoval(roomId);
+        });
         for (const listener of newRoomListeners) listener(roomId, room);
       }
       return { ok: true, room };

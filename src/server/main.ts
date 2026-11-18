@@ -10,6 +10,10 @@ const clientDir = fileURLToPath(new URL("../../dist/client", import.meta.url));
 
 const app = express();
 app.use(express.static(clientDir));
+// Every other path without a dot is a Room's URL (or not a valid one, which the app says).
+app.get(/^[^.]*$/, (_req, res) => {
+  res.sendFile("index.html", { root: clientDir });
+});
 
 const httpServer = createServer(app);
 const io: RoomServer = new Server(httpServer);

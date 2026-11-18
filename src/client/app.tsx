@@ -1,5 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
+import type { RoomId } from "../shared/protocol";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
@@ -10,7 +11,8 @@ import { RoundPanel } from "./round-panel";
 import { Sidebar } from "./sidebar";
 import { useRoom } from "./use-room";
 
-export function App() {
+/** The page of the Room `roomId`, or of the Room at `/` when it's null. */
+export function App({ roomId }: { roomId: RoomId | null }) {
   const [identity] = useState(loadIdentity);
   const {
     connected,
@@ -39,6 +41,7 @@ export function App() {
   if (!me || !snapshot)
     return (
       <JoinScreen
+        roomId={roomId}
         initialName={name}
         rejection={rejection}
         disabled={!connected}

@@ -1404,3 +1404,35 @@ describe("the Deck", () => {
     expect(room.snapshotFor("bruno-id").deck).toEqual([1, 2, 3, 5, 8]);
   });
 });
+
+describe("an empty Room", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is empty before anyone joins and after the last Participant leaves", () => {
+    const room = createRoom();
+    expect(room.isEmpty()).toBe(true);
+
+    room.join("ana-id", "Ana");
+    expect(room.isEmpty()).toBe(false);
+
+    room.leave("ana-id");
+    expect(room.isEmpty()).toBe(true);
+  });
+
+  it("isn't empty while its last Participant is in their grace period", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(29_999);
+    expect(room.isEmpty()).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(room.isEmpty()).toBe(true);
+  });
+});

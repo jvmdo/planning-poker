@@ -7,11 +7,12 @@ import type {
   RoomId,
   ServerToClientEvents,
 } from "../shared/protocol.js";
+import { parseRoomId } from "../shared/room-id.js";
 import type { Room } from "./room.js";
 import type { Rooms } from "./rooms.js";
 
 interface SocketData {
-  /** The Room this connection is for. For now every connection is for the same Room. */
+  /** The Room this connection is for, sent in its handshake. */
   roomId: RoomId;
   participantId?: ParticipantId;
 }
@@ -23,8 +24,17 @@ export type RoomServer = Server<
   SocketData
 >;
 
-/** Until a Room's URL names it, every connection is for this Room. */
-const FIXED_ROOM_ID: RoomId = "room";
+/**
+ * The Room at `/`, for a connection whose handshake names no Room. It isn't a valid Room ID, so no
+ * URL can name it.
+ */
+const ROOT_ROOM_ID: RoomId = "";
+
+/** The Room a handshake names, the Room at `/` if it names none, or null if it isn't a Room ID. */
+function roomIdOf(query: Record<string, unknown>): RoomId | null {
+  if (query.room === undefined) return ROOT_ROOM_ID;
+  return parseRoomId(query.room);
+}
 
 /**
  * The Socket.IO room holding a Room's sockets. Prefixed, because Socket.IO also puts each socket in
@@ -67,8 +77,12 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
   });
 
   io.on("connection", (socket) => {
-    socket.data.roomId = FIXED_ROOM_ID;
-    const { roomId } = socket.data;
+    const roomId = roomIdOf(socket.handshake.query);
+    if (roomId === null) {
+      socket.disconnect(true);
+      return;
+    }
+    socket.data.roomId = roomId;
     /** This socket's Room, from its first accepted join on. */
     let room: Room | undefined;
 

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { JoinRejectionReason } from "../shared/protocol";
+import type { JoinRejectionReason, RoomId } from "../shared/protocol";
 import { DEFAULT_DECK, type Card } from "../shared/deck";
 import { Logo } from "./logo";
 import { useCardFlair } from "./lib/use-card-flair";
@@ -19,6 +19,7 @@ const REJECTION_MESSAGES: Record<JoinRejectionReason, string> = {
  * name form as a big Card, and the Deck to play with while the server wakes up.
  */
 export function JoinScreen({
+  roomId,
   initialName,
   rejection,
   disabled,
@@ -26,6 +27,8 @@ export function JoinScreen({
   alerts,
   onJoin,
 }: {
+  /** The Room being joined, named on the form. Null at `/`, which names no Room. */
+  roomId: RoomId | null;
   initialName: string;
   rejection: JoinRejectionReason | null;
   disabled: boolean;
@@ -46,6 +49,7 @@ export function JoinScreen({
         <div className="flex flex-1 flex-col items-center justify-center gap-4 pt-16">
           <div className="flex w-full max-w-md flex-col gap-3">{alerts}</div>
           <NameCard
+            roomId={roomId}
             initialName={initialName}
             rejection={rejection}
             disabled={disabled || joining}
@@ -131,12 +135,14 @@ function Step({
 
 /** The name form, as a big tilted Card with "?" in its corners. */
 function NameCard({
+  roomId,
   initialName,
   rejection,
   disabled,
   joining,
   onJoin,
 }: {
+  roomId: RoomId | null;
   initialName: string;
   rejection: JoinRejectionReason | null;
   disabled: boolean;
@@ -167,6 +173,11 @@ function NameCard({
       <h2 className="font-display mt-4 text-center text-3xl font-semibold">
         Take a seat
       </h2>
+      {roomId && (
+        <p className="text-center break-all">
+          Joining <strong>{roomId}</strong>
+        </p>
+      )}
       <p className="text-muted-foreground text-center text-sm">
         Pick the name your team will see.
       </p>
