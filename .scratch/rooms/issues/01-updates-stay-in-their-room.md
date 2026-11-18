@@ -6,12 +6,12 @@
 
 **Status:** ready-for-agent
 
-- [ ] A `rooms` branch exists with a draft PR to `main`, and Render builds a pull request preview for it.
-- [ ] A Rooms registry module on the server (no sockets) creates a Room on its first join and returns the same Room after that. It is created when a Participant joins, not when a socket connects.
-- [ ] The adapter keeps the socket's Room ID on the socket, puts the socket in the Socket.IO room named after it on `join`, and sends every snapshot, `fun`, `deckChanged` and `left` only within that Room. Nothing loops over every socket on the server any more.
-- [ ] `leave` from one tab affects only the tabs of that Participant in the same Room.
-- [ ] For now, every connection uses one fixed Room ID; the client is unchanged.
-- [ ] Registry tests: the same Room ID gives the same Room; two Room IDs give independent Rooms (a Vote in one never shows in the other's snapshots).
-- [ ] All existing Room tests pass unchanged.
-- [ ] Checked in a browser on an isolated server: joining, voting, Reveal, Reactions, Deck change, Leave and a reload work as before.
-- [ ] The planning-poker spec's Socket adapter section says updates go to the Room's sockets, not every socket.
+- [x] A `rooms` branch exists with a draft PR to `main`, and Render builds a pull request preview for it.
+- [x] A Rooms registry module on the server (no sockets) creates a Room on its first join and returns the same Room after that. It is created when a Participant joins, not when a socket connects.
+- [x] The adapter keeps the socket's Room ID on the socket, puts the socket in the Socket.IO room named after it on `join`, and sends every snapshot, `fun`, `deckChanged` and `left` only within that Room. Nothing loops over every socket on the server any more.
+- [x] `leave` from one tab affects only the tabs of that Participant in the same Room.
+- [x] For now, every connection uses one fixed Room ID; the client is unchanged.
+- [x] Registry tests: the same Room ID gives the same Room; two Room IDs give independent Rooms (a Vote in one never shows in the other's snapshots).
+- [x] All existing Room tests pass unchanged.
+- [x] Checked in a browser on an isolated server: joining, voting, Reveal, Reactions, Deck change, Leave and a reload work as before.
+- [x] The planning-poker spec's Socket adapter section says updates go to the Room's sockets, not every socket.

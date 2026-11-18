@@ -2,8 +2,8 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import { Server } from "socket.io";
-import { createRoom } from "./room.js";
-import { attachRoom, type RoomServer } from "./socket-adapter.js";
+import { createRooms } from "./rooms.js";
+import { attachRooms, type RoomServer } from "./socket-adapter.js";
 
 const port = Number(process.env.PORT ?? 8000);
 const clientDir = fileURLToPath(new URL("../../dist/client", import.meta.url));
@@ -21,7 +21,7 @@ if (simulatedLatencyMs > 0 && process.env.NODE_ENV !== "production") {
     socket.use((_packet, next) => setTimeout(next, simulatedLatencyMs)),
   );
 }
-attachRoom(io, createRoom());
+attachRooms(io, createRooms());
 
 httpServer.listen(port, () => {
   console.log(`Planning Poker listening on http://localhost:${port}`);

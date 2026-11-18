@@ -186,9 +186,10 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 **Socket adapter (server).**
 
 - Thin glue: on connection the client sends its stored ID and name.
-- The adapter calls `join` or `reconnect`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
-- On every Room change notification it sends each connected socket its own `snapshotFor`.
-- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions, Throws and Deck changes are the exceptions: they hold no Votes, so the adapter broadcasts them to every socket as their own events.
+- The adapter calls `join`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
+- A socket that joins goes into the Socket.IO room named after its Room ID. Updates go only to that Room's sockets, never to every socket on the server: a Room's updates must never reach another Room.
+- On every Room change notification it sends each of that Room's sockets its own `snapshotFor`.
+- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions, Throws and Deck changes are the exceptions: they hold no Votes, so the adapter broadcasts them within the Room as their own events. `left` goes only to the leaving Participant's tabs in that Room.
 - It contains no rules.
 
 **HTTP entry (server).**

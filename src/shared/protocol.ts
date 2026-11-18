@@ -3,6 +3,9 @@ import type { FunEvent } from "./fun.js";
 
 export type ParticipantId = string;
 
+/** The name of a Room, as it appears in its URL. */
+export type RoomId = string;
+
 /** How long a Participant whose connection dropped keeps their place before being removed. */
 export const GRACE_PERIOD_MS = 30_000;
 
