@@ -1,28 +1,42 @@
 import type { RoomId } from "../../shared/protocol";
 import { parseRoomId } from "../../shared/room-id";
+import { loadIdentity } from "./identity";
 
-/** The Room this page is for, read from the URL's path. */
+/** The Room this page starts in, read from the URL's path and the last Room joined. */
 export type PageRoom =
-  /** `roomId` is null at `/`. */
-  | { valid: true; roomId: RoomId | null }
+  | {
+      valid: true;
+      /** Null at `/` for a browser with no last Room: the page offers to create one. */
+      roomId: RoomId | null;
+      /** It's the last Room joined, so the page rejoins it without the join screen. */
+      rejoin: boolean;
+    }
   /** The path isn't a Room ID. */
   | { valid: false };
 
 function readPageRoom(): PageRoom {
   const path = location.pathname.slice(1);
-  if (path === "") return { valid: true, roomId: null };
-  const roomId = parseRoomId(path);
-  if (roomId === null) return { valid: false };
-  // `/Team-Alpha` is the Room team-alpha: show it as the address bar should.
-  if (roomId !== path) {
-    history.replaceState(
-      history.state,
-      "",
-      `/${roomId}${location.search}${location.hash}`,
-    );
-  }
-  return { valid: true, roomId };
+  const { lastRoom } = loadIdentity();
+  // A URL that names a Room always wins over the last Room.
+  const roomId = path === "" ? lastRoom : parseRoomId(path);
+  if (path !== "" && roomId === null) return { valid: false };
+  // `/` goes to the last Room, and `/Team-Alpha` is the Room team-alpha: show it as it should be.
+  if (roomId !== null && roomId !== path) showInAddressBar(roomId);
+  return {
+    valid: true,
+    roomId,
+    rejoin: roomId !== null && roomId === lastRoom,
+  };
 }
 
-/** Read once, when the page loads: a Room's page stays that Room's. */
+/** Puts the Room's URL in the address bar, replacing the history entry. */
+export function showInAddressBar(roomId: RoomId): void {
+  history.replaceState(
+    history.state,
+    "",
+    `/${roomId}${location.search}${location.hash}`,
+  );
+}
+
+/** Read once, when the page loads. */
 export const pageRoom: PageRoom = readPageRoom();

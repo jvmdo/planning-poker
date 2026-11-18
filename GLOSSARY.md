@@ -31,6 +31,10 @@ _Avoid_: Session, table, lobby
 The name of a Room, as it appears in its URL. Anyone who has it can join the Room.
 _Avoid_: Room code, room name, room number
 
+**Last Room**:
+The Room a browser joined most recently, which opening the app with no Room ID goes back to. Leaving it means the browser has no last Room.
+_Avoid_: Home Room, current Room, recent Room
+
 **Share link**:
 The URL of a Room, which a Participant copies to invite others.
 _Avoid_: Invite, invitation link

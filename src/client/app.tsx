@@ -1,9 +1,11 @@
 import { LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import type { RoomId } from "../shared/protocol";
+import { randomRoomId } from "../shared/room-id";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
+import { showInAddressBar } from "./lib/page-room";
 import { NoticeToast } from "./notice-toast";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
@@ -11,9 +13,20 @@ import { RoundPanel } from "./round-panel";
 import { Sidebar } from "./sidebar";
 import { useRoom } from "./use-room";
 
-/** The page of the Room `roomId`, or of the Room at `/` when it's null. */
-export function App({ roomId }: { roomId: RoomId | null }) {
+/**
+ * The page of the Room `startRoomId`, which it rejoins without the join screen when `rejoin` is
+ * set. When `startRoomId` is null, the join screen offers to create a Room, and the page becomes
+ * that Room's.
+ */
+export function App({
+  startRoomId,
+  rejoin,
+}: {
+  startRoomId: RoomId | null;
+  rejoin: boolean;
+}) {
   const [identity] = useState(loadIdentity);
+  const [roomId, setRoomId] = useState(startRoomId);
   const {
     connected,
     reconnecting,
@@ -36,7 +49,17 @@ export function App({ roomId }: { roomId: RoomId | null }) {
     leave,
     react,
     throwAt,
-  } = useRoom(identity);
+  } = useRoom(identity, roomId, rejoin);
+
+  function createRoom(nameToJoinWith: string) {
+    const newRoomId = randomRoomId();
+    showInAddressBar(newRoomId);
+    setRoomId(newRoomId);
+    join(nameToJoinWith);
+  }
+
+  /** At `/`, nothing connects until a Room is created. */
+  const connecting = roomId !== null && !connected;
 
   if (!me || !snapshot)
     return (
@@ -44,10 +67,10 @@ export function App({ roomId }: { roomId: RoomId | null }) {
         roomId={roomId}
         initialName={name}
         rejection={rejection}
-        disabled={!connected}
+        disabled={connecting}
         joining={joining}
         alerts={
-          !connected && (
+          connecting && (
             <p
               role="status"
               className="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
@@ -61,7 +84,7 @@ export function App({ roomId }: { roomId: RoomId | null }) {
             </p>
           )
         }
-        onJoin={join}
+        onJoin={roomId === null ? createRoom : join}
       />
     );
 

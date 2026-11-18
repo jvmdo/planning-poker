@@ -7,6 +7,10 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {pageRoom.valid ? <App roomId={pageRoom.roomId} /> : <NotARoom />}
+    {pageRoom.valid ? (
+      <App startRoomId={pageRoom.roomId} rejoin={pageRoom.rejoin} />
+    ) : (
+      <NotARoom />
+    )}
   </StrictMode>,
 );

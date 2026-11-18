@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ROOM_ID_LENGTH, parseRoomId } from "./room-id.js";
+import {
+  MAX_ROOM_ID_LENGTH,
+  parseRoomId,
+  RANDOM_ROOM_ID_COUNT,
+  randomRoomId,
+} from "./room-id.js";
 
 describe("reading a Room ID", () => {
   it("takes lowercase letters, digits and dashes", () => {
@@ -45,5 +50,35 @@ describe("reading a Room ID", () => {
     expect(parseRoomId(undefined)).toBeNull();
     expect(parseRoomId(["team-alpha"])).toBeNull();
     expect(parseRoomId(42)).toBeNull();
+  });
+});
+
+describe("a random Room ID", () => {
+  it("is word-word-number, as in brave-otter-42", () => {
+    for (let i = 0; i < 1000; i++) {
+      expect(randomRoomId()).toMatch(/^[a-z]+-[a-z]+-\d{1,2}$/);
+    }
+  });
+
+  it("always passes the Room ID check, unchanged", () => {
+    for (let i = 0; i < 1000; i++) {
+      const id = randomRoomId();
+      expect(parseRoomId(id)).toBe(id);
+    }
+  });
+
+  it("is one of a few hundred thousand, so it's hard to guess", () => {
+    expect(RANDOM_ROOM_ID_COUNT).toBeGreaterThanOrEqual(300_000);
+  });
+
+  it("takes every part from the random numbers it's given", () => {
+    // Always the first choice, then always the last.
+    expect(randomRoomId(() => 0)).toMatch(/^[a-z]+-[a-z]+-0$/);
+    expect(randomRoomId((n) => n - 1)).toMatch(/^[a-z]+-[a-z]+-99$/);
+  });
+
+  it("varies", () => {
+    const ids = new Set(Array.from({ length: 100 }, () => randomRoomId()));
+    expect(ids.size).toBeGreaterThan(95);
   });
 });

@@ -8,7 +8,7 @@ The team (~15 people) estimates task durations in hours during a remote meeting.
 
 ## Solution
 
-A real-time web app with a single **Room** at the root URL. Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from the Room's **Deck** of hours, which the Facilitator can change. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
+A real-time web app where every URL such as `/team-alpha` is its own **Room**. Opening `/` goes back to the last Room this browser joined, or offers to create a new Room with a random, hard-to-guess Room ID (see `.scratch/rooms/spec.md`). Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from the Room's **Deck** of hours, which the Facilitator can change. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
 
 The vocabulary used below is defined in `GLOSSARY.md`.
 
@@ -16,7 +16,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 ### Joining and identity
 
-1. As a team member, I want to open one fixed URL and land in the team's Room, so that there's nothing to create or share before a meeting.
+1. As a team member, I want to open my team's Room URL (or `/`, which takes me back to the last Room I joined or creates a new one) and land in the Room, so that there's nothing to set up before a meeting.
 2. As a team member, I want to join by typing only a display name, so that I don't need an account or a password.
 3. As a team member, I want my display name and identity remembered in this browser, so that a reload puts me straight back into the Room as the same Participant.
 4. As a team member, I want to be told when the name I typed is already used by someone in the Room, so that two identical names never appear on the board.
@@ -200,7 +200,8 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 **Client (React SPA).**
 
-- Join screen: a display-name input, pre-filled from browser storage, showing name-taken errors.
+- Join screen: a display-name input, pre-filled from browser storage, showing name-taken errors. At `/<id>` it says "Joining **<id>**"; at `/` it names no Room and its button reads **Create Room**, which makes up a random `word-word-number` Room ID, goes to it and joins.
+- Browser storage keeps the Participant ID, the name and the **last Room** joined (one Room). `/` with a last Room goes to it (replacing the history entry) and rejoins without the join screen. A URL that names a Room wins over the last Room: the last Room rejoins automatically, any other shows the join screen with the name filled in, and joining makes it the last Room. Leave clears the last Room if it is this tab's Room. A reload of a tab whose Room is no longer the last Room shows the join screen.
 - Room board:
   - Participants with their role, Facilitator badge, voted or away markers, and Cards after the Reveal.
   - The Result after the Reveal.
@@ -212,7 +213,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
   - Nothing sits between the status bar and the table, so the table only changes size with the window.
 - Connecting state on the join screen, covering Render's ~1-minute wake-up. After joining, a lost connection shows "Reconnecting…" as the status bar's second line, and its buttons are disabled until the snapshot after rejoining arrives.
 - The client keeps no Room state of its own beyond the latest snapshot. It renders that and sends commands.
-- Socket.IO's automatic reconnect plus the stored ID give silent rejoin, including after a server restart.
+- Socket.IO's automatic reconnect plus the stored ID give silent rejoin, including after a server restart. At `/` with no last Room, nothing connects until a Room is created.
 - UI: shadcn/ui components with Tailwind, responsive from the start (the Card hand becomes a wrapping grid on narrow screens), English only.
 
 ## Testing Decisions

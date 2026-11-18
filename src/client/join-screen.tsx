@@ -27,7 +27,7 @@ export function JoinScreen({
   alerts,
   onJoin,
 }: {
-  /** The Room being joined, named on the form. Null at `/`, which names no Room. */
+  /** The Room being joined, named on the form. Null at `/`, where joining creates a new Room. */
   roomId: RoomId | null;
   initialName: string;
   rejection: JoinRejectionReason | null;
@@ -198,7 +198,7 @@ function NameCard({
           className="h-12 px-7 text-base"
           disabled={disabled || name.trim() === ""}
         >
-          {joining ? "Joining…" : "Join the Room"}
+          {joining ? "Joining…" : roomId ? "Join the Room" : "Create Room"}
         </Button>
         {rejection && (
           <p id="join-error" role="alert" className="text-destructive text-sm">
