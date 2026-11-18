@@ -107,6 +107,46 @@ describe("display names", () => {
   });
 });
 
+describe("a full Room", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A Room holding 30 Participants, the most it takes. */
+  function fullRoom() {
+    const room = createRoom();
+    for (let n = 1; n <= 30; n++) room.join(`p${n}-id`, `P${n}`);
+    return room;
+  }
+
+  it("refuses a 31st Participant and leaves the Room unchanged", () => {
+    const room = fullRoom();
+    const before = room.snapshotFor("p1-id");
+
+    expect(room.join("ana-id", "Ana")).toEqual({
+      ok: false,
+      reason: "room-full",
+    });
+
+    expect(room.snapshotFor("p1-id")).toEqual(before);
+    expect(before.participants).toHaveLength(30);
+  });
+
+  it("lets a Participant already in a full Room rejoin, even from their grace period", () => {
+    const room = fullRoom();
+    room.disconnect("p30-id");
+
+    expect(room.join("p30-id", "P30")).toEqual({ ok: true });
+
+    const participants = room.snapshotFor("p1-id").participants;
+    expect(participants).toHaveLength(30);
+    expect(participants.at(-1)).toEqual(participant("p30-id", "P30"));
+  });
+});
+
 describe("change notifications", () => {
   it("tells subscribers after a Participant joins, but not after a rejected command", () => {
     const room = createRoom();

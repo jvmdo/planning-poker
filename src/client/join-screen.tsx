@@ -12,6 +12,8 @@ const REJECTION_MESSAGES: Record<JoinRejectionReason, string> = {
   "name-empty": "Please type a display name.",
   "name-taken":
     "Someone in the Room is already using that name. Please pick another one.",
+  "room-full": "This Room is full.",
+  "server-full": "The server is full, try again later.",
 };
 
 /**

@@ -61,6 +61,64 @@ describe("the Rooms registry", () => {
   });
 });
 
+describe("the Room cap", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A registry holding 100 Rooms, the most it takes, each with one Participant; and the first. */
+  function fullRegistry() {
+    const rooms = createRooms();
+    const first = rooms.join("room-1", "p1-id", "Ana");
+    if (!first.ok) throw new Error("the join should succeed");
+    for (let n = 2; n <= 100; n++) rooms.join(`room-${n}`, `p${n}-id`, "Ana");
+    return { rooms, first: first.room };
+  }
+
+  it("refuses to create a 101st Room", () => {
+    const { rooms } = fullRegistry();
+    const created: string[] = [];
+    rooms.subscribeToNewRooms((roomId) => created.push(roomId));
+
+    expect(rooms.join("room-101", "bruno-id", "Bruno")).toEqual({
+      ok: false,
+      reason: "server-full",
+    });
+
+    expect(created).toEqual([]);
+  });
+
+  it("still accepts joins to a Room that exists when the server is full", () => {
+    const { rooms } = fullRegistry();
+
+    const joined = rooms.join("room-1", "bruno-id", "Bruno");
+
+    if (!joined.ok) throw new Error("the join should succeed");
+    expect(
+      joined.room.snapshotFor("bruno-id").participants.map((p) => p.name),
+    ).toEqual(["Ana", "Bruno"]);
+  });
+
+  it("accepts a new Room once an empty one is removed", () => {
+    const { rooms, first } = fullRegistry();
+    first.leave("p1-id");
+
+    vi.advanceTimersByTime(59_999);
+    expect(rooms.join("room-101", "bruno-id", "Bruno")).toMatchObject({
+      ok: false,
+      reason: "server-full",
+    });
+
+    vi.advanceTimersByTime(1);
+    expect(rooms.join("room-101", "bruno-id", "Bruno")).toMatchObject({
+      ok: true,
+    });
+  });
+});
+
 describe("removing an empty Room", () => {
   beforeEach(() => {
     vi.useFakeTimers();

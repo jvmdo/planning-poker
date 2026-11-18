@@ -33,6 +33,12 @@ import {
 } from "../shared/fun.js";
 import { GRACE_PERIOD_MS } from "../shared/protocol.js";
 
+/**
+ * The most Participants a Room takes, counting those in their grace period. Each change sends every
+ * Participant their own snapshot, and that CPU is the free instance's real limit (ADR 0002).
+ */
+const MAX_PARTICIPANTS = 30;
+
 interface Participant {
   id: ParticipantId;
   name: string;
@@ -42,6 +48,11 @@ interface Participant {
 }
 
 export interface Room {
+  /**
+   * Adds the Participant, or reconnects them if they're already in the Room. A new Participant
+   * past MAX_PARTICIPANTS is refused with `room-full`; one already in the Room, even in their grace
+   * period, can always rejoin.
+   */
   join(id: ParticipantId, name: string): CommandResult<JoinRejectionReason>;
   /** Takes any number, since callers pass untrusted input; only Cards in the Deck are accepted. */
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
@@ -182,6 +193,9 @@ export function createRoom(): Room {
     join(id, name) {
       const key = nameKey(name);
       if (key === "") return { ok: false, reason: "name-empty" };
+      if (!participants.has(id) && participants.size >= MAX_PARTICIPANTS) {
+        return { ok: false, reason: "room-full" };
+      }
       const taken = [...participants.values()].some(
         (p) => p.id !== id && nameKey(p.name) === key,
       );

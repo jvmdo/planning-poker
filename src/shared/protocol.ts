@@ -39,7 +39,8 @@ export interface RoomSnapshot {
   deck: Deck;
 }
 
-export type JoinRejectionReason = "name-empty" | "name-taken";
+export type JoinRejectionReason =
+  "name-empty" | "name-taken" | "room-full" | "server-full";
 export type VoteRejectionReason =
   | "not-in-room"
   | "observer-cannot-vote"

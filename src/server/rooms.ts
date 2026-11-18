@@ -15,7 +15,8 @@ export type JoinRoomResult =
 export interface Rooms {
   /**
    * Joins the Participant to the Room with this ID, creating the Room if it doesn't exist yet. A
-   * Room exists only once someone has joined it: a refused join leaves no Room behind.
+   * Room exists only once someone has joined it: a refused join leaves no Room behind. Creating a
+   * Room past MAX_ROOMS is refused with `server-full`; Rooms that exist keep accepting joins.
    */
   join(roomId: RoomId, id: ParticipantId, name: string): JoinRoomResult;
   /**
@@ -26,6 +27,13 @@ export interface Rooms {
     listener: (roomId: RoomId, room: Room) => void,
   ): () => void;
 }
+
+/**
+ * The most Rooms the server holds, counting empty ones not yet removed. Any URL can create a Room,
+ * and the free instance's CPU, spent sending each Participant their own snapshot, is the real
+ * limit (ADR 0002).
+ */
+const MAX_ROOMS = 100;
 
 /** How long an empty Room is kept, so a team that drops off together comes back to its Deck. */
 const EMPTY_ROOM_LIFETIME_MS = 60_000;
@@ -55,6 +63,9 @@ export function createRooms(): Rooms {
   return {
     join(roomId, id, name) {
       const existing = rooms.get(roomId);
+      if (!existing && rooms.size >= MAX_ROOMS) {
+        return { ok: false, reason: "server-full" };
+      }
       const room = existing ?? createRoom();
       const result = room.join(id, name);
       if (!result.ok) return result;
