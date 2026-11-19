@@ -46,6 +46,10 @@ _Avoid_: Logout, sign out, exit
 **Table**:
 The oval in the middle of the Room's screen, where each Voter's Card sits at their seat. A place on the screen, not another name for the Room.
 
+**Hand**:
+The row of the Deck's Cards below the Table, where a Voter plays their Vote. A place on the screen, like the Table.
+_Avoid_: Deck (the set of Cards, not where they are shown)
+
 **Round**:
 One estimation of one task, from the first Vote until the next Round starts.
 _Avoid_: Game, hand, iteration
@@ -97,9 +101,13 @@ _Avoid_: Points, story points, effort
 ### Fun
 
 **Reaction**:
-An emoji a Voter sends up from their own Card, seen by everyone for a moment. It changes nothing in the Round.
+An emoji a Voter sends up from their own Card, or an Observer from their Ghost, seen by everyone for a moment. It changes nothing in the Round.
 _Avoid_: Emote, sticker
 
 **Throw**:
-Something silly a Participant tosses at another Voter's Card (a paper ball, a tomato, flowers), seen by everyone for a moment. It changes nothing in the Round.
+Something silly a Participant tosses at another Voter's Card or at someone else's Ghost (a paper ball, a tomato, flowers), seen by everyone for a moment. It changes nothing in the Round.
 _Avoid_: Mock, attack, poke
+
+**Ghost**:
+A small character an Observer can choose to have and walk around the Table, seen by everyone with its owner's name. It is where that Observer is on the Table: their Reactions and Throws come from it, and others can Throw at it. It changes nothing in the Round. Having a Ghost is not a role: its owner is still an Observer, and only Observers have Ghosts.
+_Avoid_: Avatar, sprite, pet; and "ghost" for a Participant who disconnected (they are away)
