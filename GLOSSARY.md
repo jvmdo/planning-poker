@@ -68,6 +68,24 @@ _Avoid_: Flip, show
 The mean of the Votes cast in a Round, revealed with them. Voters who did not vote do not count.
 _Avoid_: Final estimate, average, score
 
+**Everyone agrees**:
+A Round whose Votes are all the same Card.
+
+**Nearly everyone agrees**:
+A Round whose Votes differ, but only by one Card in the Deck: every Vote is next to the majority Card, or, with no majority Card and no Split, next to a Card someone played. Nobody is named.
+_Avoid_: Almost consensus, close enough
+
+**Outlier**:
+A Voter whose Vote is two or more Cards away in the Deck from the majority Card: the one Card with more Votes than any other, holding at least half of them. After the Reveal the team asks Outliers why.
+_Avoid_: Dissenter, odd one out
+
+**Split**:
+A Round whose Votes fall into two camps: two Cards that are not next to each other in the Deck tie for the most Votes, and every other Vote is next to one of them.
+
+**No consensus**:
+A Round whose Votes have no clear majority, are not a Split and are not all close together. Nobody is named; the team talks it through and votes again.
+_Avoid_: Everyone disagrees
+
 **Estimate**:
 A duration in hours. It is the unit of every Card and of every Result.
 _Avoid_: Points, story points, effort
