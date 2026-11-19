@@ -1,0 +1,490 @@
+<title>Ghost Proposals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<style>
+  /* Layout: the Ghost in six fabrics an Observer could choose from, then a mix of them at real size around one Table. Tokens follow the app's index.css. */
+  :root {
+    --bg: oklch(0.97 0.03 85);
+    --fg: oklch(0.26 0.06 285);
+    --muted: oklch(0.45 0.05 285);
+    --card: oklch(1 0 0);
+    --table: color-mix(in oklch, oklch(0.8 0.16 150) 22%, oklch(0.97 0.03 85));
+    --ink: oklch(0.26 0.06 285);
+    --ghost: oklch(0.995 0.005 285);
+    --ghost-shade: oklch(0.9 0.03 285);
+    --cream: oklch(0.97 0.03 85);
+    --night: oklch(0.32 0.09 285);
+    --pop-1: oklch(0.68 0.19 32);
+    --pop-2: oklch(0.72 0.14 230);
+    --pop-2-light: oklch(0.93 0.05 230);
+    --pop-3: oklch(0.72 0.16 150);
+    --pop-4: oklch(0.85 0.15 90);
+    --pop-5: oklch(0.65 0.18 330);
+    --pop-5-light: oklch(0.86 0.08 330);
+    --lilac: oklch(0.72 0.12 300);
+    --display: "Fredoka", "Nunito", ui-sans-serif, system-ui, sans-serif;
+    --body: "Nunito", ui-sans-serif, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: oklch(0.21 0.06 285); --fg: oklch(0.96 0.02 85); --muted: oklch(0.78 0.04 285);
+      --card: oklch(0.28 0.07 285); --table: color-mix(in oklch, oklch(0.8 0.16 150) 22%, oklch(0.21 0.06 285)); --ink: oklch(0.1 0.04 285);
+      --ghost: oklch(0.96 0.02 285); --ghost-shade: oklch(0.82 0.04 285); --pop-2-light: oklch(0.85 0.07 230); --night: oklch(0.42 0.1 285);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: oklch(0.21 0.06 285); --fg: oklch(0.96 0.02 85); --muted: oklch(0.78 0.04 285);
+    --card: oklch(0.28 0.07 285); --table: color-mix(in oklch, oklch(0.8 0.16 150) 22%, oklch(0.21 0.06 285)); --ink: oklch(0.1 0.04 285);
+    --ghost: oklch(0.96 0.02 285); --ghost-shade: oklch(0.82 0.04 285); --pop-2-light: oklch(0.85 0.07 230); --night: oklch(0.42 0.1 285);
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+  main { max-width: 1100px; margin: 0 auto; padding-block: 32px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 32px; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.35rem; }
+  h3 { font-size: 1.1rem; }
+  p { margin: 0; max-width: 65ch; }
+  .lede { color: var(--muted); }
+  header { display: grid; gap: 8px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 18px; }
+  .specimen { background: var(--card); border: 2.5px solid var(--ink); border-radius: 18px; box-shadow: 5px 5px 0 var(--ink); padding: 12px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .stage { position: relative; height: 180px; border-radius: 12px; background: var(--table); border: 2px solid var(--ink); overflow: hidden; display: grid; place-items: center; cursor: pointer; }
+  .stage:focus-visible { outline: 3px solid var(--pop-1); outline-offset: 3px; }
+  .ghost-wrap { display: grid; justify-items: center; gap: 2px; }
+  .ghost-wrap svg { width: 86px; height: 94px; overflow: visible; }
+  .bob { animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+  @keyframes trot { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+  .walker.walking.bob { animation-name: trot; }
+  .walk-stage { position: relative; height: 260px; border-radius: 12px; background: var(--table); border: 2px solid var(--ink); overflow: hidden; cursor: crosshair; }
+  .walker { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 2px; will-change: transform; }
+  .walker svg { width: 64px; height: 70px; overflow: visible; }
+  .walk-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .walk-controls select, .walk-controls button { font: 600 0.9rem var(--body); color: var(--fg); background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 4px 12px; box-shadow: 2px 2px 0 var(--ink); }
+  .walk-controls button { cursor: pointer; }
+  .homing { position: absolute; font-size: 1.5rem; pointer-events: none; left: 0; top: 0; }
+  .sway { transform-box: fill-box; transform-origin: 80% 0%; animation: sway 2.4s ease-in-out infinite; }
+  @keyframes sway { 0%, 100% { rotate: -8deg; } 50% { rotate: 8deg; } }
+  .hit svg { animation: wobble 0.55s ease-out; }
+  @keyframes wobble { 0% { rotate: 0; } 20% { rotate: -16deg; translate: -8px 0; } 45% { rotate: 11deg; } 70% { rotate: -5deg; } 100% { rotate: 0; translate: 0 0; } }
+  .tag { font-family: var(--display); font-weight: 600; font-size: 0.75rem; background: var(--card); color: var(--fg); border: 2px solid var(--ink); border-radius: 999px; padding: 0 8px; box-shadow: 2px 2px 0 var(--ink); }
+  .splat { position: absolute; font-size: 1.6rem; pointer-events: none; }
+  .meta { display: grid; gap: 2px; }
+  .meta p { font-size: 0.88rem; color: var(--muted); }
+
+  .real { background: var(--card); border: 2.5px solid var(--ink); border-radius: 18px; box-shadow: 5px 5px 0 var(--ink); padding: 20px; display: grid; gap: 16px; }
+  .room { position: relative; height: 330px; display: grid; place-items: center; overflow: hidden; }
+  .oval { width: min(560px, 92%); height: 210px; border-radius: 50%; background: var(--table); border: 4px solid var(--ink); box-shadow: 6px 6px 0 var(--ink); display: grid; place-items: center; font-family: var(--display); font-size: 1.5rem; }
+  .seat { position: absolute; width: 38px; height: 54px; border-radius: 7px; border: 2.5px solid var(--ink); background: repeating-linear-gradient(45deg, var(--pop-2) 0 4px, var(--pop-2-light) 4px 7px); box-shadow: 3px 3px 0 var(--ink); }
+  .mini { position: absolute; display: grid; justify-items: center; gap: 1px; }
+  .mini svg { width: 42px; height: 46px; overflow: visible; }
+  .mini .tag { font-size: 0.65rem; padding: 0 6px; }
+  :root { --ninja: oklch(0.3 0.04 285); --ninja-fold: oklch(0.45 0.05 285); --mask: oklch(0.24 0.03 285); --glass: oklch(0.9 0.06 230 / 0.28); --plate: oklch(0.88 0.015 285); }
+  .ninja, .thief, .astro, .rogue, [class^="back-"] { display: none; }
+  main[data-helmet="none"] .back-none, main[data-helmet="ninja"] .back-ninja, main[data-helmet="thief"] .back-thief, main[data-helmet="astro"] .back-astro, main[data-helmet="rogue"] .back-rogue { display: inline; }
+  .lean { transform-box: view-box; transform-origin: 32px 62px; rotate: var(--lean, 0deg); transition: rotate 0.25s ease-out; }
+  .turn { transform-box: view-box; transform-origin: 32px 35px; transition: transform 0.14s ease-in-out; }
+  .left .turn { transform: scaleX(-1); }
+  .face { transform: translate(calc(2.5px + var(--look-x, 0px)), var(--look-y, 0px)); transition: transform 0.2s ease-out; }
+  .hem { transform-box: fill-box; transform-origin: 50% 0%; }
+  .walking .hem { animation: flutter 0.28s ease-in-out infinite alternate; }
+  @keyframes flutter { from { transform: skewX(-3deg); } to { transform: skewX(3deg); } }
+  .walking .sway { animation-duration: 0.7s; rotate: 14deg; }
+  .flame { opacity: 0; transition: opacity 0.15s; }
+  .walking .flame { opacity: 1; }
+  .walker.walking.bob { animation-duration: 0.45s; }
+  main[data-helmet="ninja"] .ninja, main[data-helmet="thief"] .thief, main[data-helmet="astro"] .astro, main[data-helmet="rogue"] .rogue { display: inline; }
+  .helmets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .helmets span { font-family: var(--display); font-weight: 600; margin-right: 4px; }
+  .helmets button { font: 600 0.9rem var(--body); color: var(--fg); background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 4px 14px; box-shadow: 2px 2px 0 var(--ink); cursor: pointer; }
+  .helmets button[aria-pressed="true"] { background: var(--pop-4); color: oklch(0.26 0.06 285); }
+  .helmets button:focus-visible { outline: 3px solid var(--pop-1); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .bob, .sway, .hit svg { animation: none; } }
+  @media (max-width: 520px) { .room { height: 290px; } .oval { height: 160px; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Six dress fabrics. None is the blue card back the seats use. -->
+    <pattern id="p-stripes" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" style="fill: var(--pop-1)"/>
+      <rect width="2.6" height="7" style="fill: var(--cream)"/>
+    </pattern>
+    <pattern id="p-gingham" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" style="fill: var(--cream)"/>
+      <rect width="4" height="8" style="fill: var(--pop-5-light)"/>
+      <rect width="8" height="4" style="fill: var(--pop-5-light)"/>
+      <rect width="4" height="4" style="fill: var(--pop-5)"/>
+    </pattern>
+    <pattern id="p-suits" width="12" height="12" patternUnits="userSpaceOnUse">
+      <rect width="12" height="12" style="fill: var(--pop-4)"/>
+      <text x="3" y="5.2" font-size="5" text-anchor="middle" style="fill: oklch(0.26 0.06 285)" font-family="serif">♠</text>
+      <text x="9" y="11.2" font-size="5" text-anchor="middle" style="fill: var(--pop-1)" font-family="serif">♥</text>
+    </pattern>
+    <pattern id="p-dots" width="7" height="7" patternUnits="userSpaceOnUse">
+      <rect width="7" height="7" style="fill: var(--pop-3)"/>
+      <circle cx="1.75" cy="1.75" r="1.2" style="fill: var(--cream)"/>
+      <circle cx="5.25" cy="5.25" r="1.2" style="fill: var(--cream)"/>
+    </pattern>
+    <pattern id="p-zigzag" width="8" height="6" patternUnits="userSpaceOnUse">
+      <rect width="8" height="6" style="fill: var(--lilac)"/>
+      <path d="M0 4 L2 2 L4 4 L6 2 L8 4" fill="none" style="stroke: var(--cream)" stroke-width="1.2"/>
+    </pattern>
+    <filter id="glow" x="-1" y="-1" width="3" height="3">
+      <feGaussianBlur stdDeviation="1.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="p-knit" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" style="fill: var(--mask)"/>
+      <rect y="3" width="6" height="3" style="fill: var(--pop-1)"/>
+    </pattern>
+    <pattern id="p-stars" width="11" height="11" patternUnits="userSpaceOnUse">
+      <rect width="11" height="11" style="fill: var(--night)"/>
+      <path d="M3 1.2 L3.6 2.6 L5 3 L3.6 3.4 L3 4.8 L2.4 3.4 L1 3 L2.4 2.6 Z" style="fill: var(--pop-4)"/>
+      <circle cx="8.5" cy="8" r="0.8" style="fill: var(--cream)"/>
+    </pattern>
+  </defs>
+</svg>
+
+<!-- The Ghost: A's white dome with its face, wearing a Card as a long dress with a wavy hem, and C's wisp peeking out underneath. -->
+<template id="ghost-svg">
+  <svg viewBox="0 0 64 70" aria-hidden="true">
+   <g class="lean">
+    <g class="turn">
+    <!-- What each disguise carries on its back. The Ghost faces right, so its back is on the left. -->
+    <g class="back-none" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M14.5 35 Q5.5 29 6.5 35.5 Q7.5 40 14.5 36.5 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2"/>
+      <path d="M14.5 36.5 Q8 42.5 10.5 45 Q13.5 45.5 15 38 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2"/>
+      <circle cx="14.2" cy="35.8" r="2" style="fill: var(--f-dark); stroke: var(--ink)" stroke-width="1.8"/>
+    </g>
+    <g class="back-ninja" stroke-linecap="round">
+      <path d="M8.5 53 L21 12" style="stroke: var(--ink)" stroke-width="5.4" fill="none"/>
+      <path d="M8.5 53 L21 12" style="stroke: var(--f-dark)" stroke-width="3" fill="none"/>
+      <path d="M21.2 11.5 L24.2 2.5" style="stroke: var(--ink)" stroke-width="4.4" fill="none"/>
+      <path d="M21.2 11.5 L24.2 2.5" style="stroke: var(--f-main)" stroke-width="2.2" stroke-dasharray="1.6 1.2" fill="none"/>
+      <ellipse cx="21.2" cy="11.8" rx="3.6" ry="1.5" transform="rotate(-17 21.2 11.8)" style="fill: var(--f-light); stroke: var(--ink)" stroke-width="1.6"/>
+    </g>
+    <g class="back-thief" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M15 31 C4 30 1.5 44 5.5 48.5 C9 52.5 15 50.5 15 50.5 Z" style="fill: var(--f-light); stroke: var(--ink)" stroke-width="2.2"/>
+      <path d="M13.5 31 L9.5 26 M13.5 31 L15.5 25.5" fill="none" style="stroke: var(--ink)" stroke-width="2"/>
+      <rect x="6.5" y="38" width="5" height="5" rx="1" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="1.4"/>
+    </g>
+    <g class="back-astro" stroke-linejoin="round" stroke-linecap="round">
+      <path class="flame" d="M7.5 51 Q8.8 57 10.3 51 Z" style="fill: var(--pop-4); stroke: var(--pop-1)" stroke-width="1.2"/>
+      <path d="M7 47 L6.6 51 H11.2 L10.8 47 Z" style="fill: var(--ink)"/>
+      <rect x="4.5" y="29.5" width="11" height="18" rx="3.5" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2.2"/>
+      <path d="M7.5 33 V44" fill="none" style="stroke: var(--f-light)" stroke-width="1.6" opacity="0.8"/>
+    </g>
+    <g class="back-rogue" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 13 L13.5 5 M17.5 13.5 L18 5.5 M19.5 15 L22 8" fill="none" style="stroke: var(--ink)" stroke-width="1.6"/>
+      <path d="M13.5 5 l-2 -2.5 l3.2 0.6 Z M18 5.5 l-1 -3 l2.6 1.2 Z M22 8 l0.2 -3.2 l1.8 2.4 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="1"/>
+      <path d="M7.5 47 L16.5 14" fill="none" style="stroke: var(--ink)" stroke-width="7.4"/>
+      <path d="M7.5 47 L16.5 14" fill="none" style="stroke: var(--f-dark)" stroke-width="5"/>
+    </g>
+    <g class="sway">
+      <path d="M34 52 H23 C22.5 56.5 21.5 59 19 59.8 C17.5 60.3 16 59.4 15.5 58 C15 62 18 65.5 22.5 65 C28.5 64.5 32.5 60 34 52 Z" style="fill: var(--ghost); stroke: var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>
+    </g>
+    <path d="M14 36 C14 18 22 8 32 8 C42 8 50 18 50 36 Z" style="fill: var(--ghost); stroke: var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M44 15 C47 19 48 24 48 29" fill="none" style="stroke: var(--ghost-shade)" stroke-width="3" stroke-linecap="round"/>
+    <g class="hem">
+      <path class="dress" d="M12.5 33 Q12.5 29 16.5 29 H47.5 Q51.5 29 51.5 33 V56 Q48 62 44 56 Q40 50 36 56 Q32 62 28 56 Q24 50 20 56 Q16 62 12.5 56 Z" stroke-width="3" stroke-linejoin="round" style="stroke: var(--ink)"/>
+      <rect x="16" y="32.5" width="32" height="17.5" rx="2.4" fill="none" style="stroke: var(--cream)" stroke-width="1.6"/>
+    </g>
+    <g class="rogue">
+      <path fill-rule="evenodd" d="M11 37 Q13.6 33.5 13.8 27 C14 15 21.5 3.5 32 3.5 C42.5 3.5 50 15 50.2 27 Q50.4 33.5 53 37 Z M18 21.5 A14 12.5 0 1 0 46 21.5 A14 12.5 0 1 0 18 21.5 Z" style="fill: var(--f-dark); stroke: var(--ink)" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M18 21.5 A14 12.5 0 1 0 46 21.5 A14 12.5 0 1 0 18 21.5 Z" style="fill: var(--ink)" opacity="0.55"/>
+    </g>
+    <!-- The face turns a little toward where the Ghost faces, and looks where it's going. -->
+    <g class="face" stroke-linejoin="round" stroke-linecap="round">
+      <ellipse cx="21" cy="25" rx="2.8" ry="1.6" style="fill: var(--pop-1)" opacity="0.45"/>
+      <ellipse cx="43" cy="25" rx="2.8" ry="1.6" style="fill: var(--pop-1)" opacity="0.45"/>
+      <path d="M29.5 24.8 Q32 27.2 34.5 24.8" fill="none" style="stroke: var(--ink)" stroke-width="2"/>
+      <ellipse cx="26" cy="19.5" rx="2.7" ry="3.6" style="fill: var(--ink)"/>
+      <ellipse cx="38" cy="19.5" rx="2.7" ry="3.6" style="fill: var(--ink)"/>
+      <circle cx="27" cy="18.1" r="1" fill="#fff"/>
+      <circle cx="39" cy="18.1" r="1" fill="#fff"/>
+      <g class="thief">
+        <path d="M16.5 18 Q24 14 32 17.6 Q40 14 47.5 18 Q47.5 24.5 40 24 Q35 23.5 32 21.4 Q29 23.5 24 24 Q16.5 24.5 16.5 18 Z" style="fill: var(--f-dark); stroke: var(--ink)" stroke-width="2"/>
+        <ellipse cx="26" cy="19.6" rx="3.3" ry="2.7" style="fill: var(--ghost)"/>
+        <ellipse cx="38" cy="19.6" rx="3.3" ry="2.7" style="fill: var(--ghost)"/>
+        <circle cx="27" cy="19.8" r="1.7" style="fill: var(--ink)"/>
+        <circle cx="39" cy="19.8" r="1.7" style="fill: var(--ink)"/>
+      </g>
+      <g class="rogue">
+        <path d="M21.5 13.5 Q32 9 42.5 13.5 L42 23 Q38.5 30 32 31 Q25.5 30 22 23 Z" style="fill: var(--plate); stroke: var(--ink)" stroke-width="2"/>
+        <path d="M32 11 V30" fill="none" style="stroke: var(--ink)" stroke-width="1.2" opacity="0.35"/>
+        <g filter="url(#glow)">
+          <path d="M23.5 17.5 L30 19.8 L29 22.2 L23.5 20.3 Z" style="fill: var(--f-glow)"/>
+          <path d="M40.5 17.5 L34 19.8 L35 22.2 L40.5 20.3 Z" style="fill: var(--f-glow)"/>
+        </g>
+        <path d="M28.6 25.8 H35.4 M29.3 27.8 H34.7" fill="none" style="stroke: var(--ink)" stroke-width="1.3" opacity="0.6"/>
+      </g>
+    </g>
+    <g class="ninja" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M14.6 22.5 Q32 25.5 49.4 22.5 L50 31 L14 31 Z" style="fill: var(--f-dark); stroke: var(--ink)" stroke-width="2.4"/>
+      <path d="M24 27 Q29 25.8 34 27.4" fill="none" style="stroke: var(--f-main)" stroke-width="1.4"/>
+      <path class="tails" d="M18.5 13.4 Q12 9.5 7 12.5 Q11.5 13.5 14.5 15.5 Z M18.5 14.6 Q12 16 9 21 Q13.5 19.5 17 17 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2"/>
+      <path d="M19 12.5 Q32 7.5 45 12.5 L45.8 15.5 Q32 10.8 18.2 15.5 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2"/>
+    </g>
+    <g class="thief" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M17 13 C19 4.5 25.5 1.5 32 1.5 C38.5 1.5 45 4.5 47 13 Z" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2.4"/>
+      <path d="M19.2 8.6 Q32 5.4 44.8 8.6 L45.6 10.8 Q32 7.6 18.4 10.8 Z" style="fill: var(--f-dark)"/>
+      <circle cx="32" cy="1.5" r="2.6" style="fill: var(--f-light); stroke: var(--ink)" stroke-width="2"/>
+      <path d="M15.5 13.5 Q32 9.5 48.5 13.5 L48 16.5 Q32 12.5 16 16.5 Z" style="fill: var(--f-dark); stroke: var(--ink)" stroke-width="2.2"/>
+    </g>
+    <g class="astro" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M17.6 31 A17.5 17.5 0 1 1 46.4 31 Z" style="fill: var(--glass); stroke: var(--ink)" stroke-width="2.6"/>
+      <path d="M21 16 A13 13 0 0 1 29 7.6" fill="none" stroke="#fff" stroke-width="2.6" opacity="0.85"/>
+      <circle cx="20.6" cy="20.5" r="1.2" fill="#fff" opacity="0.85"/>
+      <path d="M30 3.5 Q29 -1 32 -3.5" fill="none" style="stroke: var(--ink)" stroke-width="2.2"/>
+      <circle cx="32.5" cy="-4.5" r="2.6" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2"/>
+      <rect x="15.5" y="29" width="33" height="5.5" rx="2.75" style="fill: var(--f-main); stroke: var(--ink)" stroke-width="2.4"/>
+      <circle cx="21" cy="31.75" r="0.9" style="fill: var(--ink)"/>
+      <circle cx="43" cy="31.75" r="0.9" style="fill: var(--ink)"/>
+    </g>
+    <path class="rogue" d="M15.5 31 Q17.5 34 21.5 35 M48.5 31 Q46.5 34 42.5 35" fill="none" style="stroke: var(--f-main)" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+   </g>
+  </svg>
+</template>
+
+<main data-helmet="ninja">
+  <header>
+    <h1>Ghost proposals</h1>
+    <p class="lede">Sheet's dome and face, wearing a Card as a long dress with a wavy hem, with Wisp's tail just peeking out underneath. Each Observer chooses their own fabric from these six. Switch disguises below to try each one on every Ghost. Click or tap a table to throw a tomato.</p>
+    <div class="helmets" role="group" aria-label="Disguise">
+      <span>Disguise</span>
+      <button type="button" id="helmet-none" data-helmet="none" aria-pressed="false">None</button>
+      <button type="button" id="helmet-ninja" data-helmet="ninja" aria-pressed="true">Ninja</button>
+      <button type="button" id="helmet-thief" data-helmet="thief" aria-pressed="false">Thief</button>
+      <button type="button" id="helmet-astro" data-helmet="astro" aria-pressed="false">Astronaut</button>
+      <button type="button" id="helmet-rogue" data-helmet="rogue" aria-pressed="false">Rogue</button>
+    </div>
+  </header>
+
+  <section class="grid" aria-label="Fabrics">
+    <article class="specimen" data-fabric="p-stripes">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Coral ghost"><div class="ghost-wrap bob"><span class="tag">Ana</span></div></div>
+      <div class="meta"><h3>Coral stripes</h3><p>The app's own orange.</p></div>
+    </article>
+    <article class="specimen" data-fabric="p-gingham">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Berry ghost"><div class="ghost-wrap bob"><span class="tag">Bruno</span></div></div>
+      <div class="meta"><h3>Berry gingham</h3><p>Pink picnic check.</p></div>
+    </article>
+    <article class="specimen" data-fabric="p-suits">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Sunny ghost"><div class="ghost-wrap bob"><span class="tag">Carla</span></div></div>
+      <div class="meta"><h3>Sunny suits</h3><p>Spades and hearts.</p></div>
+    </article>
+    <article class="specimen" data-fabric="p-dots">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Mint ghost"><div class="ghost-wrap bob"><span class="tag">Davi</span></div></div>
+      <div class="meta"><h3>Mint dots</h3><p>Close to the Table's green.</p></div>
+    </article>
+    <article class="specimen" data-fabric="p-zigzag">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Lilac ghost"><div class="ghost-wrap bob"><span class="tag">Elisa</span></div></div>
+      <div class="meta"><h3>Lilac zigzag</h3><p>Soft purple ric-rac.</p></div>
+    </article>
+    <article class="specimen" data-fabric="p-stars">
+      <div class="stage" tabindex="0" role="button" aria-label="Throw a tomato at the Night ghost"><div class="ghost-wrap bob"><span class="tag">Fábio</span></div></div>
+      <div class="meta"><h3>Night stars</h3><p>Ink blue with gold stars.</p></div>
+    </article>
+  </section>
+
+  <section class="real" aria-labelledby="walk-title">
+    <h2 id="walk-title">Walking</h2>
+    <p class="lede">Click anywhere on the Table to walk the Ghost there; it also wanders on its own. It turns to face where it's going, so what it carries on its back shows which way that is. It leans in, looks ahead, trails its tail and flutters its hem. Throw a tomato while it walks to see it home in.</p>
+    <div class="walk-controls">
+      <label for="walk-fabric">Fabric</label>
+      <select id="walk-fabric">
+        <option value="p-stripes">Coral stripes</option>
+        <option value="p-gingham">Berry gingham</option>
+        <option value="p-suits">Sunny suits</option>
+        <option value="p-dots">Mint dots</option>
+        <option value="p-zigzag" selected>Lilac zigzag</option>
+        <option value="p-stars">Night stars</option>
+      </select>
+      <button type="button" id="walk-throw">Throw a tomato 🍅</button>
+    </div>
+    <div class="walk-stage" id="walk-stage"><div class="walker bob" id="walker"><span class="tag">Elisa</span></div></div>
+  </section>
+
+  <section class="real" aria-labelledby="real-title">
+    <h2 id="real-title">At real size, around a Table</h2>
+    <p class="lede">About 42px wide on the Table, next to seats with Cards, each Observer in the fabric they chose.</p>
+    <div class="room">
+      <div class="oval">8.0</div>
+      <div class="seat" style="left: 22%; top: 18%"></div>
+      <div class="seat" style="left: 47%; top: 4%"></div>
+      <div class="seat" style="right: 22%; top: 18%"></div>
+      <div class="seat" style="left: 47%; bottom: 6%"></div>
+      <div class="mini bob" data-fabric="p-stripes" style="left: 8%; top: 38%"><span class="tag">Ana</span></div>
+      <div class="mini bob" data-fabric="p-stars" style="left: 33%; top: 34%; animation-delay: -0.6s"><span class="tag">Fábio</span></div>
+      <div class="mini bob" data-fabric="p-gingham" style="right: 30%; top: 48%; animation-delay: -1.2s"><span class="tag">Bruno</span></div>
+      <div class="mini bob" data-fabric="p-suits" style="right: 7%; top: 32%; animation-delay: -1.8s"><span class="tag">Carla</span></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const template = document.getElementById("ghost-svg");
+  // Each fabric's colours, for the disguises: [main, dark, light, glowing eyes].
+  const PALETTES = {
+    "p-stripes": ["var(--pop-1)", "oklch(0.45 0.13 32)", "var(--cream)", "oklch(0.8 0.17 50)"],
+    "p-gingham": ["var(--pop-5)", "oklch(0.42 0.13 330)", "var(--pop-5-light)", "oklch(0.75 0.2 330)"],
+    "p-suits": ["var(--pop-4)", "oklch(0.5 0.1 80)", "var(--cream)", "oklch(0.9 0.17 95)"],
+    "p-dots": ["var(--pop-3)", "oklch(0.42 0.1 150)", "var(--cream)", "oklch(0.85 0.2 145)"],
+    "p-zigzag": ["var(--lilac)", "oklch(0.42 0.1 300)", "var(--cream)", "oklch(0.72 0.22 305)"],
+    "p-stars": ["var(--night)", "oklch(0.2 0.05 285)", "var(--pop-4)", "oklch(0.88 0.17 95)"],
+  };
+  function dress(svg, fabric) {
+    svg.querySelector(".dress").style.fill = `url(#${fabric})`;
+    const [main, dark, light, glow] = PALETTES[fabric];
+    svg.style.setProperty("--f-main", main);
+    svg.style.setProperty("--f-dark", dark);
+    svg.style.setProperty("--f-light", light);
+    svg.style.setProperty("--f-glow", glow);
+  }
+  document.querySelectorAll("[data-fabric]").forEach((holder) => {
+    const target = holder.classList.contains("mini") ? holder : holder.querySelector(".ghost-wrap");
+    const svg = template.content.firstElementChild.cloneNode(true);
+    dress(svg, holder.dataset.fabric);
+    target.prepend(svg);
+  });
+
+  // The walking demo: constant speed (the stage's width in 1.5 s), eased in and out.
+  const stage = document.getElementById("walk-stage");
+  const walker = document.getElementById("walker");
+  const walkSvg = template.content.firstElementChild.cloneNode(true);
+  walker.prepend(walkSvg);
+  const fabricSelect = document.getElementById("walk-fabric");
+  dress(walkSvg, fabricSelect.value);
+  fabricSelect.addEventListener("change", () => dress(walkSvg, fabricSelect.value));
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let pos = { x: 120, y: 90 };
+  let trip = null;
+  let lastClick = 0;
+  function place() { walker.style.transform = `translate(${pos.x - 32}px, ${pos.y - 35}px)`; }
+  place();
+  function walkTo(x, y) {
+    const w = stage.clientWidth, h = stage.clientHeight;
+    const to = { x: Math.max(36, Math.min(w - 36, x)), y: Math.max(40, Math.min(h - 50, y)) };
+    const dx = to.x - pos.x, dy = to.y - pos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 4) return;
+    if (reduceMotion) { pos = to; place(); return; }
+    const speed = w / 1.5;
+    trip = { from: { ...pos }, to, start: performance.now(), duration: Math.max(250, (dist / speed) * 1000) };
+    if (Math.abs(dx) > 6) walker.classList.toggle("left", dx < 0);
+    walkSvg.style.setProperty("--lean", `${(10 * dx) / dist}deg`);
+    walkSvg.style.setProperty("--look-x", `${(1.4 * Math.abs(dx)) / dist}px`);
+    walkSvg.style.setProperty("--look-y", `${(1.4 * dy) / dist}px`);
+    walker.classList.add("walking");
+  }
+  function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function tick(now) {
+    if (trip) {
+      const t = Math.min(1, (now - trip.start) / trip.duration);
+      const k = ease(t);
+      pos = { x: trip.from.x + (trip.to.x - trip.from.x) * k, y: trip.from.y + (trip.to.y - trip.from.y) * k };
+      place();
+      if (t >= 1) {
+        const lean = parseFloat(walkSvg.style.getPropertyValue("--lean")) || 0;
+        trip = null;
+        walker.classList.remove("walking");
+        walkSvg.style.setProperty("--lean", `${-lean * 0.4}deg`);
+        setTimeout(() => walkSvg.style.setProperty("--lean", "0deg"), 220);
+        walkSvg.style.setProperty("--look-x", "0px");
+        walkSvg.style.setProperty("--look-y", "0px");
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+  stage.addEventListener("click", (e) => {
+    const box = stage.getBoundingClientRect();
+    lastClick = performance.now();
+    walkTo(e.clientX - box.left, e.clientY - box.top);
+  });
+  setInterval(() => {
+    if (trip || performance.now() - lastClick < 4000) return;
+    walkTo(Math.random() * stage.clientWidth, Math.random() * stage.clientHeight);
+  }, 1800);
+
+  // A homing tomato: every frame it re-reads where the Ghost is drawn and steers along its arc toward it.
+  document.getElementById("walk-throw").addEventListener("click", () => {
+    const tomato = document.createElement("span");
+    tomato.className = "homing";
+    tomato.textContent = "🍅";
+    tomato.setAttribute("aria-hidden", "true");
+    stage.append(tomato);
+    const start = { x: 10, y: stage.clientHeight - 30 };
+    const t0 = performance.now();
+    const duration = 650;
+    function fly(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const box = stage.getBoundingClientRect();
+      const g = walker.getBoundingClientRect();
+      const target = { x: g.left + g.width / 2 - box.left - 12, y: g.top + g.height / 2 - box.top - 30 };
+      const lift = 90 * Math.sin(Math.PI * t);
+      const x = start.x + (target.x - start.x) * t;
+      const y = start.y + (target.y - start.y) * t - lift;
+      tomato.style.transform = `translate(${x}px, ${y}px) rotate(${t * 720}deg)`;
+      if (t < 1) return requestAnimationFrame(fly);
+      tomato.remove();
+      walker.classList.remove("hit");
+      void walker.offsetWidth;
+      walker.classList.add("hit");
+    }
+    requestAnimationFrame(fly);
+  });
+
+  const main = document.querySelector("main");
+  document.querySelectorAll(".helmets button").forEach((button) => {
+    button.addEventListener("click", () => {
+      main.dataset.helmet = button.dataset.helmet;
+      document.querySelectorAll(".helmets button").forEach((b) => b.setAttribute("aria-pressed", String(b === button)));
+    });
+  });
+
+  function throwAt(stage) {
+    const wrap = stage.querySelector(".ghost-wrap");
+    const splat = document.createElement("span");
+    splat.className = "splat";
+    splat.textContent = "🍅";
+    splat.setAttribute("aria-hidden", "true");
+    stage.append(splat);
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const box = stage.getBoundingClientRect();
+    const target = wrap.getBoundingClientRect();
+    const dx = target.left + target.width / 2 - box.left - 14;
+    const dy = target.top + target.height / 2 - box.top - 30;
+    splat.style.left = "0px";
+    splat.style.top = box.height - 30 + "px";
+    const end = `translate(${dx}px, ${dy - box.height + 30}px)`;
+    const anim = reduce
+      ? splat.animate([{ opacity: 0, transform: end }, { opacity: 1, transform: end }, { opacity: 0, transform: end }], { duration: 700, fill: "forwards" })
+      : splat.animate(
+          [
+            { transform: "translate(0,0) rotate(0)" },
+            { transform: `translate(${dx / 2}px, ${dy - box.height - 10}px) rotate(300deg)` },
+            { transform: `${end} rotate(600deg)` },
+          ],
+          { duration: 520, easing: "cubic-bezier(0.3,0,0.6,1)", fill: "forwards" },
+        );
+    anim.onfinish = () => {
+      splat.remove();
+      wrap.classList.remove("hit");
+      void wrap.offsetWidth;
+      wrap.classList.add("hit");
+    };
+  }
+  document.querySelectorAll(".stage").forEach((stage) => {
+    stage.addEventListener("click", () => throwAt(stage));
+    stage.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); throwAt(stage); }
+    });
+  });
+</script>
