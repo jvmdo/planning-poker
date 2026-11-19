@@ -7,6 +7,7 @@ import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { withMarkLabel, type RoundReading } from "./lib/vote-marks";
 import { Logo } from "./logo";
 import { ParticipantList } from "./participant-list";
 import { RoleToggle } from "./role-toggle";
@@ -22,6 +23,7 @@ const COLLAPSE_BELOW_PX = 1280;
  */
 export function Sidebar({
   snapshot,
+  round,
   me,
   myId,
   onHandOver,
@@ -30,6 +32,7 @@ export function Sidebar({
   onLeave,
 }: {
   snapshot: RoomSnapshot;
+  round: RoundReading;
   me: ParticipantView;
   myId: ParticipantId;
   /** Only given to the Facilitator. */
@@ -98,7 +101,7 @@ export function Sidebar({
       </div>
       {collapsed ? (
         <>
-          <CollapsedVoters snapshot={snapshot} myId={myId} />
+          <CollapsedVoters snapshot={snapshot} round={round} myId={myId} />
           <div className="flex w-full flex-col items-center gap-3 border-t py-4">
             {roleToggle}
             {toggle}
@@ -110,6 +113,7 @@ export function Sidebar({
             participants={snapshot.participants}
             myId={myId}
             revealed={snapshot.revealed}
+            markOf={round.markOf}
             onHandOver={onHandOver}
           />
           <div className="flex items-end justify-between gap-2 border-t p-4">
@@ -137,9 +141,11 @@ export function Sidebar({
 /** Each Voter's Card, without names; the name shows on hover and is read by screen readers. */
 function CollapsedVoters({
   snapshot,
+  round,
   myId,
 }: {
   snapshot: RoomSnapshot;
+  round: RoundReading;
   myId: ParticipantId;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
@@ -150,10 +156,12 @@ function CollapsedVoters({
     >
       {voters.map((p) => {
         const name = p.id === myId ? `${p.name} (you)` : p.name;
+        const mark = round.markOf(p.id);
         return (
           <li
             key={p.id}
-            title={name}
+            // Screen readers hear "Outlier" from the Card itself.
+            title={withMarkLabel(name, mark)}
             className={cn(
               "grid size-10 shrink-0 place-items-center rounded-lg",
               p.id === myId && "bg-background",
@@ -165,6 +173,7 @@ function CollapsedVoters({
               participant={p}
               revealed={snapshot.revealed}
               size="small"
+              mark={mark}
             />
           </li>
         );

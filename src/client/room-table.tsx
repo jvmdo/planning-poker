@@ -12,6 +12,7 @@ import {
 } from "../shared/fun";
 import { useEffect, useRef, useState } from "react";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
+import type { RoundReading } from "./lib/vote-marks";
 import { TableSeat, type DeckItem } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
 
@@ -22,11 +23,13 @@ import { useFunEvents } from "./use-fun-events";
  */
 export function RoomTable({
   snapshot,
+  round,
   myId,
   onReact,
   onThrow,
 }: {
   snapshot: RoomSnapshot;
+  round: RoundReading;
   myId: ParticipantId;
   /** Both say false when nothing was sent, because the burst is used up. True plays it at once. */
   onReact: (reaction: Reaction) => boolean;
@@ -119,6 +122,7 @@ export function RoomTable({
                 participant={p}
                 isMe={isMe}
                 revealed={snapshot.revealed}
+                mark={round.markOf(p.id)}
                 left={50 + 50 * Math.cos(angle)}
                 top={50 + 50 * Math.sin(angle)}
                 deck={deckFor(p)}

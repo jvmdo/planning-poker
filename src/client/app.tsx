@@ -7,6 +7,7 @@ import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
 import { shareLinkOf, shortRoomId, showInAddressBar } from "./lib/page-room";
 import { NoticeToast } from "./notice-toast";
+import { useRoundReading } from "./lib/vote-marks";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
@@ -56,6 +57,8 @@ export function App({
     react,
     throwAt,
   } = useRoom(identity, roomId, rejoin);
+  // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
+  const round = useRoundReading(snapshot);
 
   // The tab title names the Room, on the join screen too, so two open tabs are easy to tell apart.
   useEffect(() => {
@@ -119,6 +122,7 @@ export function App({
     <div className="flex h-svh">
       <Sidebar
         snapshot={snapshot}
+        round={round}
         me={me}
         myId={identity.id}
         onHandOver={me.isFacilitator ? handOver : undefined}
@@ -142,6 +146,7 @@ export function App({
         <div className="relative flex min-h-0 flex-1 flex-col">
           <RoomTable
             snapshot={snapshot}
+            round={round}
             myId={identity.id}
             onReact={react}
             onThrow={throwAt}
@@ -151,7 +156,11 @@ export function App({
         {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
         <div className="h-(--hand-height) shrink-0">
           {snapshot.revealed ? (
-            <ResultBreakdown snapshot={snapshot} />
+            <ResultBreakdown
+              snapshot={snapshot}
+              round={round}
+              myId={identity.id}
+            />
           ) : me.role === "voter" ? (
             <CardHand
               deck={snapshot.deck}
