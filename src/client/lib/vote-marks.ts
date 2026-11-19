@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Card } from "../../shared/deck";
+import type { Card, Deck } from "../../shared/deck";
 import type { ParticipantId, RoomSnapshot } from "../../shared/protocol";
 import { agreementOf, type Agreement } from "../../shared/agreement";
 
@@ -16,15 +16,23 @@ export const MARK_COLOURS: Record<VoteMark, { fill: string; ring: string }> = {
 /** How the revealed Votes came out, and which Cards to mark. */
 export interface RoundReading {
   agreement: Agreement;
-  /** The Outliers' names as they were at the Reveal, lowest Vote first. */
+  /** The Outliers' names as they were when read, lowest Vote first. */
   outlierNames: string[];
   markOfCard: (card: Card) => VoteMark | null;
   markOf: (id: ParticipantId) => VoteMark | null;
 }
 
-/** A reading taken at the Reveal of one Round. */
+/** A revealed Vote, with its Voter's name as it was when it was read. */
+interface ReadVote {
+  id: ParticipantId;
+  name: string;
+  vote: Card;
+}
+
+/** A reading taken at the Reveal of one Round, with the Votes it was read from. */
 export interface KeptReading {
   round: number;
+  votes: ReadVote[];
   reading: RoundReading;
 }
 
@@ -38,7 +46,8 @@ const NOTHING: RoundReading = {
 
 /**
  * The reading to show, taken at the Reveal and kept until the Round changes, so Voters who leave
- * or turn Observer afterwards don't change who is asked. A page opened after the Reveal reads the
+ * or turn Observer afterwards don't change who is asked. A Vote that comes back after the Reveal
+ * (its Voter rejoined) is added and the Votes read again. A page opened after the Reveal reads the
  * Votes still there.
  */
 export function keepReading(
@@ -46,8 +55,29 @@ export function keepReading(
   snapshot: RoomSnapshot,
 ): KeptReading | null {
   if (!snapshot.revealed) return null;
-  if (kept?.round === snapshot.round) return kept;
-  return { round: snapshot.round, reading: readRound(snapshot) };
+  const current = revealedVotes(snapshot);
+  if (kept?.round !== snapshot.round)
+    return read(snapshot.round, current, snapshot);
+
+  const back = current.filter((v) => !kept.votes.some((k) => k.id === v.id));
+  if (back.length === 0) return kept;
+  return read(snapshot.round, [...kept.votes, ...back], snapshot);
+}
+
+function revealedVotes(snapshot: RoomSnapshot): ReadVote[] {
+  return snapshot.participants.flatMap((p) =>
+    p.role === "voter" && p.vote !== null
+      ? [{ id: p.id, name: p.name, vote: p.vote }]
+      : [],
+  );
+}
+
+function read(
+  round: number,
+  votes: ReadVote[],
+  snapshot: RoomSnapshot,
+): KeptReading {
+  return { round, votes, reading: readingOf(votes, snapshot.deck) };
 }
 
 /** The Round's reading, kept from the Reveal to the next Round. */
@@ -58,13 +88,9 @@ export function useRoundReading(snapshot: RoomSnapshot | null): RoundReading {
   return next?.reading ?? NOTHING;
 }
 
-/** Reads the revealed Votes as they are now. */
-function readRound(snapshot: RoomSnapshot): RoundReading {
-  const voters = snapshot.participants.filter((p) => p.role === "voter");
-  const votes = voters.flatMap((p) =>
-    p.vote !== null ? [{ id: p.id, vote: p.vote }] : [],
-  );
-  const agreement = agreementOf(votes, snapshot.deck);
+/** How `votes` came out on `deck`, and which Cards to mark. */
+function readingOf(votes: ReadVote[], deck: Deck): RoundReading {
+  const agreement = agreementOf(votes, deck);
   const voteOf = new Map(votes.map((v) => [v.id, v.vote]));
   // Everyone on the same Card shares its mark.
   const marks = new Map<Card, VoteMark>();
@@ -84,7 +110,7 @@ function readRound(snapshot: RoomSnapshot): RoundReading {
     outlierNames:
       agreement.kind === "outliers"
         ? agreement.outliers.map(
-            (id) => voters.find((p) => p.id === id)?.name ?? "",
+            (id) => votes.find((v) => v.id === id)?.name ?? "",
           )
         : [],
     markOfCard,

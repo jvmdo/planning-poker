@@ -65,6 +65,25 @@ describe("the reading of a Round", () => {
     expect(keepReading(kept, daviObserves)).toBe(kept);
   });
 
+  it("is read again when a Vote comes back after the Reveal, keeping those who left", () => {
+    // Fábio's phone slept through the Reveal; Eva leaves after it.
+    const kept = keepReading(null, revealed);
+    const fabioBack = {
+      ...revealed,
+      participants: [
+        ...revealed.participants.filter((p) => p.name !== "Eva"),
+        voter("Fábio", 64),
+      ],
+    };
+
+    const next = keepReading(kept, fabioBack);
+
+    expect(next).not.toBe(kept);
+    expect(next?.reading.outlierNames).toEqual(["Davi", "Eva", "Fábio"]);
+    expect(next?.reading.markOf("Fábio")).toBe("outlier");
+    expect(keepReading(next, fabioBack)).toBe(next);
+  });
+
   it("is dropped when the next Round starts", () => {
     const kept = keepReading(null, revealed);
     const next = {
