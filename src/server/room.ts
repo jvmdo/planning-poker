@@ -127,6 +127,11 @@ export function createRoom(): Room {
   const participants = new Map<ParticipantId, Participant>();
   let facilitatorId: ParticipantId | null = null;
   const votes = new Map<ParticipantId, Card>();
+  /**
+   * The Votes of Voters whose grace period ran out, set aside until the Round ends, so a phone that
+   * slept through it gets its Vote back on rejoining. They count only once their Voter is back.
+   */
+  const setAside = new Map<ParticipantId, Card>();
   let revealed = false;
   let round = 1;
   /** Kept when everyone leaves: only a new Room (a server start) begins with the default. */
@@ -144,6 +149,7 @@ export function createRoom(): Room {
 
   function discardRound() {
     votes.clear();
+    setAside.clear();
     revealed = false;
     round += 1;
   }
@@ -175,11 +181,14 @@ export function createRoom(): Room {
     return { ok: true };
   }
 
-  function remove(id: ParticipantId) {
+  /** `keepVote` sets their Vote aside for the rest of the Round, in case they come back. */
+  function remove(id: ParticipantId, { keepVote = false } = {}) {
     clearTimeout(graceTimers.get(id));
     graceTimers.delete(id);
     participants.delete(id);
     bursts.delete(id);
+    const vote = votes.get(id);
+    if (keepVote && vote !== undefined) setAside.set(id, vote);
     votes.delete(id);
     if (facilitatorId === id) {
       // The Round can't continue without anyone to run it.
@@ -205,6 +214,11 @@ export function createRoom(): Room {
       graceTimers.delete(id);
       if (participants.size === 0) facilitatorId = id;
       const existing = participants.get(id);
+      const vote = setAside.get(id);
+      if (!existing && vote !== undefined) {
+        votes.set(id, vote);
+        setAside.delete(id);
+      }
       participants.set(id, {
         id,
         name: name.trim(),
@@ -292,7 +306,7 @@ export function createRoom(): Room {
       }
       graceTimers.set(
         id,
-        setTimeout(() => remove(id), GRACE_PERIOD_MS),
+        setTimeout(() => remove(id, { keepVote: true }), GRACE_PERIOD_MS),
       );
       notifyChanged();
       return { ok: true };

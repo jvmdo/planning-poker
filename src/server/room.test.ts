@@ -669,7 +669,7 @@ describe("disconnects and the grace period", () => {
     ]);
   });
 
-  it("removes them and discards their Vote when 30 seconds pass, telling everyone", () => {
+  it("removes them and leaves their Vote out when 30 seconds pass, telling everyone", () => {
     const room = createRoom();
     room.join("ana-id", "Ana");
     room.join("bruno-id", "Bruno");
@@ -690,6 +690,100 @@ describe("disconnects and the grace period", () => {
     ]);
     room.reveal("ana-id");
     expect(room.snapshotFor("ana-id").result).toBe(2);
+  });
+
+  describe("a Voter who comes back after their grace period ran out", () => {
+    function awayTooLong() {
+      const room = createRoom();
+      room.join("ana-id", "Ana");
+      room.join("bruno-id", "Bruno");
+      room.vote("ana-id", 2);
+      room.vote("bruno-id", 8);
+      room.disconnect("bruno-id");
+      vi.advanceTimersByTime(30_000);
+      return room;
+    }
+
+    it("gets their Vote back before the Reveal", () => {
+      const room = awayTooLong();
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+        participant("bruno-id", "Bruno", { hasVoted: true }),
+      );
+      expect(room.snapshotFor("bruno-id").myVote).toBe(8);
+      room.reveal("ana-id");
+      expect(room.snapshotFor("ana-id").result).toBe(5);
+    });
+
+    it("gets their Vote back after the Reveal, face-up and in the Result", () => {
+      const room = awayTooLong();
+      room.reveal("ana-id");
+      expect(room.snapshotFor("ana-id").result).toBe(2);
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+        participant("bruno-id", "Bruno", { hasVoted: true, vote: 8 }),
+      );
+      expect(room.snapshotFor("ana-id").result).toBe(5);
+    });
+
+    it("doesn't get it back once the next Round has started", () => {
+      const room = awayTooLong();
+      room.newRound("ana-id");
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+    });
+
+    it("doesn't get it back after the Deck changed", () => {
+      const room = awayTooLong();
+      room.setDeck("ana-id", [1, 2, 3, 5, 8]);
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+    });
+
+    it("doesn't get it back when the Facilitator was lost meanwhile", () => {
+      const room = createRoom();
+      room.join("ana-id", "Ana");
+      room.join("bruno-id", "Bruno");
+      room.vote("bruno-id", 8);
+      room.disconnect("bruno-id");
+      room.disconnect("ana-id");
+      vi.advanceTimersByTime(30_000);
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+    });
+
+    it("doesn't get it back after choosing to Leave", () => {
+      const room = createRoom();
+      room.join("ana-id", "Ana");
+      room.join("bruno-id", "Bruno");
+      room.vote("bruno-id", 8);
+      room.leave("bruno-id");
+
+      room.join("bruno-id", "Bruno");
+
+      expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+    });
+
+    it("leaves nothing for anyone else who joins", () => {
+      const room = awayTooLong();
+
+      room.join("carla-id", "Carla");
+
+      expect(room.snapshotFor("carla-id").myVote).toBeNull();
+      expect(room.snapshotFor("ana-id").participants[1]).toEqual(
+        participant("carla-id", "Carla"),
+      );
+    });
   });
 
   it("restores a Participant exactly as before when they rejoin at 29 seconds, and keeps them after that", () => {
