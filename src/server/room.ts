@@ -33,6 +33,12 @@ import {
 } from "../shared/fun.js";
 import { GRACE_PERIOD_MS } from "../shared/protocol.js";
 
+/**
+ * The most Participants a Room takes, counting those in their grace period. Each change sends every
+ * Participant their own snapshot, and that CPU is the free instance's real limit (ADR 0002).
+ */
+const MAX_PARTICIPANTS = 30;
+
 interface Participant {
   id: ParticipantId;
   name: string;
@@ -42,6 +48,11 @@ interface Participant {
 }
 
 export interface Room {
+  /**
+   * Adds the Participant, or reconnects them if they're already in the Room. A new Participant
+   * past MAX_PARTICIPANTS is refused with `room-full`; one already in the Room, even in their grace
+   * period, can always rejoin.
+   */
   join(id: ParticipantId, name: string): CommandResult<JoinRejectionReason>;
   /** Takes any number, since callers pass untrusted input; only Cards in the Deck are accepted. */
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
@@ -84,6 +95,8 @@ export interface Room {
     item: string,
   ): CommandResult<ThrowRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
+  /** No Participants, counting those away in their grace period. */
+  isEmpty(): boolean;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
   /**
@@ -114,6 +127,11 @@ export function createRoom(): Room {
   const participants = new Map<ParticipantId, Participant>();
   let facilitatorId: ParticipantId | null = null;
   const votes = new Map<ParticipantId, Card>();
+  /**
+   * The Votes of Voters whose grace period ran out, set aside until the Round ends, so a phone that
+   * slept through it gets its Vote back on rejoining. They count only once their Voter is back.
+   */
+  const setAside = new Map<ParticipantId, Card>();
   let revealed = false;
   let round = 1;
   /** Kept when everyone leaves: only a new Room (a server start) begins with the default. */
@@ -131,6 +149,7 @@ export function createRoom(): Room {
 
   function discardRound() {
     votes.clear();
+    setAside.clear();
     revealed = false;
     round += 1;
   }
@@ -162,11 +181,14 @@ export function createRoom(): Room {
     return { ok: true };
   }
 
-  function remove(id: ParticipantId) {
+  /** `keepVote` sets their Vote aside for the rest of the Round, in case they come back. */
+  function remove(id: ParticipantId, { keepVote = false } = {}) {
     clearTimeout(graceTimers.get(id));
     graceTimers.delete(id);
     participants.delete(id);
     bursts.delete(id);
+    const vote = votes.get(id);
+    if (keepVote && vote !== undefined) setAside.set(id, vote);
     votes.delete(id);
     if (facilitatorId === id) {
       // The Round can't continue without anyone to run it.
@@ -180,6 +202,9 @@ export function createRoom(): Room {
     join(id, name) {
       const key = nameKey(name);
       if (key === "") return { ok: false, reason: "name-empty" };
+      if (!participants.has(id) && participants.size >= MAX_PARTICIPANTS) {
+        return { ok: false, reason: "room-full" };
+      }
       const taken = [...participants.values()].some(
         (p) => p.id !== id && nameKey(p.name) === key,
       );
@@ -189,6 +214,11 @@ export function createRoom(): Room {
       graceTimers.delete(id);
       if (participants.size === 0) facilitatorId = id;
       const existing = participants.get(id);
+      const vote = setAside.get(id);
+      if (!existing && vote !== undefined) {
+        votes.set(id, vote);
+        setAside.delete(id);
+      }
       participants.set(id, {
         id,
         name: name.trim(),
@@ -276,7 +306,7 @@ export function createRoom(): Room {
       }
       graceTimers.set(
         id,
-        setTimeout(() => remove(id), GRACE_PERIOD_MS),
+        setTimeout(() => remove(id, { keepVote: true }), GRACE_PERIOD_MS),
       );
       notifyChanged();
       return { ok: true };
@@ -334,6 +364,10 @@ export function createRoom(): Room {
         result: revealed ? resultOf(votes.values()) : null,
         deck,
       };
+    },
+
+    isEmpty() {
+      return participants.size === 0;
     },
 
     subscribe(listener) {

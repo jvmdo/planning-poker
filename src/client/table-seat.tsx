@@ -3,6 +3,7 @@ import type { ParticipantView } from "../shared/protocol";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import { shake } from "./lib/fun-animations";
+import type { VoteMark } from "./lib/vote-marks";
 import { VoteCard } from "./vote-card";
 
 /** One choice in a seat's deck: a Reaction, or something to Throw. Picking it says what was sent. */
@@ -22,6 +23,7 @@ export function TableSeat({
   participant: p,
   isMe,
   revealed,
+  mark,
   left,
   top,
   deck,
@@ -37,6 +39,7 @@ export function TableSeat({
   participant: ParticipantView;
   isMe: boolean;
   revealed: boolean;
+  mark: VoteMark | null;
   /** Where on the table's edge, as percentages of its box. */
   left: number;
   top: number;
@@ -79,7 +82,7 @@ export function TableSeat({
         onClick={onToggle}
         className="grid cursor-pointer rounded-[clamp(6px,0.6vw,11px)] transition-transform outline-none group-hover:scale-110 focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <VoteCard participant={p} revealed={revealed} size="seat" />
+        <VoteCard participant={p} revealed={revealed} size="seat" mark={mark} />
       </button>
       <span
         className={cn(

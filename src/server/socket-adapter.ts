@@ -4,11 +4,16 @@ import type {
   CommandResult,
   ParticipantId,
   Rejection,
+  RoomId,
   ServerToClientEvents,
 } from "../shared/protocol.js";
+import { parseRoomId } from "../shared/room-id.js";
 import type { Room } from "./room.js";
+import type { Rooms } from "./rooms.js";
 
 interface SocketData {
+  /** The Room this connection is for, sent in its handshake. */
+  roomId: RoomId;
   participantId?: ParticipantId;
 }
 
@@ -20,72 +25,95 @@ export type RoomServer = Server<
 >;
 
 /**
- * Translates socket events into Room commands and sends each socket its own snapshot after every
- * change. Holds no rules: never broadcast a snapshot to everyone, because what a Participant may
- * see depends on who they are. Reactions, Throws and Deck changes hold no Votes, so they are
- * broadcast.
+ * The Socket.IO room holding a Room's sockets. Prefixed, because Socket.IO also puts each socket in
+ * a room named after its socket ID, which a Room ID could otherwise match.
  */
-export function attachRoom(io: RoomServer, room: Room): void {
-  room.subscribe(() => {
-    for (const socket of io.sockets.sockets.values()) {
-      const { participantId } = socket.data;
-      if (participantId)
-        socket.emit("snapshot", room.snapshotFor(participantId));
-    }
-  });
+function channelOf(roomId: RoomId): string {
+  return `room:${roomId}`;
+}
 
-  /** Every socket that has joined as a Participant: who gets what holds no Votes. */
-  function joinedSockets() {
-    return [...io.sockets.sockets.values()].filter(
-      (socket) => socket.data.participantId,
-    );
+/**
+ * Translates socket events into Room commands and sends each socket its own snapshot after every
+ * change. Holds no rules. A socket that joins is put in the Socket.IO room named after its Room ID,
+ * and a Room's updates go only to that Socket.IO room, never to every socket on the server. Never
+ * broadcast a snapshot to a whole Room, because what a Participant may see depends on who they
+ * are. Reactions, Throws and Deck changes hold no Votes, so they are broadcast within the Room.
+ */
+export function attachRooms(io: RoomServer, rooms: Rooms): void {
+  /** The sockets that have joined this Room as a Participant. */
+  function socketsIn(roomId: RoomId) {
+    const ids =
+      io.sockets.adapter.rooms.get(channelOf(roomId)) ?? new Set<string>();
+    return [...ids].flatMap((id) => {
+      const socket = io.sockets.sockets.get(id);
+      return socket ? [socket] : [];
+    });
   }
 
-  room.subscribeToFun((event) => {
-    for (const socket of joinedSockets()) socket.emit("fun", event);
-  });
-
-  room.subscribeToDeckChanges((by) => {
-    for (const socket of joinedSockets()) socket.emit("deckChanged", by);
+  rooms.subscribeToNewRooms((roomId, room) => {
+    room.subscribe(() => {
+      for (const socket of socketsIn(roomId)) {
+        const { participantId } = socket.data;
+        if (participantId)
+          socket.emit("snapshot", room.snapshotFor(participantId));
+      }
+    });
+    room.subscribeToFun((event) => io.to(channelOf(roomId)).emit("fun", event));
+    room.subscribeToDeckChanges((by) =>
+      io.to(channelOf(roomId)).emit("deckChanged", by),
+    );
   });
 
   io.on("connection", (socket) => {
+    const roomId = parseRoomId(socket.handshake.query.room);
+    if (roomId === null) {
+      socket.disconnect(true);
+      return;
+    }
+    socket.data.roomId = roomId;
+    /** This socket's Room, from its first accepted join on. */
+    let room: Room | undefined;
+
     socket.on("join", (id, name) => {
       if (typeof id !== "string" || typeof name !== "string") return;
       // Each socket is one connection, so a repeated join from it mustn't be counted twice.
-      if (socket.data.participantId === id) {
+      if (room && socket.data.participantId === id) {
         socket.emit("snapshot", room.snapshotFor(id));
         return;
       }
 
-      const result = room.join(id, name);
+      const result = rooms.join(roomId, id, name);
       if (!result.ok) {
         socket.emit("rejected", { command: "join", reason: result.reason });
         return;
       }
       // This socket no longer speaks for any Participant it joined as before.
-      if (socket.data.participantId) room.disconnect(socket.data.participantId);
+      if (room && socket.data.participantId)
+        room.disconnect(socket.data.participantId);
+      room = result.room;
       // The change notification fired before this socket was tied to the Participant.
       socket.data.participantId = id;
+      void socket.join(channelOf(roomId));
       socket.emit("snapshot", room.snapshotFor(id));
     });
 
     socket.on("disconnect", () => {
       const { participantId } = socket.data;
-      if (participantId) room.disconnect(participantId);
+      if (room && participantId) room.disconnect(participantId);
     });
 
     /** Runs a command as this socket's Participant and tells only this socket if it's refused. */
     function act<Command extends Rejection["command"]>(
       command: Command,
       run: (
+        room: Room,
         id: ParticipantId,
       ) => CommandResult<Extract<Rejection, { command: Command }>["reason"]>,
     ) {
       const { participantId } = socket.data;
-      if (!participantId) return;
+      if (!room || !participantId) return;
 
-      const result = run(participantId);
+      const result = run(room, participantId);
       if (!result.ok) {
         socket.emit("rejected", {
           command,
@@ -94,42 +122,47 @@ export function attachRoom(io: RoomServer, room: Room): void {
       }
     }
 
-    socket.on("vote", (card) => act("vote", (id) => room.vote(id, card)));
-    socket.on("reveal", () => act("reveal", (id) => room.reveal(id)));
-    socket.on("newRound", () => act("newRound", (id) => room.newRound(id)));
+    socket.on("vote", (card) => act("vote", (room, id) => room.vote(id, card)));
+    socket.on("reveal", () => act("reveal", (room, id) => room.reveal(id)));
+    socket.on("newRound", () =>
+      act("newRound", (room, id) => room.newRound(id)),
+    );
     socket.on("setDeck", (cards) => {
       if (!Array.isArray(cards)) return;
-      act("setDeck", (id) => room.setDeck(id, cards));
+      act("setDeck", (room, id) => room.setDeck(id, cards));
     });
     socket.on("becomeVoter", () =>
-      act("becomeVoter", (id) => room.becomeVoter(id)),
+      act("becomeVoter", (room, id) => room.becomeVoter(id)),
     );
     socket.on("becomeObserver", () =>
-      act("becomeObserver", (id) => room.becomeObserver(id)),
+      act("becomeObserver", (room, id) => room.becomeObserver(id)),
     );
     socket.on("handOver", (to) => {
       if (typeof to !== "string") return;
-      act("handOver", (id) => room.handOver(id, to));
+      act("handOver", (room, id) => room.handOver(id, to));
     });
     socket.on("claimFacilitator", () =>
-      act("claimFacilitator", (id) => room.claimFacilitator(id)),
+      act("claimFacilitator", (room, id) => room.claimFacilitator(id)),
     );
     socket.on("react", (reaction) => {
       if (typeof reaction !== "string") return;
-      act("react", (id) => room.react(id, reaction));
+      act("react", (room, id) => room.react(id, reaction));
     });
     socket.on("throwAt", (to, item) => {
       if (typeof to !== "string" || typeof item !== "string") return;
-      act("throwAt", (id) => room.throwAt(id, to, item));
+      act("throwAt", (room, id) => room.throwAt(id, to, item));
     });
     socket.on("leave", () => {
       const { participantId } = socket.data;
-      if (!participantId) return;
-      // Every tab of this browser is the same Participant, so they all leave together.
-      const tabs = [...io.sockets.sockets.values()].filter(
+      if (!room || !participantId) return;
+      // Every tab of this browser in this Room is the same Participant, so they all leave together.
+      const tabs = socketsIn(roomId).filter(
         (s) => s.data.participantId === participantId,
       );
-      for (const tab of tabs) tab.data.participantId = undefined;
+      for (const tab of tabs) {
+        tab.data.participantId = undefined;
+        void tab.leave(channelOf(roomId));
+      }
       room.leave(participantId);
       for (const tab of tabs) tab.emit("left");
     });

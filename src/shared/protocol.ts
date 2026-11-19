@@ -3,6 +3,9 @@ import type { FunEvent } from "./fun.js";
 
 export type ParticipantId = string;
 
+/** The name of a Room, as it appears in its URL. */
+export type RoomId = string;
+
 /** How long a Participant whose connection dropped keeps their place before being removed. */
 export const GRACE_PERIOD_MS = 30_000;
 
@@ -36,7 +39,8 @@ export interface RoomSnapshot {
   deck: Deck;
 }
 
-export type JoinRejectionReason = "name-empty" | "name-taken";
+export type JoinRejectionReason =
+  "name-empty" | "name-taken" | "room-full" | "server-full";
 export type VoteRejectionReason =
   | "not-in-room"
   | "observer-cannot-vote"
