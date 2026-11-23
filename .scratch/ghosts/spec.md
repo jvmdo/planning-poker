@@ -30,6 +30,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 12. As an Observer, I want my browser to remember that I want a Ghost, and which Skin, so that it comes back after a reload without setting it up again.
 13. As an Observer, I want that memory to apply in every Room, so that my Ghost comes with me to any team's meeting.
 14. As an Observer who switches to Voter for a Round and back, I want my Ghost to come back, so that a quick vote doesn't cost me my Ghost.
+14a. As an Observer whose grace period ran out, or whose Room was emptied by a server restart, I want to come back to that Room as an Observer, so that my Ghost comes back too. Other Rooms still start me as a Voter.
 15. As an Observer, I want my browser to forget my Ghost only when I put it away myself, so that being removed or a server restart doesn't change my preference.
 16. As an Observer who is also the Facilitator, I want the Ghost button next to my Reveal, New Round and Deck controls, so that I can run the Room and still have a Ghost.
 17. As an Observer on a narrow screen, I want the Ghost button to shrink to an icon, so that the status bar still fits.
