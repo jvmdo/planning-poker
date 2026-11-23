@@ -1165,7 +1165,7 @@ describe("leaving the Room", () => {
     room.join("ana-id", "Ana");
     const before = room.snapshotFor("ana-id");
 
-    expect(room.leave("ghost-id")).toEqual({
+    expect(room.leave("stranger-id")).toEqual({
       ok: false,
       reason: "not-in-room",
     });
@@ -1240,7 +1240,7 @@ describe("Reactions and Throws", () => {
 
   it.each([
     ["an Observer", "carla-id", "🎉", "observer-cannot-react"],
-    ["someone who isn't in the Room", "ghost-id", "🎉", "not-in-room"],
+    ["someone who isn't in the Room", "stranger-id", "🎉", "not-in-room"],
     ["something that isn't a Reaction", "ana-id", "💩", "not-a-reaction"],
   ] as const)(
     "rejects a Reaction from %s, sending nothing and leaving the Room unchanged",
@@ -1258,7 +1258,7 @@ describe("Reactions and Throws", () => {
   it.each([
     [
       "from someone who isn't in the Room",
-      "ghost-id",
+      "stranger-id",
       "ana-id",
       "rock",
       "not-in-room",
@@ -1266,7 +1266,7 @@ describe("Reactions and Throws", () => {
     [
       "at someone who isn't in the Room",
       "ana-id",
-      "ghost-id",
+      "stranger-id",
       "rock",
       "unknown-participant",
     ],

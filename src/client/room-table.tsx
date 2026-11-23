@@ -13,6 +13,7 @@ import {
 } from "../shared/fun";
 import { useEffect, useRef, useState } from "react";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
+import { seatLayout } from "./lib/seat-layout";
 import type { RoundReading } from "./lib/vote-marks";
 import { TableSeat, type DeckItem } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
@@ -52,10 +53,7 @@ export function RoomTable({
   onThrow: (to: ParticipantId, item: Throwable) => boolean;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
-  const seated = [
-    ...voters.filter((p) => p.id === myId),
-    ...voters.filter((p) => p.id !== myId),
-  ];
+  const { seats } = seatLayout(snapshot.participants, myId);
   const observers = snapshot.participants.filter((p) => p.role === "observer");
   const everyVoterVoted = voters.length > 0 && voters.every((p) => p.hasVoted);
   /**
@@ -69,21 +67,27 @@ export function RoomTable({
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
 
+  /**
+   * Where a Participant is on screen, for Reactions and Throws to start from and land on: a Voter
+   * at their Card, an Observer on the "Watching" line. Nowhere once they've left.
+   */
+  function placeOf(id: ParticipantId): HTMLElement | null {
+    const participant = snapshot.participants.find((p) => p.id === id);
+    if (!participant) return null;
+    if (participant.role === "observer") return watching.current;
+    return cards.current.get(id) ?? null;
+  }
+
   /** Animates a Reaction or Throw. One whose sender or target has left the table is skipped. */
   function play(event: FunEvent) {
+    const from = placeOf(event.from);
+    if (!from) return;
     if (event.kind === "reaction") {
-      const card = cards.current.get(event.from);
-      if (card) floatReaction(event.reaction, card);
+      floatReaction(event.reaction, from);
       return;
     }
-    // Observers have no seat, so their Throws come from the "Watching" line.
-    const thrower = snapshot.participants.find((p) => p.id === event.from);
-    const from =
-      thrower?.role === "observer"
-        ? watching.current
-        : cards.current.get(event.from);
-    const to = cards.current.get(event.to);
-    if (from && to) flyThrow(THROWABLES[event.item].emoji, from, to);
+    const to = placeOf(event.to);
+    if (to) flyThrow(THROWABLES[event.item].emoji, from, to);
   }
 
   // Your own already played on the click, without waiting for the server, so its echo is skipped.
@@ -160,9 +164,7 @@ export function RoomTable({
           )}
         </div>
         <ul aria-label="Voters">
-          {seated.map((p, i) => {
-            // From the bottom (90°), clockwise round the ellipse.
-            const angle = Math.PI / 2 + (i * 2 * Math.PI) / seated.length;
+          {seats.map(({ participant: p, x, y }) => {
             const isMe = p.id === myId;
             return (
               <TableSeat
@@ -171,8 +173,8 @@ export function RoomTable({
                 isMe={isMe}
                 revealed={snapshot.revealed}
                 mark={round.markOf(p.id)}
-                left={50 + 50 * Math.cos(angle)}
-                top={50 + 50 * Math.sin(angle)}
+                left={100 * x}
+                top={100 * y}
                 deck={deckFor(p)}
                 deckLabel={isMe ? "Reactions" : `Throw at ${p.name}`}
                 cardLabel={
