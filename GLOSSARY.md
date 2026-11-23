@@ -116,3 +116,7 @@ _Avoid_: Avatar, sprite, pet; and "ghost" for a Participant who disconnected (th
 **Skin**:
 How a Ghost looks: the fabric of its dress and its disguise, chosen by its owner. Two Ghosts may wear the same Skin. Changing the Skin of a Ghost that's out is **dressing** it.
 _Avoid_: Costume, outfit, theme
+
+**Vent**:
+One of the fixed spots on the Table a new Ghost comes out of, picked for it by the Room. A Ghost that goes sinks into a vent that opens wherever it stands. Putting your Ghost away is **venting** it, after the picker's "Vent" button.
+_Avoid_: Spawn point, hole, portal

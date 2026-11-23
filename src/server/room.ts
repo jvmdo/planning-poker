@@ -38,7 +38,7 @@ import {
 } from "../shared/fun.js";
 import {
   GHOST_MOVE_BURST,
-  freeSummonPlace,
+  ventFor,
   isSkin,
   isTablePoint,
   type GhostMove,
@@ -478,7 +478,8 @@ export function createRoom(): Room {
       if (participant.ghost) return { ok: false, reason: "ghost-already-out" };
       participant.ghost = {
         skin: { fabric: skin.fabric, disguise: skin.disguise },
-        to: freeSummonPlace(
+        to: ventFor(
+          id,
           [...participants.values()].flatMap((p) =>
             p.ghost ? [p.ghost.to] : [],
           ),

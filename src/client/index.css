@@ -280,3 +280,154 @@
     animation: none;
   }
 }
+
+/*
+ * A Ghost coming out of a vent (`data-venting="out"`, 0.6 s) or going into one (`"in"`, 0.5 s), set
+ * on its `<li>` by `useVenting`, which keeps the timings. The grate opens on the floor and its slats
+ * slide aside; the Ghost rises out with a small bounce, or sinks in, cut off at the hole; then the
+ * slats slide shut and the grate fades. Its name tag follows it.
+ */
+@layer components {
+  [data-venting] .ghost-vent-hole {
+    /* The Ghost below the hole is underground. */
+    clip-path: inset(-80px -80px 4px -80px);
+  }
+  .ghost-vent-grate .ghost-vent-slats {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-venting="out"] .ghost-vent-grate {
+    animation: vent-grate 0.6s ease-out both;
+  }
+  [data-venting="out"] .ghost-vent-slats {
+    animation: vent-slats-out 0.6s ease-in-out both;
+  }
+  [data-venting="out"] .ghost-vent-body {
+    animation: vent-rise 0.6s linear both;
+  }
+  [data-venting="out"] .ghost-vent-tag {
+    animation: vent-tag-in 0.6s ease-out both;
+  }
+  [data-venting="in"] .ghost-vent-grate {
+    animation: vent-grate 0.5s ease-out both;
+  }
+  [data-venting="in"] .ghost-vent-slats {
+    animation: vent-slats-in 0.5s ease-in-out both;
+  }
+  [data-venting="in"] .ghost-vent-body {
+    animation: vent-sink 0.5s linear both;
+  }
+  [data-venting="in"] .ghost-vent-tag {
+    animation: vent-tag-out 0.5s ease-in both;
+  }
+}
+@keyframes vent-grate {
+  0% {
+    opacity: 0;
+    scale: 0.2 0.2;
+  }
+  18% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  80% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.9 0.9;
+  }
+}
+@keyframes vent-slats-out {
+  0%,
+  15% {
+    scale: 1 1;
+  }
+  28%,
+  70% {
+    scale: 0 1;
+  }
+  82%,
+  100% {
+    scale: 1 1;
+  }
+}
+@keyframes vent-slats-in {
+  0%,
+  18% {
+    scale: 1 1;
+  }
+  32%,
+  72% {
+    scale: 0 1;
+  }
+  85%,
+  100% {
+    scale: 1 1;
+  }
+}
+@keyframes vent-rise {
+  0%,
+  25% {
+    translate: 0 110%;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  60% {
+    translate: 0 -14%;
+    animation-timing-function: ease-in-out;
+  }
+  75% {
+    translate: 0 4%;
+    animation-timing-function: ease-out;
+  }
+  85%,
+  100% {
+    translate: 0 0;
+  }
+}
+@keyframes vent-sink {
+  0%,
+  20% {
+    translate: 0 0;
+    animation-timing-function: ease-out;
+  }
+  34% {
+    translate: 0 -10%;
+    animation-timing-function: ease-in;
+  }
+  72%,
+  100% {
+    translate: 0 110%;
+  }
+}
+@keyframes vent-tag-in {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes vent-tag-out {
+  0% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost-vent-grate {
+    display: none;
+  }
+  [data-venting] .ghost-vent-hole {
+    clip-path: none;
+  }
+  [data-venting] .ghost-vent-body,
+  [data-venting] .ghost-vent-tag {
+    animation: none;
+  }
+}

@@ -12,20 +12,20 @@ See the spec in this folder: user stories 27, 27a and 68, the Room's `summonGhos
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** closed
 
-- [ ] Shared: the vent spots and the vent-picking rule, next to the Ghost definitions in `src/shared/ghost.ts`. It replaces `freeSummonPlace`, keeping its nudge for when every vent is taken. It is the one rule both the Room and the browser use.
-- [ ] Room: `summonGhost` places the new Ghost at its vent. Nothing else in the Room changes.
-- [ ] Your own new Ghost still shows at once, before the Room answers, at the vent the Room will use (`withPending` in `src/client/pending.ts`).
-- [ ] Every screen plays the coming-out animation for a Ghost that arrives, and the going-in animation for one that goes. A departing Ghost stays drawn just long enough to sink.
-- [ ] A late joiner or a reload sees no animation. A Ghost whose owner disconnects only fades.
-- [ ] Reduced motion: no grate and no animation.
-- [ ] Room scenario tests (replacing the "middle of the Table" ones in `src/server/room.test.ts`):
+- [x] Shared: the vent spots and the vent-picking rule, next to the Ghost definitions in `src/shared/ghost.ts`. It replaces `freeSummonPlace`, keeping its nudge for when every vent is taken. It is the one rule both the Room and the browser use.
+- [x] Room: `summonGhost` places the new Ghost at its vent. Nothing else in the Room changes.
+- [x] Your own new Ghost still shows at once, before the Room answers, at the vent the Room will use (`withPending` in `src/client/pending.ts`).
+- [x] Every screen plays the coming-out animation for a Ghost that arrives, and the going-in animation for one that goes. A departing Ghost stays drawn just long enough to sink.
+- [x] A late joiner or a reload sees no animation. A Ghost whose owner disconnects only fades.
+- [x] Reduced motion: no grate and no animation.
+- [x] Room scenario tests (replacing the "middle of the Table" ones in `src/server/room.test.ts`):
   - a new Ghost comes out at one of the vents;
   - two Ghosts out at once get different vents, and a vent is free again once its Ghost walks off or is put away;
   - a full Room's 30 Ghosts all get a place within reach (`TABLE_REACH`), none on top of another.
-- [ ] Pending test: the browser's predicted spot for your own new Ghost is the Room's.
-- [ ] Checked by hand in several browsers, including a turned Voter's screen, a phone width, dark mode and reduced motion, and with the scenario script's bot Observers.
+- [x] Pending test: the browser's predicted spot for your own new Ghost is the Room's.
+- [x] Checked by hand in several browsers, including a turned Voter's screen, a phone width, dark mode and reduced motion, and with the scenario script's bot Observers.
 
 ## Notes for whoever picks this up
 
@@ -33,3 +33,11 @@ See the spec in this folder: user stories 27, 27a and 68, the Room's `summonGhos
 - **Converting positions:** the shared Table runs 0 to 1 on each axis over the Table's box, with seats on its oval edge (`src/client/lib/seat-layout.ts`). `src/client/lib/ghost-frame.ts` converts between it and each screen, turning and clamping. `src/client/lib/ghost-walker.ts` places and walks each Ghost's element.
 - **Drawing Ghosts:** `src/client/ghost-layer.tsx` draws them. Today a Ghost's `<li>` mounts when its `ghost` becomes non-null and unmounts when it becomes null. A departing Ghost has to be kept for its exit animation, and a newly arrived one told apart from one already there on the first snapshot.
 - **Existing animations:** the bob is `animate-ghost-bob` in `src/client/index.css`, and `motion-reduce:` variants are used for reduced motion.
+
+## Comments
+
+**2026-11-23, agent:** Done. The vents are 8 spots in a ring at 62% of the way out to the seats, offset half a step so they sit between seats. `ventFor` in `src/shared/ghost.ts` replaces `freeSummonPlace`. When every vent is taken, the nudge now searches rings round the Ghost's first vent (sideways 0.1, up and down 0.15) and stays within `TABLE_REACH`. The old middle-anchored row would have left the reach for a full Room nudged round a side vent. `useVenting` (`src/client/use-venting.ts`) keeps a departing Ghost drawn where it stands while it sinks.
+
+I checked it in headless Chromium against a separate server, with socket bots acting as Observers the way the scenario script's do, though I didn't run the script itself. Covered: a desktop Voter; a turned Voter at phone width in dark mode; 11 Ghosts (vents used up, the rest nudged); a late joiner; a Ghost vented mid-walk; a disconnect; a reduced-motion viewer; your own Ghost through the picker; and Vent then "Bring out" again at once.
+
+For a human to look at: the grate art and timings (`[data-venting]` in `src/client/index.css`), and how close the name tags get at phone width once vents run out.

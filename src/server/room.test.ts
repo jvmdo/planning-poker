@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_DECK } from "../shared/deck.js";
 import type { ParticipantView, RoomSnapshot } from "../shared/protocol.js";
+import { TABLE_REACH, VENTS } from "../shared/ghost.js";
 import { createRoom } from "./room.js";
 
 /** How a Participant appears in anyone's snapshot, unless the test says otherwise. */
@@ -2053,49 +2054,48 @@ describe("Ghosts", () => {
     return { room, onChange, snapshots, ghostOf };
   }
 
-  it("appears in the middle of the Table when an Observer summons one, for everyone", () => {
+  it("comes out at one of the vents when an Observer summons one, for everyone", () => {
     const { room, onChange, ghostOf } = meeting();
 
     expect(room.summonGhost("davi-id", coral)).toEqual({ ok: true });
 
     expect(onChange).toHaveBeenCalledTimes(1);
+    const [seen] = ghostOf("davi-id");
+    expect(VENTS).toContainEqual(seen?.to);
     expect(ghostOf("davi-id")).toEqual(
-      Array(4).fill({ skin: coral, to: middle }),
+      Array(4).fill({ skin: coral, to: seen?.to }),
     );
     expect(ghostOf("eva-id")).toEqual(Array(4).fill(null));
   });
 
-  it("nudges each new Ghost a little sideways from the ones already out, so they don't stack", () => {
+  it("gives two Ghosts out at once different vents, and frees a vent once its Ghost walks off or is put away", () => {
     const { room, ghostOf } = meeting();
     room.join("fabio-id", "Fábio");
     room.becomeObserver("fabio-id");
-
-    room.summonGhost("davi-id", coral);
-    room.summonGhost("eva-id", coral);
+    // Davi and Fábio's Ghosts happen to try the same vent first: alone, Fábio's comes out at it.
     room.summonGhost("fabio-id", coral);
-
-    const points = ["davi-id", "eva-id", "fabio-id"].map(
-      (id) => ghostOf(id)[0]?.to,
-    );
-    expect(points[0]).toEqual(middle);
-    expect(new Set(points.map((p) => p?.x)).size).toBe(3);
-    for (const point of points) {
-      expect(point?.y).toBe(0.5);
-      expect(Math.abs((point?.x ?? 0) - 0.5)).toBeLessThanOrEqual(0.1);
-    }
-  });
-
-  it("puts a new Ghost in a free place, even after another was put away", () => {
-    const { room, ghostOf } = meeting();
-    room.join("fabio-id", "Fábio");
-    room.becomeObserver("fabio-id");
+    const fabiosFirst = ghostOf("fabio-id")[0]?.to;
+    room.dismissGhost("fabio-id");
     room.summonGhost("davi-id", coral);
-    room.summonGhost("eva-id", coral);
+    expect(ghostOf("davi-id")[0]?.to).toEqual(fabiosFirst);
+
+    room.summonGhost("fabio-id", coral);
+    const davis = ghostOf("davi-id")[0]?.to;
+    const fabios = ghostOf("fabio-id")[0]?.to;
+    expect(VENTS).toContainEqual(fabios);
+    expect(fabios).not.toEqual(davis);
+
+    // Once Davi's Ghost walks off its vent, Fábio's next Ghost gets it.
+    expect(room.moveGhost("davi-id", { x: 1.2, y: 1.2 })).toEqual({ ok: true });
+    room.dismissGhost("fabio-id");
+    room.summonGhost("fabio-id", coral);
+    expect(ghostOf("fabio-id")[0]?.to).toEqual(davis);
+
+    // Once Fábio's Ghost is put away, Davi's next Ghost gets it back.
+    room.dismissGhost("fabio-id");
     room.dismissGhost("davi-id");
-
-    room.summonGhost("fabio-id", coral);
-
-    expect(ghostOf("fabio-id")[0]?.to).not.toEqual(ghostOf("eva-id")[0]?.to);
+    room.summonGhost("davi-id", coral);
+    expect(ghostOf("davi-id")[0]?.to).toEqual(davis);
   });
 
   it("finds every Ghost of a full Room a place of its own within reach", () => {
@@ -2109,13 +2109,17 @@ describe("Ghosts", () => {
 
     const points = room
       .snapshotFor(ids[0] ?? "")
-      .participants.map((p) => p.ghost?.to);
-    expect(new Set(points.map((p) => `${p?.x},${p?.y}`)).size).toBe(30);
-    for (const point of points) {
-      expect(point?.x).toBeGreaterThanOrEqual(-0.5);
-      expect(point?.x).toBeLessThanOrEqual(1.5);
-      expect(point?.y).toBeGreaterThanOrEqual(-0.5);
-      expect(point?.y).toBeLessThanOrEqual(1.5);
+      .participants.map((p) => p.ghost?.to ?? { x: NaN, y: NaN });
+    // Every vent is used before any Ghost is nudged aside.
+    for (const vent of VENTS) expect(points).toContainEqual(vent);
+    for (const [i, a] of points.entries()) {
+      for (const b of points.slice(i + 1)) {
+        expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(0.05);
+      }
+      expect(a.x).toBeGreaterThanOrEqual(TABLE_REACH.min);
+      expect(a.x).toBeLessThanOrEqual(TABLE_REACH.max);
+      expect(a.y).toBeGreaterThanOrEqual(TABLE_REACH.min);
+      expect(a.y).toBeLessThanOrEqual(TABLE_REACH.max);
     }
   });
 
@@ -2247,12 +2251,16 @@ describe("Ghosts", () => {
     const { room } = meeting();
     room.summonGhost("davi-id", coral);
 
+    const cameOutAt = room
+      .snapshotFor("ana-id")
+      .participants.find((p) => p.id === "davi-id")?.ghost?.to;
+
     room.join("carla-id", "Carla");
 
     expect(
       room.snapshotFor("carla-id").participants.find((p) => p.id === "davi-id")
         ?.ghost,
-    ).toEqual({ skin: coral, to: middle });
+    ).toEqual({ skin: coral, to: cameOutAt });
   });
 
   describe("Skins", () => {
@@ -2265,7 +2273,7 @@ describe("Ghosts", () => {
       expect(room.summonGhost("davi-id", nightRogue)).toEqual({ ok: true });
 
       expect(ghostOf("davi-id")).toEqual(
-        Array(4).fill({ skin: nightRogue, to: middle }),
+        Array(4).fill({ skin: nightRogue, to: ghostOf("davi-id")[0]?.to }),
       );
     });
 
@@ -2364,6 +2372,7 @@ describe("Ghosts", () => {
     it("tells the ghost subscriber once and sends no snapshot, and the next snapshot carries the destination", () => {
       const { room, onChange, snapshots, ghostOf, moves } = walking();
       const before = snapshots();
+      const cameOutAt = ghostOf("davi-id")[0]?.to;
 
       expect(room.moveGhost("davi-id", { x: 0.2, y: 0.9 })).toEqual({
         ok: true,
@@ -2378,7 +2387,7 @@ describe("Ghosts", () => {
       // A snapshot already sent isn't changed under its holder.
       expect(
         before[0]?.participants.find((p) => p.id === "davi-id")?.ghost,
-      ).toEqual({ skin: coral, to: middle });
+      ).toEqual({ skin: coral, to: cameOutAt });
 
       room.join("carla-id", "Carla");
       expect(ghostOf("davi-id")).toEqual(

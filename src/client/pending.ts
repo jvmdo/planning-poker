@@ -14,7 +14,7 @@ import type {
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card } from "../shared/deck";
-import { freeSummonPlace, type GhostView, type Skin } from "../shared/ghost";
+import { ventFor, type GhostView, type Skin } from "../shared/ghost";
 
 export interface PendingVote {
   card: Card;
@@ -137,7 +137,7 @@ export function withPending(
     const others = snapshot.participants.flatMap((p) =>
       p.id !== myId && p.ghost ? [p.ghost.to] : [],
     );
-    return { skin: ghost, to: shown?.to ?? freeSummonPlace(others) };
+    return { skin: ghost, to: shown?.to ?? ventFor(myId, others) };
   }
 
   return {

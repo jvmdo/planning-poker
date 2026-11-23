@@ -76,48 +76,123 @@ export interface GhostView {
  */
 export const TABLE_REACH = { min: -0.5, max: 1.5 } as const;
 
+/** Whether a number on either axis of the shared Table is within a Ghost's reach. */
+function inReach(n: number): boolean {
+  return n >= TABLE_REACH.min && n <= TABLE_REACH.max;
+}
+
 /** Takes any value, since callers pass untrusted input: two finite numbers within reach. */
 export function isTablePoint(value: unknown): value is TablePoint {
   if (typeof value !== "object" || value === null) return false;
   const { x, y } = value as Record<string, unknown>;
-  const inReach = (n: unknown) =>
-    typeof n === "number" &&
-    Number.isFinite(n) &&
-    n >= TABLE_REACH.min &&
-    n <= TABLE_REACH.max;
-  return inReach(x) && inReach(y);
+  const ok = (n: unknown) =>
+    typeof n === "number" && Number.isFinite(n) && inReach(n);
+  return ok(x) && ok(y);
 }
 
-/** How far apart, sideways on the shared Table, new Ghosts appear: enough for their name tags. */
+/** How many vents there are round the Table. */
+const VENT_COUNT = 8;
+/**
+ * How far out from the middle of the Table the vents sit, as a share of the way to the seats: in a
+ * ring between the Result and the Cards, so they're inside the Table on every screen.
+ */
+const VENT_RING = 0.62;
+
+/**
+ * The vents Ghosts come out of: fixed spots in a ring round the middle of the shared Table, half a
+ * step off the bottom so they sit between seats rather than under them. Each screen turns them with
+ * the seats, like Ghosts.
+ */
+export const VENTS: readonly TablePoint[] = Array.from(
+  { length: VENT_COUNT },
+  (_, i) => {
+    const angle = Math.PI / 2 + ((i + 0.5) * 2 * Math.PI) / VENT_COUNT;
+    return {
+      x: 0.5 + (VENT_RING / 2) * Math.cos(angle),
+      y: 0.5 + (VENT_RING / 2) * Math.sin(angle),
+    };
+  },
+);
+
+/** How far apart, sideways on the shared Table, Ghosts are nudged: enough for their name tags. */
 const GHOST_NUDGE = 0.1;
-/** How many places fit in a row of them, from the middle out to the edge of the room area. */
-const PLACES_IN_A_ROW = 21;
+/** How far apart, up and down, Ghosts are nudged: enough for a Ghost and its name tag. */
+const GHOST_NUDGE_DOWN = 0.15;
 
-/**
- * The places new Ghosts appear at, in the order they're tried: the middle of the Table, then
- * taking turns either side of it, out to the edge of the room area. A full row starts another
- * just below it, so a full Room's Ghosts all fit.
- */
-function summonPlace(i: number): TablePoint {
-  const inRow = i % PLACES_IN_A_ROW;
-  const steps = Math.ceil(inRow / 2) * (inRow % 2 === 1 ? 1 : -1);
-  const row = Math.floor(i / PLACES_IN_A_ROW);
-  return { x: 0.5 + steps * GHOST_NUDGE, y: 0.5 + row * GHOST_NUDGE * 1.5 };
+/** The vents in the order an owner's Ghost tries them: shuffled, the same way every time, by their Participant ID. */
+function ventOrder(owner: ParticipantId): TablePoint[] {
+  // FNV-1a seeds a small generator (mulberry32), which shuffles the vents (Fisher–Yates).
+  let seed = 0x811c9dc5;
+  for (let i = 0; i < owner.length; i++) {
+    seed = Math.imul(seed ^ owner.charCodeAt(i), 0x01000193);
+  }
+  const next = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
+  };
+  const order = [...VENTS];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [order[i], order[j]] = [order[j] as TablePoint, order[i] as TablePoint];
+  }
+  return order;
 }
 
 /**
- * Where a new Ghost appears: the first summon place no Ghost already out is standing on. The Room
- * decides; your browser uses the same rule to show your own new Ghost before the Room answers.
+ * The places round a vent a Ghost is nudged to when every vent is taken, nearest first and
+ * sideways before up or down, as far as the Ghost may go.
  */
-export function freeSummonPlace(taken: TablePoint[]): TablePoint {
-  for (let i = 0; ; i++) {
-    const place = summonPlace(i);
-    const free = taken.every(
+function* nudgesAround(vent: TablePoint): Generator<TablePoint> {
+  for (let ring = 1; ; ring++) {
+    const places: [number, number][] = [];
+    for (let dy = -ring; dy <= ring; dy++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) === ring)
+          places.push([dx, dy]);
+      }
+    }
+    places.sort(
+      ([ax, ay], [bx, by]) =>
+        Math.abs(ay) - Math.abs(by) ||
+        Math.abs(ax) - Math.abs(bx) ||
+        bx - ax ||
+        by - ay,
+    );
+    let anyInReach = false;
+    for (const [dx, dy] of places) {
+      const place = {
+        x: vent.x + dx * GHOST_NUDGE,
+        y: vent.y + dy * GHOST_NUDGE_DOWN,
+      };
+      if (!inReach(place.x) || !inReach(place.y)) continue;
+      anyInReach = true;
+      yield place;
+    }
+    if (!anyInReach) return;
+  }
+}
+
+/**
+ * Where a new Ghost comes out: the first vent, in its owner's order, that no Ghost out is standing
+ * on. When every vent is taken it comes out of its first vent anyway, nudged aside to the nearest
+ * free place. The Room decides; the owner's browser uses the same rule to show their new Ghost
+ * before the Room answers.
+ */
+export function ventFor(owner: ParticipantId, taken: TablePoint[]): TablePoint {
+  const isFree = (place: TablePoint) =>
+    taken.every(
       (point) =>
         Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
     );
-    if (free) return place;
-  }
+  const order = ventOrder(owner);
+  const free = order.find(isFree);
+  if (free) return free;
+  const first = order[0] as TablePoint;
+  for (const place of nudgesAround(first)) if (isFree(place)) return place;
+  // Only if the whole room area is full of Ghosts, far more than a Room holds.
+  return first;
 }
 
 /** Ghost moves have a budget of their own: 10 in a row (a held arrow key), then one every 100 ms. */

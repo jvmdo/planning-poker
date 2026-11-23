@@ -6,6 +6,7 @@ import {
   settlePendingGhost,
   withPending,
 } from "./pending.js";
+import { createRoom } from "../server/room.js";
 
 const noFacilitator: RoomSnapshot = {
   participants: [],
@@ -54,7 +55,6 @@ describe("a pending change to Auto Reveal", () => {
 describe("your own Ghost, before the Room answers", () => {
   const coral = { fabric: "coral-stripes", disguise: "none" } as const;
   const berryNinja = { fabric: "berry-gingham", disguise: "ninja" } as const;
-  const middle = { x: 0.5, y: 0.5 };
   const somewhere = { x: 0.2, y: 0.8 };
 
   function person(
@@ -91,21 +91,23 @@ describe("your own Ghost, before the Room answers", () => {
   const shown = (snapshot: RoomSnapshot, id: string) =>
     findParticipant(snapshot, id)?.ghost;
 
-  it("appears at once in the Skin you picked, where the Room will put it", () => {
-    const alone = withPending(room(), "davi", null, null, coral);
-    expect(shown(alone, "davi")).toEqual({ skin: coral, to: middle });
+  it("appears at once in the Skin you picked, at the vent the Room will put it", () => {
+    // The Room, with Ana voting, Eva's Ghost out, and Davi about to summon his.
+    const theRoom = createRoom();
+    theRoom.join("ana", "Ana");
+    theRoom.join("davi", "Davi");
+    theRoom.becomeObserver("davi");
+    theRoom.join("eva", "Eva");
+    theRoom.becomeObserver("eva");
+    theRoom.summonGhost("eva", coral);
+    const before = theRoom.snapshotFor("davi");
 
-    const withEva = withPending(
-      room({}, { ghost: { skin: coral, to: middle } }),
-      "davi",
-      null,
-      null,
-      berryNinja,
+    const predicted = withPending(before, "davi", null, null, berryNinja);
+    theRoom.summonGhost("davi", berryNinja);
+
+    expect(shown(predicted, "davi")).toEqual(
+      shown(theRoom.snapshotFor("davi"), "davi"),
     );
-    expect(shown(withEva, "davi")).toEqual({
-      skin: berryNinja,
-      to: { x: 0.6, y: 0.5 },
-    });
   });
 
   it("is re-dressed at once, where it stands", () => {
@@ -161,21 +163,21 @@ describe("your own Ghost, before the Room answers", () => {
     expect(
       settlePendingGhost(
         berryNinja,
-        room({ ghost: { skin: coral, to: middle } }),
+        room({ ghost: { skin: coral, to: somewhere } }),
         "davi",
       ),
     ).toEqual(berryNinja);
     expect(
       settlePendingGhost(
         berryNinja,
-        room({ ghost: { skin: berryNinja, to: middle } }),
+        room({ ghost: { skin: berryNinja, to: somewhere } }),
         "davi",
       ),
     ).toBeNull();
   });
 
   it("stays pending away until the Room shows it gone", () => {
-    const out = room({ ghost: { skin: coral, to: middle } });
+    const out = room({ ghost: { skin: coral, to: somewhere } });
     expect(settlePendingGhost("away", out, "davi")).toBe("away");
     expect(settlePendingGhost("away", room(), "davi")).toBeNull();
   });

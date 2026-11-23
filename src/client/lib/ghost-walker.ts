@@ -253,6 +253,15 @@ export function createGhostWalker() {
       redraw();
     },
     redraw,
+    /** Forgets where a Ghost was drawn, so it next appears at its destination rather than walking there. */
+    forget(id: ParticipantId) {
+      walks.delete(id);
+      poses.delete(id);
+    },
+    /** Where a Ghost is drawn from now, on the shared Table, if it's being drawn. */
+    at(id: ParticipantId): TablePoint | null {
+      return walks.get(id)?.at ?? null;
+    },
     stop() {
       if (frame !== null) cancelAnimationFrame(frame);
       frame = null;

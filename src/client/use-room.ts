@@ -411,19 +411,20 @@ export function useRoom(
     socket.emit("moveGhost", to);
   }
 
+  // Moves first, so a new Ghost of yours comes out at the vent the Room, which has them all, will pick.
   const displayed =
     snapshot &&
-    withGhostMoves(
-      withPending(
+    withPending(
+      withGhostMoves(
         snapshot,
-        identity.id,
-        pendingVote,
-        pendingRole,
-        pendingGhost,
+        pendingMove
+          ? new Map(ghostMoves).set(identity.id, pendingMove)
+          : ghostMoves,
       ),
-      pendingMove
-        ? new Map(ghostMoves).set(identity.id, pendingMove)
-        : ghostMoves,
+      identity.id,
+      pendingVote,
+      pendingRole,
+      pendingGhost,
     );
   const me = displayed ? findParticipant(displayed, identity.id) : null;
   const joining = me === null && wantsToJoin;

@@ -7,11 +7,12 @@ import {
 } from "react";
 import type { ParticipantId, ParticipantView } from "../shared/protocol";
 import type { FunEvent } from "../shared/fun";
-import type { GhostView, TablePoint } from "../shared/ghost";
+import type { TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
 import { createGhostWalker } from "./lib/ghost-walker";
 import { FunMenu, type FunItem } from "./fun-menu";
 import { GhostFigure } from "./ghost-figure";
+import { useVenting, type GhostOut } from "./use-venting";
 
 /** An arrow key walks your Ghost a tenth of the Table that way. */
 const HOP = 0.1;
@@ -87,8 +88,10 @@ export function GhostLayer({
   /** Whether the open menu shows above its Ghost, as the Ghost was placed when it opened. */
   const [menuAbove, setMenuAbove] = useState(true);
   const withGhosts = participants.filter(
-    (p): p is ParticipantView & { ghost: GhostView } => p.ghost !== null,
+    (p): p is GhostOut => p.ghost !== null,
   );
+  // Before the walker's update below, so a Ghost that goes is still being walked, where it stands.
+  const { drawn, venting } = useVenting(withGhosts, walker);
   const myGhost = withGhosts.find((p) => p.id === myId)?.ghost ?? null;
   /** The latest `onMove`, so the listeners needn't be added again on every render. */
   const move = useRef(onMove);
@@ -100,10 +103,7 @@ export function GhostLayer({
     move.current = onMove;
     heading.current = myGhost?.to ?? null;
     walker.setFrame(roomRef.current, tableRef.current);
-    walker.update(
-      new Map(withGhosts.map((p) => [p.id, p.ghost.to] as const)),
-      turn,
-    );
+    walker.update(new Map(drawn.map((p) => [p.id, p.ghost.to] as const)), turn);
   });
 
   useEffect(() => {
@@ -150,18 +150,22 @@ export function GhostLayer({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [walker, hasGhost]);
 
-  if (withGhosts.length === 0) return null;
+  if (drawn.length === 0) return null;
 
   return (
     <div className={cn("pointer-events-none absolute inset-0 z-10", tableBox)}>
       <ul aria-label="Ghosts" className="relative h-full">
-        {withGhosts.map((p) => {
+        {drawn.map((p) => {
           const isMe = p.id === myId;
-          const isOpen = openMenu === p.id;
+          const vented = venting.get(p.id);
+          // A Ghost going into a vent is only drawn, out of reach.
+          const isOpen = openMenu === p.id && vented !== "in";
           return (
             <li
               key={p.id}
               data-ghost
+              data-venting={vented}
+              inert={vented === "in"}
               // A click on a Ghost or its menu doesn't close the menu.
               data-menu-host
               // Placed, walked and posed by the walker.
@@ -179,6 +183,7 @@ export function GhostLayer({
                 isOpen && "z-10 opacity-100",
               )}
             >
+              {vented && <VentGrate />}
               <button
                 aria-label={
                   isMe
@@ -199,20 +204,23 @@ export function GhostLayer({
                     );
                   onToggleMenu(p.id);
                 }}
-                className="focus-visible:ring-ring/50 cursor-pointer rounded-full transition-transform outline-none hover:scale-110 focus-visible:ring-[3px]"
+                className="focus-visible:ring-ring/50 ghost-vent-hole relative cursor-pointer rounded-full transition-transform outline-none hover:scale-110 focus-visible:ring-[3px]"
               >
-                <div
-                  ref={(element) => ghostRef(p.id, element)}
-                  // Floats with a slow bob, and trots while walking.
-                  className="animate-ghost-bob group-data-walking:animate-ghost-trot motion-reduce:animate-none"
-                >
-                  <GhostFigure
-                    skin={p.ghost.skin}
-                    className="h-[46px] w-[42px]"
-                  />
+                {/* Rises out of a vent, or sinks into one. */}
+                <div className="ghost-vent-body">
+                  <div
+                    ref={(element) => ghostRef(p.id, element)}
+                    // Floats with a slow bob, and trots while walking.
+                    className="animate-ghost-bob group-data-walking:animate-ghost-trot motion-reduce:animate-none"
+                  >
+                    <GhostFigure
+                      skin={p.ghost.skin}
+                      className="h-[46px] w-[42px]"
+                    />
+                  </div>
                 </div>
               </button>
-              <span className="bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold">
+              <span className="ghost-vent-tag bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold">
                 {p.name}
                 <span className="sr-only">
                   's Ghost{!p.connected && ", away"}
@@ -237,5 +245,36 @@ export function GhostLayer({
         })}
       </ul>
     </div>
+  );
+}
+
+/**
+ * The vent a Ghost comes out of or goes into, on the floor under it: a rim in the card colour round
+ * a dark hole, with slats that slide open and shut. Drawn only while a Ghost is venting.
+ */
+function VentGrate() {
+  return (
+    <svg
+      viewBox="0 0 56 18"
+      aria-hidden
+      className="ghost-vent-grate absolute top-[42px] left-1/2 h-[18px] w-[56px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+    >
+      <ellipse
+        cx="28"
+        cy="9"
+        rx="26"
+        ry="7.5"
+        className="fill-card stroke-ink"
+        strokeWidth="2.5"
+      />
+      <ellipse cx="28" cy="9" rx="20" ry="4.6" className="fill-ink" />
+      <g
+        className="ghost-vent-slats stroke-card"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <path d="M14 7.5 V10.5 M20 5.5 V12.5 M26 4.8 V13.2 M32 4.8 V13.2 M38 5.5 V12.5 M44 7.5 V10.5" />
+      </g>
+    </svg>
   );
 }
