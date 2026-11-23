@@ -81,7 +81,7 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     /** This socket's Room, from its first accepted join on. */
     let room: Room | undefined;
 
-    socket.on("join", (id, name) => {
+    socket.on("join", (id, name, role) => {
       if (typeof id !== "string" || typeof name !== "string") return;
       // Each socket is one connection, so a repeated join from it mustn't be counted twice.
       if (room && socket.data.participantId === id) {
@@ -89,7 +89,7 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
         return;
       }
 
-      const result = rooms.join(roomId, id, name);
+      const result = rooms.join(roomId, id, name, role);
       if (!result.ok) {
         socket.emit("rejected", { command: "join", reason: result.reason });
         return;

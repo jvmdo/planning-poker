@@ -66,9 +66,15 @@ export interface Room {
   /**
    * Adds the Participant, or reconnects them if they're already in the Room. A new Participant
    * past MAX_PARTICIPANTS is refused with `room-full`; one already in the Room, even in their grace
-   * period, can always rejoin.
+   * period, can always rejoin. A new Participant arrives as an Observer when `role` says so, and as
+   * a Voter otherwise; one already in the Room keeps their role. Takes any value as the role, since
+   * callers pass untrusted input.
    */
-  join(id: ParticipantId, name: string): CommandResult<JoinRejectionReason>;
+  join(
+    id: ParticipantId,
+    name: string,
+    role?: unknown,
+  ): CommandResult<JoinRejectionReason>;
   /** Takes any number, since callers pass untrusted input; only Cards in the Deck are accepted. */
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
   reveal(by: ParticipantId): CommandResult<RevealRejectionReason>;
@@ -298,7 +304,7 @@ export function createRoom(): Room {
   }
 
   return {
-    join(id, name) {
+    join(id, name, role) {
       const key = nameKey(name);
       if (key === "") return { ok: false, reason: "name-empty" };
       if (!participants.has(id) && participants.size >= MAX_PARTICIPANTS) {
@@ -313,15 +319,18 @@ export function createRoom(): Room {
       graceTimers.delete(id);
       if (participants.size === 0) facilitatorId = id;
       const existing = participants.get(id);
+      const arrivingRole: ParticipantRole =
+        existing?.role ?? (role === "observer" ? "observer" : "voter");
       const vote = setAside.get(id);
       if (!existing && vote !== undefined) {
-        votes.set(id, vote);
+        // An Observer has no Vote: one set aside stays out of the Round.
+        if (arrivingRole === "voter") votes.set(id, vote);
         setAside.delete(id);
       }
       participants.set(id, {
         id,
         name: name.trim(),
-        role: existing?.role ?? "voter",
+        role: arrivingRole,
         connections: (existing?.connections ?? 0) + 1,
         ghost: existing?.ghost ?? null,
       });

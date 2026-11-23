@@ -16,9 +16,15 @@ export interface Rooms {
   /**
    * Joins the Participant to the Room with this ID, creating the Room if it doesn't exist yet. A
    * Room exists only once someone has joined it: a refused join leaves no Room behind. Creating a
-   * Room past MAX_ROOMS is refused with `server-full`; Rooms that exist keep accepting joins.
+   * Room past MAX_ROOMS is refused with `server-full`; Rooms that exist keep accepting joins. The
+   * role to arrive with is untrusted input, as `Room.join` takes it.
    */
-  join(roomId: RoomId, id: ParticipantId, name: string): JoinRoomResult;
+  join(
+    roomId: RoomId,
+    id: ParticipantId,
+    name: string,
+    role?: unknown,
+  ): JoinRoomResult;
   /**
    * Calls `listener` with each Room the registry creates, right after its first join. Returns a
    * function that unsubscribes.
@@ -61,13 +67,13 @@ export function createRooms(): Rooms {
   }
 
   return {
-    join(roomId, id, name) {
+    join(roomId, id, name, role) {
       const existing = rooms.get(roomId);
       if (!existing && rooms.size >= MAX_ROOMS) {
         return { ok: false, reason: "server-full" };
       }
       const room = existing ?? createRoom();
-      const result = room.join(id, name);
+      const result = room.join(id, name, role);
       if (!result.ok) return result;
       if (!existing) {
         rooms.set(roomId, room);

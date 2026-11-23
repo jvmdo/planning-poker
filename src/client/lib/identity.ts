@@ -1,8 +1,14 @@
-import type { ParticipantId, RoomId } from "../../shared/protocol";
+import type {
+  ParticipantId,
+  ParticipantRole,
+  RoomId,
+} from "../../shared/protocol";
 import { parseRoomId } from "../../shared/room-id";
 import { isSkin, type Skin } from "../../shared/ghost";
 
 const STORAGE_KEY = "planning-poker:identity";
+/** How many Rooms this browser remembers being an Observer in, the most recently used kept. */
+const MAX_OBSERVER_ROOMS = 20;
 
 /**
  * Who this browser is, the same in every Room. Kept in browser storage so a reload rejoins as the
@@ -19,6 +25,11 @@ export interface Identity {
    * Room. Null when no Ghost is wanted: never picked, or put away down the vent since.
    */
   ghost: Skin | null;
+  /**
+   * The Rooms this browser is an Observer in, the latest first. It comes back to them as an
+   * Observer after its grace period runs out or a server restart, and joins any other Room as a Voter.
+   */
+  observerIn: readonly RoomId[];
 }
 
 export function loadIdentity(): Identity {
@@ -32,7 +43,12 @@ export function loadIdentity(): Identity {
       const ghost = isSkin(stored.ghost)
         ? { fabric: stored.ghost.fabric, disguise: stored.ghost.disguise }
         : null;
-      return { id: stored.id, name: stored.name, lastRoom, ghost };
+      const observerIn = Array.isArray(stored.observerIn)
+        ? stored.observerIn
+            .flatMap((room) => parseRoomId(room) ?? [])
+            .slice(0, MAX_OBSERVER_ROOMS)
+        : [];
+      return { id: stored.id, name: stored.name, lastRoom, ghost, observerIn };
     }
   } catch {
     // Unreadable storage: start over with a fresh identity.
@@ -42,6 +58,7 @@ export function loadIdentity(): Identity {
     name: "",
     lastRoom: null,
     ghost: null,
+    observerIn: [],
   };
   saveIdentity(identity);
   return identity;
@@ -60,12 +77,32 @@ export function updateIdentity(change: (stored: Identity) => Identity): void {
   saveIdentity(change(loadIdentity()));
 }
 
+/** The role this browser joins `roomId` with when the Room doesn't have it, as after a restart. */
+export function roleIn(identity: Identity, roomId: RoomId): ParticipantRole {
+  return identity.observerIn.includes(roomId) ? "observer" : "voter";
+}
+
+/** The identity, remembering this browser as `role` in `roomId`. */
+export function withRoleIn(
+  identity: Identity,
+  roomId: RoomId,
+  role: ParticipantRole,
+): Identity {
+  const others = identity.observerIn.filter((room) => room !== roomId);
+  const observerIn =
+    role === "observer"
+      ? [roomId, ...others].slice(0, MAX_OBSERVER_ROOMS)
+      : others;
+  return { ...identity, observerIn };
+}
+
 function isStoredIdentity(value: unknown): value is Pick<
   Identity,
   "id" | "name"
 > & {
   lastRoom?: unknown;
   ghost?: unknown;
+  observerIn?: unknown;
 } {
   return (
     typeof value === "object" &&

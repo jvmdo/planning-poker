@@ -114,7 +114,11 @@ export type Rejection =
   | { command: "moveGhost"; reason: MoveGhostRejectionReason };
 
 export interface ClientToServerEvents {
-  join: (id: ParticipantId, name: string) => void;
+  /**
+   * The role is the one a Participant new to the Room arrives with: "observer" or "voter". It's
+   * untrusted input, checked by the Room, and missing from tabs loaded before it existed.
+   */
+  join: (id: ParticipantId, name: string, role?: unknown) => void;
   vote: (card: number) => void;
   reveal: () => void;
   newRound: () => void;

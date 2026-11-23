@@ -43,6 +43,100 @@ describe("joining the Room", () => {
   });
 });
 
+describe("joining as an Observer", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("lists a new Participant who asks to be an Observer as one, with no Vote expected", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+
+    expect(room.join("bruno-id", "Bruno", "observer")).toEqual({ ok: true });
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { role: "observer" }),
+    ]);
+    room.vote("ana-id", 2);
+    expect(room.reveal("ana-id")).toEqual({ ok: true });
+  });
+
+  it("leaves out the Vote set aside for a Voter who comes back as an Observer", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 2);
+    room.vote("bruno-id", 8);
+    room.disconnect("bruno-id");
+    vi.advanceTimersByTime(30_000);
+
+    room.join("bruno-id", "Bruno", "observer");
+    room.becomeVoter("bruno-id");
+
+    expect(room.snapshotFor("bruno-id").myVote).toBeNull();
+    room.reveal("ana-id");
+    expect(room.snapshotFor("ana-id").result).toBe(2);
+  });
+
+  it("lists anyone asking for an unknown role as a Voter", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana", "facilitator");
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+    ]);
+  });
+
+  it("still makes the first Participant in an empty Room the Facilitator", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana", "observer");
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true, role: "observer" }),
+    ]);
+  });
+
+  it("keeps the role the Room has for a Participant back within their grace period", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno", "observer");
+    room.join("cara-id", "Cara");
+    room.disconnect("bruno-id");
+    room.disconnect("cara-id");
+
+    room.join("bruno-id", "Bruno", "voter");
+    room.join("cara-id", "Cara", "observer");
+
+    expect(
+      room.snapshotFor("ana-id").participants.map((p) => [p.name, p.role]),
+    ).toEqual([
+      ["Ana", "voter"],
+      ["Bruno", "observer"],
+      ["Cara", "voter"],
+    ]);
+  });
+
+  it("brings an Observer back as one after their grace period ran out", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno", "observer");
+    room.disconnect("bruno-id");
+    vi.advanceTimersByTime(30_000);
+    expect(room.snapshotFor("ana-id").participants).toHaveLength(1);
+
+    room.join("bruno-id", "Bruno", "observer");
+
+    expect(room.snapshotFor("ana-id").participants).toEqual([
+      participant("ana-id", "Ana", { isFacilitator: true }),
+      participant("bruno-id", "Bruno", { role: "observer" }),
+    ]);
+  });
+});
+
 describe("the Facilitator", () => {
   it("is the first Participant to join an empty Room, as seen by everyone", () => {
     const room = createRoom();

@@ -20,7 +20,13 @@ import {
   type Skin,
   type TablePoint,
 } from "../shared/ghost";
-import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
+import {
+  loadIdentity,
+  roleIn,
+  updateIdentity,
+  withRoleIn,
+  type Identity,
+} from "./lib/identity";
 import { connectTo, socket } from "./lib/socket";
 import { ghostComeback } from "./ghost-comeback";
 import {
@@ -159,6 +165,9 @@ export function useRoom(
       );
       setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
+      // You come back to this Room, after your grace period or a restart, in the role it last showed.
+      if (me && roomId !== null && roleIn(loadIdentity(), roomId) !== me.role)
+        updateIdentity((stored) => withRoleIn(stored, roomId, me.role));
       if (me && joinedFromJoinScreen.current) {
         joinedFromJoinScreen.current = false;
         updateIdentity((stored) => ({
@@ -258,8 +267,10 @@ export function useRoom(
   }, [notice]);
 
   useEffect(() => {
-    if (connected && wantsToJoin) socket.emit("join", identity.id, name);
-  }, [connected, wantsToJoin, name, identity.id]);
+    // A Room that no longer has you, as after a restart, takes you back in the role remembered for it.
+    if (connected && wantsToJoin && roomId !== null)
+      socket.emit("join", identity.id, name, roleIn(loadIdentity(), roomId));
+  }, [connected, wantsToJoin, name, identity.id, roomId]);
 
   function join(nameToJoinWith: string) {
     setRejection(null);
