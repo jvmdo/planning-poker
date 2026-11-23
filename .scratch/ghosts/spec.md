@@ -45,7 +45,8 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 24. As a Participant, I want a Ghost over a Voter's Card to be over that same Card on my screen, whoever I am, so that "Davi is haunting Bruno" is true for everyone.
 25. As the Voter whose Card is being haunted, I want to see the Ghost over my own Card, so that I know it's me being teased.
 26. As a Participant, I want Ghosts to be slightly see-through and small, so that the Result in the middle of the Table stays readable even with a Ghost parked on it.
-27. As a Participant, I want new Ghosts to appear in the middle of the Table, nudged apart from other Ghosts, so that I notice them arrive and they don't stack.
+27. As a Participant, I want a new Ghost to climb out of a vent that opens at a random spot on the Table, a different vent from other Ghosts, so that I notice it arrive and Ghosts don't stack.
+27a. As a Participant, I want a Ghost that goes away to sink into a vent that opens under it, wherever it stands, so that arrivals and departures match.
 
 ### Moving
 
@@ -98,7 +99,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 65. As an Observer back within the grace period, I want my Ghost exactly as I left it, so that a Wi-Fi blip is invisible.
 66. As an Observer who becomes a Voter, I want my Ghost put away, because only Observers have Ghosts.
 67. As a Participant, I want a Ghost to disappear when its owner leaves or is removed after the grace period, so that no Ghost stays without an owner.
-68. As an Observer whose Ghost comes back (after switching from Voter, after the grace period, or after a server restart), I want it to appear in the middle of the Table, so that everyone notices I'm back.
+68. As an Observer whose Ghost comes back (after switching from Voter, after the grace period, or after a server restart), I want it to climb out of a vent, so that everyone notices I'm back.
 
 ## Implementation Decisions
 
@@ -114,7 +115,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 ### Room module (server)
 
 - **New commands:**
-  - `summonGhost(id, skin)`. Rejected for a Voter, an invalid Skin, or a Ghost already out. The Room places the new Ghost at the middle of the Table, nudged a little sideways for each other Ghost already out.
+  - `summonGhost(id, skin)`. Rejected for a Voter, an invalid Skin, or a Ghost already out. The Room places the new Ghost at a free vent spot, picked in an order shuffled by the owner's Participant ID, so it feels random but the owner's browser can predict it. When every vent has a Ghost on it, it takes one anyway and is nudged aside.
   - `dressGhost(id, skin)`. Rejected with no Ghost or an invalid Skin.
   - `dismissGhost(id)`. Rejected with no Ghost.
   - `moveGhost(id, to)`. Rejected with no Ghost, a point that isn't two finite numbers in range, or the move limit spent.
@@ -137,6 +138,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 
   Converting a screen point back is the reverse. Observers, including every Ghost owner, have no turn. Walks are turned the same way, so each screen may show a walk in a different direction, but always between the same seats.
 - **Ghost layer:** an overlay across the room area, below the status bar, drawn above the Table but below the Hand and toasts. It ignores the pointer except on the Ghosts themselves.
+- **Vents:** fixed spots on the shared Table, turned per screen like Ghosts. A Ghost that appears between two snapshots climbs out of a grate that opens and then fades; one that goes (put away, its owner becomes a Voter, leaves, or their grace period runs out) sinks into a grate under it. Someone joining late just sees the Ghosts already out. A disconnect still only fades the Ghost. Reduced motion: Ghosts simply appear and go.
 - **Walking:** each screen animates from where the Ghost is drawn to the new destination, frame by frame, at a constant speed measured on the shared Table (one Table width per 1.5 s), easing in and out. The owner's screen starts the walk on the click, before the server answers.
 - **Input:** a click on empty room space (not a seat, Card, control or the Hand) moves your own Ghost. Arrow keys hop a tenth of the Table from anywhere on the page, except while focus is somewhere that needs them (a text field, a dialog, or a control that uses arrow keys itself) or a modifier key is held.
 - **Decks:** your own Ghost opens the Reaction deck, and anyone else's opens the Throw deck. Both reuse the seat decks.
@@ -163,7 +165,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 
 ## Testing Decisions
 
-- **What makes a good test here:** it drives a module only through its public interface and asserts only on what callers can observe. It never reaches into internal state, so internals can be refactored freely. A good Room test reads like a meeting scenario: "Davi, an Observer, summons a Ghost in Berry gingham; Ana's snapshot shows Davi's Ghost in the middle of the Table; Davi moves it; the ghost subscriber receives the move once; Ana's snapshot is unchanged until the next state change, and then carries the new destination."
+- **What makes a good test here:** it drives a module only through its public interface and asserts only on what callers can observe. It never reaches into internal state, so internals can be refactored freely. A good Room test reads like a meeting scenario: "Davi, an Observer, summons a Ghost in Berry gingham; Ana's snapshot shows Davi's Ghost at one of the vents; Davi moves it; the ghost subscriber receives the move once; Ana's snapshot is unchanged until the next state change, and then carries the new destination."
 - **The Room module**, the existing main seam, through its commands, `snapshotFor` and the ghost subscriber:
   - summon, dress, move and dismiss, seen from both the owner's and other Participants' snapshots
   - every rejection listed above, each showing the Room unchanged
@@ -185,7 +187,8 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 - Ghosts bumping into each other.
 - Voters having a character of their own.
 - Skins beyond the six fabrics and five disguises, or Skins people draw themselves.
-- Remembering where a Ghost was across visits; a returning Ghost always appears in the middle.
+- Remembering where a Ghost was across visits; a returning Ghost always climbs out of a vent.
+- Vents drawn on the Table all the time; a grate shows only while a Ghost comes out or goes in.
 - Sound.
 - Accessibility beyond keyboard walking, name tags and the reduced-motion rule above.
 
