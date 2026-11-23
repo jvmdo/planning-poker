@@ -8,7 +8,7 @@ Observers watch the Room but have nothing of their own at the Table. Voters have
 
 ## Solution
 
-An Observer can choose to have a **Ghost**: a small character, seen by everyone with its owner's name, that they walk anywhere around the Table. Each Observer picks their Ghost's **Skin**: a dress fabric and a disguise. While the Ghost is out, it is where that Observer is on the Table: their Reactions float up from it, their Throws fly from it, and anyone can Throw at it. A Ghost hovering over Bruno's Card is over Bruno's Card on every screen, Bruno's included. Ghosts turn, lean and trot as they walk, and work during every part of the Round, Reveal included, without changing anything in it.
+An Observer can choose to have a **Ghost**: a small character, seen by everyone, that they walk anywhere around the Table. Each Observer picks their Ghost's **Skin**: a dress fabric and a disguise. While the Ghost is out, it is where that Observer is on the Table: their Reactions float up from it, their Throws fly from it, and anyone can Throw at it. A Ghost hovering over Bruno's Card is over Bruno's Card on every screen, Bruno's included. Ghosts turn, lean and trot as they walk, and work during every part of the Round, Reveal included, without changing anything in it.
 
 The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction**, **Throw**, **Observer**, **Table**).
 
@@ -39,8 +39,8 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 ### Seeing Ghosts
 
 19. As a Participant, I want to see every Ghost in the Room, so that I know which Observers are playing.
-20. As a Participant, I want every Ghost to carry an always-visible name tag, so that I know who is haunting the Table, even on a phone with no hover.
-21. As a Participant, I want an Observer whose Ghost is out to leave the "Watching" line, so that their name isn't shown twice.
+20. As a Participant, I want a Ghost's name tag to show when I click it, with its Reaction or Throw menu, so that I can find out who is haunting the Table, even on a phone with no hover, without name tags crowding the seats' names.
+21. As a Participant, I want an Observer whose Ghost is out to leave the "Watching" line, so that their Ghost stands for them at the Table.
 22. As a Participant, I want an Observer to return to the "Watching" line when they put their Ghost away, so that I can still see they're there.
 23. As a Participant who joins late or reloads, I want to see every Ghost already out, where it is, so that my screen matches everyone else's.
 24. As a Participant, I want a Ghost over a Voter's Card to be over that same Card on my screen, whoever I am, so that "Davi is haunting Bruno" is true for everyone.
@@ -142,7 +142,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 - **Vents:** fixed spots on the shared Table, turned per screen like Ghosts. A Ghost that appears between two snapshots climbs out of a grate that opens and then fades; one that goes (put away, its owner becomes a Voter, leaves, or their grace period runs out) sinks into a grate under it. Someone joining late just sees the Ghosts already out. A disconnect still only fades the Ghost. Reduced motion: Ghosts simply appear and go.
 - **Walking:** each screen animates from where the Ghost is drawn to the new destination, frame by frame, at a constant speed measured on the shared Table (one Table width per 1.5 s), easing in and out. The owner's screen starts the walk on the click, before the server answers.
 - **Input:** a click on empty room space (not a seat, Card, control or the Hand) moves your own Ghost. Arrow keys hop a tenth of the Table from anywhere on the page, except while focus is somewhere that needs them (a text field, a dialog, or a control that uses arrow keys itself) or a modifier key is held.
-- **Menus:** your own Ghost opens the Reaction menu, and anyone else's opens the Throw menu. Both reuse the seat menus.
+- **Menus:** your own Ghost opens the Reaction menu, and anyone else's opens the Throw menu. Both reuse the seat menus. The Ghost's name tag shows with its menu and goes with it.
 - **Throws and Reactions:** they start from the thrower's Ghost when it's out, otherwise from the Watching line as today. A Ghost target is the Ghost as drawn on that screen. The Throw animation becomes frame-driven and re-reads the target's on-screen position every frame, so it homes in on a walking Ghost. This is all local to each browser, with nothing extra on the network. A hit Ghost wobbles in place.
 - **Watching line:** it leaves out Observers whose Ghost is out.
 - **Away:** a disconnected owner's Ghost is drawn faded.
@@ -152,7 +152,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
   - **Body:** Sheet's dome and face, a Card worn as a long dress with a wavy hem in the fabric's pattern, and a short wisp tail peeking out under the hem.
   - **Disguises:** Ninja (face wrap and headband), Thief (domino mask and beanie), Astronaut (bubble helmet with antenna) and Rogue (narrow hood flaring over the shoulders, a pale mask, glowing eyes).
   - **Colours:** each fabric has a main, dark, light and glow colour, and the disguises take theirs from the fabric.
-  - **Size:** about as wide as a seat's Card, growing with it as the screen widens (42px next to the smallest Card, 40px). The name tag stays the page's size, like the seats' name tags.
+  - **Size:** about as wide as a seat's Card, growing with it as the screen widens (42px next to the smallest Card, 40px). The name tag shows only while the Ghost's menu is open, below the Ghost, at the page's size like the seats' name tags. Screen readers always hear it.
 - **Back items:** one per disguise, in the fabric's colours: a bow on the dress (None), a sword (Ninja), a loot sack (Thief), a small jetpack whose flame shows while walking (Astronaut), a quiver of arrows (Rogue).
 - **Body movement:** each screen works this out from the motion on that screen.
   - **Turning:** the Ghost faces right or left. It flips, with a quick turn, when a walk moves noticeably sideways, and keeps its facing when it walks straight up or down. Its face sits slightly toward the side it faces, with the back item on the other side.

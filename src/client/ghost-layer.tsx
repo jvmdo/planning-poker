@@ -178,7 +178,8 @@ export function GhostLayer({
               className={cn(
                 // Drawn in Ghost pixels (see `.ghost-size`), which grow with the seats' Cards. Its
                 // name tag stays the page's size, like the seats' name tags.
-                // Centred on its point by the middle of its body, with its name tag below.
+                // Centred on its point by the middle of its body, with its name tag (while its
+                // menu is open) below.
                 "group ghost-size pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23em] flex-col items-center gap-[2em]",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
@@ -222,7 +223,13 @@ export function GhostLayer({
                   </div>
                 </div>
               </button>
-              <span className="ghost-vent-tag bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold">
+              {/* Shown with the Ghost's menu, on a click, as the menu's caption; always read out. */}
+              <span
+                className={cn(
+                  "ghost-vent-tag bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold",
+                  !isOpen && "sr-only",
+                )}
+              >
                 {p.name}
                 <span className="sr-only">
                   's Ghost{!p.connected && ", away"}
