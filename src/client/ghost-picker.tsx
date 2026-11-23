@@ -19,7 +19,7 @@ const OPTION =
 /**
  * An Observer's Ghost button and the Skin picker it opens. Picking a fabric and a disguise only
  * tries them on, in the preview; "Bring out Ghost" or "Wear this" puts them on your Ghost and
- * closes the picker, as does "Put Ghost away". Closing it any other way drops what was tried on.
+ * closes the picker, as does "Vent", which puts it away. Closing it any other way drops what was tried on.
  * It opens on your Ghost's Skin, or the first time on a random one, so one click brings out a Ghost.
  */
 export function GhostPicker({
@@ -115,6 +115,22 @@ export function GhostPicker({
                 {wearing ? "Your Ghost is wearing this" : "Trying on"}
               </span>
             </p>
+            {skin && (
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="Vent: put your Ghost away"
+                title="Hop in the vent: put your Ghost away"
+                onClick={() => {
+                  onDismiss();
+                  close();
+                }}
+                className="ml-auto self-start"
+              >
+                <VentIcon className="size-4" />
+                Vent
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -175,24 +191,28 @@ export function GhostPicker({
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={wear} disabled={wearing} className="flex-1">
-              {skin ? "Wear this" : "Bring out Ghost"}
-            </Button>
-            {skin && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onDismiss();
-                  close();
-                }}
-              >
-                Put Ghost away
-              </Button>
-            )}
-          </div>
+          <Button onClick={wear} disabled={wearing}>
+            {skin ? "Wear this" : "Bring out Ghost"}
+          </Button>
         </div>
       )}
     </div>
+  );
+}
+
+/** A floor vent's grate, which a Ghost hops into to go away. */
+function VentIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      className={className}
+    >
+      <rect x="1.5" y="3" width="13" height="10" rx="2" strokeWidth="1.6" />
+      <path d="M4.5 6 H11.5 M4.5 8 H11.5 M4.5 10 H11.5" strokeWidth="1.3" />
+    </svg>
   );
 }

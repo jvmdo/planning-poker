@@ -354,11 +354,12 @@ export function useRoom(
     setPendingGhost(skin);
   }
 
-  /** Puts your Ghost away, back to the Watching line, at once. */
+  /** Puts your Ghost away down a vent, back to the Watching line, at once. */
   function dismissGhost() {
     if (!canSend()) return;
     socket.emit("dismissGhost");
     setPendingGhost("away");
+    showNotice("Folded and vented. Nobody suspects a thing.");
   }
 
   /**
