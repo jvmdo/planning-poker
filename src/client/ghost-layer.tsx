@@ -176,8 +176,10 @@ export function GhostLayer({
                 event.currentTarget.querySelector("button")?.focus();
               }}
               className={cn(
+                // Drawn in Ghost pixels (see `.ghost-size`), which grow with the seats' Cards. Its
+                // name tag stays the page's size, like the seats' name tags.
                 // Centred on its point by the middle of its body, with its name tag below.
-                "group pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5",
+                "group ghost-size pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23em] flex-col items-center gap-[2em]",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
                 isOpen && "z-10 opacity-100",
@@ -215,7 +217,7 @@ export function GhostLayer({
                   >
                     <GhostFigure
                       skin={p.ghost.skin}
-                      className="h-[46px] w-[42px]"
+                      className="h-[46em] w-[42em]"
                     />
                   </div>
                 </div>
@@ -229,7 +231,8 @@ export function GhostLayer({
               {isOpen && (
                 <div
                   className={cn(
-                    "absolute left-1/2 -translate-x-1/2",
+                    // In the page's sizes, not the Ghost's.
+                    "absolute left-1/2 -translate-x-1/2 text-base",
                     menuAbove ? "bottom-full pb-1" : "top-full pt-1",
                   )}
                 >
@@ -257,7 +260,7 @@ function VentGrate() {
     <svg
       viewBox="0 0 56 18"
       aria-hidden
-      className="ghost-vent-grate absolute top-[42px] left-1/2 h-[18px] w-[56px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+      className="ghost-vent-grate absolute top-[42em] left-1/2 h-[18em] w-[56em] -translate-x-1/2 -translate-y-1/2 overflow-visible"
     >
       <ellipse
         cx="28"

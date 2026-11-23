@@ -15,7 +15,7 @@ const SIZES = {
   },
   /** A seat at the table; grows with the screen. */
   seat: {
-    card: "aspect-[3/4] w-[clamp(40px,3.4vw,68px)] rounded-[clamp(6px,0.6vw,11px)] border-[3px] text-[clamp(1rem,1.5vw,1.8rem)]",
+    card: "aspect-[3/4] w-(--seat-card-width) rounded-[clamp(6px,0.6vw,11px)] border-[3px] text-[clamp(1rem,1.5vw,1.8rem)]",
     back: "bg-[repeating-linear-gradient(45deg,var(--pop-2)_0_6px,var(--secondary)_6px_9px)]",
     shadow: "shadow-hard",
     eye: "size-6",

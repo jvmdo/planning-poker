@@ -12,10 +12,13 @@ const ARRIVED = 0.002;
 /** A frame after a long pause (a hidden tab) moves no further than this many seconds' worth. */
 const LONGEST_FRAME_S = 0.1;
 /**
- * How far in from the room area's edges a Ghost's point is kept, in pixels, so the whole Ghost
- * stays on screen: its body is centred on the point, and its name tag hangs below.
+ * How far in from the room area's edges a Ghost's point is kept, in Ghost pixels (which grow with
+ * the seats' Cards), so the whole Ghost stays on screen: its body is centred on the point. Its name
+ * tag hangs below that, in `TAG_BELOW`.
  */
-const KEEP_IN = { side: 24, top: 26, bottom: 40 };
+const KEEP_IN = { side: 24, top: 26, bottom: 24 };
+/** How far below a Ghost's body its name tag hangs, in screen pixels: tags don't grow. */
+const TAG_BELOW = 16;
 
 /** A walk turns a Ghost to face its way only if it goes at least this many pixels sideways. */
 const TURNS_AFTER_PX = 6;
@@ -139,19 +142,29 @@ export function createGhostWalker() {
   let frame: number | null = null;
   let lastFrameAt = 0;
 
+  /** How many screen pixels a Ghost pixel is on this screen: the Ghosts' font size. */
+  function ghostPixel(): number {
+    const [ghost] = elements.values();
+    const size = ghost ? parseFloat(getComputedStyle(ghost).fontSize) : NaN;
+    return Number.isFinite(size) && size > 0 ? size : 1;
+  }
+
   /** This screen's room area, on the Table's box, with the Ghosts kept a little in from its edges. */
   function measure(): { bounds: RoomBounds; box: DOMRect } | null {
     if (!room || !table) return null;
     const area = room.getBoundingClientRect();
     const box = table.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) return null;
+    const side = KEEP_IN.side * ghostPixel();
+    const top = KEEP_IN.top * ghostPixel();
+    const bottom = KEEP_IN.bottom * ghostPixel() + TAG_BELOW;
     return {
       box,
       bounds: {
-        left: (area.left + KEEP_IN.side - box.left) / box.width,
-        right: (area.right - KEEP_IN.side - box.left) / box.width,
-        top: (area.top + KEEP_IN.top - box.top) / box.height,
-        bottom: (area.bottom - KEEP_IN.bottom - box.top) / box.height,
+        left: (area.left + side - box.left) / box.width,
+        right: (area.right - side - box.left) / box.width,
+        top: (area.top + top - box.top) / box.height,
+        bottom: (area.bottom - bottom - box.top) / box.height,
       },
     };
   }

@@ -118,7 +118,7 @@
       translate: 0 0;
     }
     50% {
-      translate: 0 -5px;
+      translate: 0 -5em;
     }
   }
   @keyframes ghost-trot {
@@ -127,7 +127,7 @@
       translate: 0 0;
     }
     50% {
-      translate: 0 -2px;
+      translate: 0 -2em;
     }
   }
   @keyframes grow-up {
@@ -160,6 +160,19 @@
 :root {
   --hand-card-width: clamp(56px, min(6.4vw, 10.5vh), 118px);
   --hand-height: calc(var(--hand-card-width) * 4 / 3 + clamp(40px, 6vh, 64px));
+}
+
+/*
+ * A seat's Card at the table grows with the width of the screen. A Ghost grows with it, so the two
+ * keep their sizes side by side on any screen: a Ghost is drawn in pixels of its own, 1em each,
+ * 42 of them wide, as wide as a seat's Card is at its smallest (40px) and a little wider. Name
+ * tags stay the page's size, on seats and Ghosts alike.
+ */
+:root {
+  --seat-card-width: clamp(40px, 3.4vw, 68px);
+}
+.ghost-size {
+  font-size: calc(var(--seat-card-width) / 40);
 }
 
 /*
@@ -290,7 +303,7 @@
 @layer components {
   [data-venting] .ghost-vent-hole {
     /* The Ghost below the hole is underground. */
-    clip-path: inset(-80px -80px 4px -80px);
+    clip-path: inset(-80em -80em 4em -80em);
   }
   .ghost-vent-grate .ghost-vent-slats {
     transform-box: fill-box;
