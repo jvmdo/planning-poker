@@ -1,19 +1,9 @@
 import type { FunEvent } from "../shared/fun";
 import type { ParticipantView } from "../shared/protocol";
-import { useRef } from "react";
 import { cn } from "@/lib/utils";
-import { shake } from "./lib/fun-animations";
 import type { VoteMark } from "./lib/vote-marks";
+import { DeckFan, type DeckItem } from "./deck-fan";
 import { VoteCard } from "./vote-card";
-
-/** One choice in a seat's deck: a Reaction, or something to Throw. Picking it says what was sent. */
-export interface DeckItem {
-  key: string;
-  emoji: string;
-  label: string;
-  /** Null when nothing was sent, because the burst is used up. */
-  onPick: () => FunEvent | null;
-}
 
 /**
  * A Voter's seat at the table: their Card and name. Hovering or clicking the Card opens a deck
@@ -54,13 +44,13 @@ export function TableSeat({
   onSent: (event: FunEvent) => void;
   cardRef: (element: HTMLButtonElement | null) => void;
 }) {
-  const deckRef = useRef<HTMLDivElement>(null);
   // Seats in the bottom half open their deck upwards, the rest downwards.
   const deckAbove = top > 60;
 
   return (
     <li
       data-seat
+      data-deck-host
       style={{ left: `${left}%`, top: `${top}%` }}
       onMouseEnter={onHover}
       onKeyDown={(event) => {
@@ -101,30 +91,7 @@ export function TableSeat({
           deckAbove ? "bottom-full pb-2" : "top-full pt-2",
         )}
       >
-        <div
-          ref={deckRef}
-          role="group"
-          aria-label={deckLabel}
-          className="bg-card border-ink shadow-hard animate-pop flex gap-1 rounded-2xl border-[3px] p-1.5"
-        >
-          {deck.map((item, i) => (
-            <button
-              key={item.key}
-              aria-label={item.label}
-              title={item.label}
-              onClick={() => {
-                const sent = item.onPick();
-                if (sent) onSent(sent);
-                else if (deckRef.current) shake(deckRef.current);
-              }}
-              // The deck fans out a little, like the hand.
-              style={{ rotate: `${(i - (deck.length - 1) / 2) * 4}deg` }}
-              className="hover:bg-muted focus-visible:ring-ring/50 grid size-10 place-items-center rounded-xl text-2xl transition-transform outline-none hover:-translate-y-1 hover:scale-125 focus-visible:ring-[3px]"
-            >
-              {item.emoji}
-            </button>
-          ))}
-        </div>
+        <DeckFan deck={deck} label={deckLabel} onSent={onSent} />
       </div>
     </li>
   );

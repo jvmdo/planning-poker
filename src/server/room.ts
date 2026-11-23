@@ -438,7 +438,8 @@ export function createRoom(): Room {
     react(id, reaction) {
       const participant = participants.get(id);
       if (!participant) return { ok: false, reason: "not-in-room" };
-      if (participant.role === "observer") {
+      // An Observer reacts from their Ghost, so needs one out.
+      if (participant.role === "observer" && !participant.ghost) {
         return { ok: false, reason: "observer-cannot-react" };
       }
       if (!isReaction(reaction)) return { ok: false, reason: "not-a-reaction" };
@@ -450,7 +451,8 @@ export function createRoom(): Room {
       const target = participants.get(to);
       if (!target) return { ok: false, reason: "unknown-participant" };
       if (to === by) return { ok: false, reason: "cannot-throw-at-yourself" };
-      if (target.role === "observer") {
+      // An Observer is thrown at through their Ghost, so needs one out.
+      if (target.role === "observer" && !target.ghost) {
         return { ok: false, reason: "cannot-throw-at-observer" };
       }
       if (!isThrowable(item)) return { ok: false, reason: "not-throwable" };

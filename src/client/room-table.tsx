@@ -18,7 +18,8 @@ import { floatReaction, flyThrow } from "./lib/fun-animations";
 import { seatLayout } from "./lib/seat-layout";
 import type { RoundReading } from "./lib/vote-marks";
 import { GhostLayer } from "./ghost-layer";
-import { TableSeat, type DeckItem } from "./table-seat";
+import type { DeckItem } from "./deck-fan";
+import { TableSeat } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
 import type { PendingCommand } from "./pending";
 import { Waiting as Spinner } from "./waiting";
@@ -34,8 +35,8 @@ const CLICK_AFTER_PRESS_MS = 1000;
 /**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
  * bottom nearest your hand. Its centre shows who we're waiting on and Auto Reveal's countdown, then
- * the Result; the Facilitator gets Reveal there while voting, and New Round after. Your own Card
- * opens a deck of Reactions; anyone else's, a deck of things to Throw at them.
+ * the Result; the Facilitator gets Reveal there while voting, and New Round after. Your own Card or
+ * Ghost opens a deck of Reactions; anyone else's, a deck of things to Throw at them.
  */
 export function RoomTable({
   snapshot,
@@ -79,7 +80,16 @@ export function RoomTable({
   const watchers = snapshot.participants.filter(
     (p) => p.role === "observer" && p.ghost === null,
   );
-  const [openSeat, setOpenSeat] = useState<ParticipantId | null>(null);
+  /** Whose deck a click opened, at their seat or their Ghost. */
+  const [openDeck, setOpenDeck] = useState<OpenDeck | null>(null);
+  // A deck whose seat or Ghost has gone closes, so it doesn't open again when they come back.
+  if (openDeck && !hasPlace(snapshot.participants, openDeck)) setOpenDeck(null);
+  const openAt = (on: OpenDeck["on"]) =>
+    openDeck?.on === on ? openDeck.id : null;
+  const toggleDeck = (id: ParticipantId, on: OpenDeck["on"]) =>
+    setOpenDeck((open) =>
+      open?.id === id && open.on === on ? null : { id, on },
+    );
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const ghosts = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
@@ -118,17 +128,17 @@ export function RoomTable({
     if (event.from !== myId) play(event);
   });
 
-  // A deck opened by a click closes on a click anywhere outside a seat.
+  // A deck opened by a click closes on a click anywhere outside a seat or Ghost.
   useEffect(() => {
-    if (openSeat === null) return;
+    if (openDeck === null) return;
     function onPointerDown(event: PointerEvent) {
-      if ((event.target as Element).closest("[data-seat]")) return;
-      setOpenSeat(null);
+      if ((event.target as Element).closest("[data-deck-host]")) return;
+      setOpenDeck(null);
       closedDeckAt.current = event.timeStamp;
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [openSeat]);
+  }, [openDeck]);
 
   function deckFor(p: ParticipantView): DeckItem[] {
     if (p.id === myId)
@@ -210,13 +220,11 @@ export function RoomTable({
                     ? "Your Card: send a Reaction"
                     : `Throw something at ${p.name}`
                 }
-                open={openSeat === p.id}
-                onToggle={() =>
-                  setOpenSeat((open) => (open === p.id ? null : p.id))
-                }
+                open={openAt("seat") === p.id}
+                onToggle={() => toggleDeck(p.id, "seat")}
                 onHover={() => {
                   // Only one deck at a time: moving on closes one a click left open.
-                  if (openSeat !== p.id) setOpenSeat(null);
+                  if (openAt("seat") !== p.id) setOpenDeck(null);
                   const focused = document.activeElement;
                   if (
                     focused instanceof HTMLElement &&
@@ -225,8 +233,8 @@ export function RoomTable({
                   )
                     focused.blur();
                 }}
-                onClose={() => setOpenSeat(null)}
-                onSent={(event) => play(event)}
+                onClose={() => setOpenDeck(null)}
+                onSent={play}
                 cardRef={(element) => {
                   if (element) cards.current.set(p.id, element);
                   else cards.current.delete(p.id);
@@ -254,6 +262,11 @@ export function RoomTable({
           if (element) ghosts.current.set(id, element);
           else ghosts.current.delete(id);
         }}
+        openDeck={openAt("ghost")}
+        deckFor={deckFor}
+        onToggleDeck={(id) => toggleDeck(id, "ghost")}
+        onCloseDeck={() => setOpenDeck(null)}
+        onSent={play}
       />
       {watchers.length > 0 && (
         <p
@@ -265,6 +278,18 @@ export function RoomTable({
       )}
     </section>
   );
+}
+
+interface OpenDeck {
+  id: ParticipantId;
+  on: "seat" | "ghost";
+}
+
+/** Whether a deck's seat or Ghost is still on the Table. */
+function hasPlace(participants: ParticipantView[], deck: OpenDeck) {
+  const p = participants.find((p) => p.id === deck.id);
+  if (!p) return false;
+  return deck.on === "ghost" ? p.ghost !== null : p.role === "voter";
 }
 
 /**

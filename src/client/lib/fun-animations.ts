@@ -58,25 +58,86 @@ export function floatReaction(emoji: string, card: Element) {
   }
 }
 
-/** A Throw: the item arcs and spins from one point to the target Card, which wobbles on impact. */
+/** How long a Throw is in the air. */
+const FLIGHT_MS = 650;
+
+/**
+ * The CSS timing function `cubic-bezier(x1, y1, x2, y2)`: how far along an animation is, eased,
+ * at time `t` from 0 to 1.
+ */
+function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
+  const at = (a: number, b: number, s: number) =>
+    3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3;
+  return (t: number) => {
+    // The curve's x grows with s, so halving finds the s whose x is t.
+    let low = 0;
+    let high = 1;
+    for (let i = 0; i < 20; i++) {
+      const mid = (low + high) / 2;
+      if (at(x1, x2, mid) < t) low = mid;
+      else high = mid;
+    }
+    return at(y1, y2, (low + high) / 2);
+  };
+}
+
+const throwEasing = cubicBezier(0.3, 0, 0.6, 1);
+
+/** Where a Throw is, `along` its flight from 0 to 1, `dx` and `dy` short of its target. */
+function inFlight(along: number, dx: number, dy: number, lift: number) {
+  // Up to the top of the arc halfway, then down onto the target, spinning twice all the way.
+  if (along <= 0.5) {
+    const k = along / 0.5;
+    return {
+      x: (dx / 2) * k,
+      y: (dy / 2 - lift) * k,
+      turn: 360 * k,
+      scale: 0.8 + 0.5 * k,
+    };
+  }
+  const k = (along - 0.5) / 0.5;
+  return {
+    x: dx / 2 + (dx / 2) * k,
+    y: dy / 2 - lift + (dy / 2 + lift) * k,
+    turn: 360 + 360 * k,
+    scale: 1.3 - 0.3 * k,
+  };
+}
+
+/**
+ * A Throw: the item arcs and spins from one point to the target, which wobbles on impact. It's
+ * drawn frame by frame, re-reading where the target is on screen each time, so it chases a target
+ * that moves, like a walking Ghost, and always hits it. The target wobbles where it is.
+ */
 export function flyThrow(emoji: string, from: Element, to: HTMLElement) {
   if (reducedMotion()) return blink(emoji, to);
   const a = centreOf(from);
-  const b = centreOf(to);
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const lift = Math.min(160, 60 + Math.hypot(dx, dy) * 0.25);
+  const start = centreOf(to);
+  // The arc's height is set by the distance at the start, so a moving target doesn't make it jump.
+  const lift = Math.min(
+    160,
+    60 + Math.hypot(start.x - a.x, start.y - a.y) * 0.25,
+  );
   const element = floating(emoji, a, "2.4rem");
-  element.animate(
-    [
-      { transform: "translate(0, 0) rotate(0) scale(0.8)" },
-      {
-        transform: `translate(${dx / 2}px, ${dy / 2 - lift}px) rotate(360deg) scale(1.3)`,
-      },
-      { transform: `translate(${dx}px, ${dy}px) rotate(720deg) scale(1)` },
-    ],
-    { duration: 650, easing: "cubic-bezier(0.3, 0, 0.6, 1)", fill: "forwards" },
-  ).onfinish = () => {
+  let b = start;
+  const startedAt = performance.now();
+
+  function frame(now: number) {
+    const t = Math.min(1, (now - startedAt) / FLIGHT_MS);
+    // A target that's gone, like a Ghost put away, is aimed at where it was last seen.
+    if (to.isConnected) b = centreOf(to);
+    const { x, y, turn, scale } = inFlight(
+      throwEasing(t),
+      b.x - a.x,
+      b.y - a.y,
+      lift,
+    );
+    element.style.transform = `translate(${x}px, ${y}px) rotate(${turn}deg) scale(${scale})`;
+    if (t < 1) requestAnimationFrame(frame);
+    else land(b.x - a.x, b.y - a.y);
+  }
+
+  function land(dx: number, dy: number) {
     element.animate(
       [
         { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1 },
@@ -87,6 +148,7 @@ export function flyThrow(emoji: string, from: Element, to: HTMLElement) {
       ],
       { duration: 500, easing: "ease-in", fill: "forwards" },
     ).onfinish = () => element.remove();
+    // On the transform, so it adds to a Ghost's bob and walk, which use other properties.
     to.animate(
       [
         { transform: "none" },
@@ -97,7 +159,10 @@ export function flyThrow(emoji: string, from: Element, to: HTMLElement) {
       ],
       { duration: 500, easing: "ease-out" },
     );
-  };
+  }
+
+  element.style.transform = "translate(0, 0) rotate(0) scale(0.8)";
+  requestAnimationFrame(frame);
 }
 
 /** A small shake: what a deck does when the burst is used up. */

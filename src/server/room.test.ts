@@ -1344,6 +1344,156 @@ describe("Reactions and Throws", () => {
       expect(room.throwAt("bruno-id", "ana-id", "fish")).toEqual({ ok: true });
   });
 
+  describe("with Ghosts", () => {
+    /** Carla's Ghost is out; Davi is an Observer without one. */
+    function withGhost() {
+      const table = tableOfThree();
+      const { room } = table;
+      room.summonGhost("carla-id", {
+        fabric: "coral-stripes",
+        disguise: "none",
+      });
+      room.join("davi-id", "Davi");
+      room.becomeObserver("davi-id");
+      table.onChange.mockClear();
+      return { ...table, snapshots: table.before() };
+    }
+
+    it("sends a Reaction from an Observer whose Ghost is out, changing nothing in the Room", () => {
+      const { room, fun, onChange, snapshots, before } = withGhost();
+
+      expect(room.react("carla-id", "🎉")).toEqual({ ok: true });
+
+      expect(fun).toHaveBeenCalledExactlyOnceWith({
+        kind: "reaction",
+        from: "carla-id",
+        reaction: "🎉",
+      });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(before()).toEqual(snapshots);
+    });
+
+    it("still rejects a Reaction from an Observer without a Ghost, or whose Ghost was put away", () => {
+      const { room, fun } = withGhost();
+
+      expect(room.react("davi-id", "🎉")).toEqual({
+        ok: false,
+        reason: "observer-cannot-react",
+      });
+      room.dismissGhost("carla-id");
+      expect(room.react("carla-id", "🎉")).toEqual({
+        ok: false,
+        reason: "observer-cannot-react",
+      });
+      expect(fun).not.toHaveBeenCalled();
+    });
+
+    it("sends a Throw at a Ghost to everyone once, from Voters, other Ghosts and Observers without one, changing nothing", () => {
+      const { room, fun, onChange, snapshots, before } = withGhost();
+      room.join("eva-id", "Eva");
+      room.becomeObserver("eva-id");
+      room.summonGhost("eva-id", { fabric: "coral-stripes", disguise: "none" });
+      onChange.mockClear();
+      const withEva = before();
+
+      expect(room.throwAt("ana-id", "carla-id", "tomato")).toEqual({
+        ok: true,
+      });
+      expect(room.throwAt("eva-id", "carla-id", "egg")).toEqual({ ok: true });
+      expect(room.throwAt("davi-id", "carla-id", "flowers")).toEqual({
+        ok: true,
+      });
+
+      expect(fun.mock.calls).toEqual([
+        [{ kind: "throw", from: "ana-id", to: "carla-id", item: "tomato" }],
+        [{ kind: "throw", from: "eva-id", to: "carla-id", item: "egg" }],
+        [{ kind: "throw", from: "davi-id", to: "carla-id", item: "flowers" }],
+      ]);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(before()).toEqual(withEva);
+      expect(withEva).not.toEqual(snapshots);
+    });
+
+    it("sends a Throw at a Ghost whose owner is away", () => {
+      const { room, fun } = withGhost();
+      room.disconnect("carla-id");
+
+      expect(room.throwAt("ana-id", "carla-id", "rock")).toEqual({ ok: true });
+      expect(fun).toHaveBeenCalledOnce();
+    });
+
+    it("sends a Throw from a Ghost at a Voter", () => {
+      const { room, fun } = withGhost();
+
+      expect(room.throwAt("carla-id", "bruno-id", "fish")).toEqual({
+        ok: true,
+      });
+      expect(fun).toHaveBeenCalledExactlyOnceWith({
+        kind: "throw",
+        from: "carla-id",
+        to: "bruno-id",
+        item: "fish",
+      });
+    });
+
+    it.each([
+      [
+        "at an Observer without a Ghost",
+        "ana-id",
+        "davi-id",
+        "cannot-throw-at-observer",
+      ],
+      [
+        "from a Ghost at itself",
+        "carla-id",
+        "carla-id",
+        "cannot-throw-at-yourself",
+      ],
+    ] as const)(
+      "still rejects a Throw %s, sending nothing",
+      (_, by, to, reason) => {
+        const { room, fun, onChange, snapshots, before } = withGhost();
+
+        expect(room.throwAt(by, to, "rock")).toEqual({ ok: false, reason });
+
+        expect(fun).not.toHaveBeenCalled();
+        expect(onChange).not.toHaveBeenCalled();
+        expect(before()).toEqual(snapshots);
+      },
+    );
+
+    it("spends a Ghost's Reactions and Throws from the same burst as everyone's", () => {
+      const { room } = withGhost();
+
+      expect(room.react("carla-id", "🔥")).toEqual({ ok: true });
+      expect(room.throwAt("carla-id", "ana-id", "rock")).toEqual({ ok: true });
+      expect(room.react("carla-id", "🔥")).toEqual({ ok: true });
+      expect(room.throwAt("carla-id", "ana-id", "rock")).toEqual({
+        ok: false,
+        reason: "burst-used-up",
+      });
+      vi.advanceTimersByTime(300);
+      expect(room.react("carla-id", "🔥")).toEqual({ ok: true });
+
+      for (let i = 0; i < 3; i++) room.throwAt("ana-id", "carla-id", "egg");
+      expect(room.throwAt("ana-id", "carla-id", "egg")).toEqual({
+        ok: false,
+        reason: "burst-used-up",
+      });
+    });
+
+    it("rejects a Throw at a Ghost once it's put away", () => {
+      const { room, fun } = withGhost();
+      room.dismissGhost("carla-id");
+
+      expect(room.throwAt("ana-id", "carla-id", "rock")).toEqual({
+        ok: false,
+        reason: "cannot-throw-at-observer",
+      });
+      expect(fun).not.toHaveBeenCalled();
+    });
+  });
+
   it("stops sending to a subscriber once they unsubscribe", () => {
     const room = createRoom();
     room.join("ana-id", "Ana");

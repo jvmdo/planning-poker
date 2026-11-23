@@ -6,9 +6,11 @@ import {
   type RefObject,
 } from "react";
 import type { ParticipantId, ParticipantView } from "../shared/protocol";
+import type { FunEvent } from "../shared/fun";
 import type { GhostView, TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
 import { createGhostWalker } from "./lib/ghost-walker";
+import { DeckFan, type DeckItem } from "./deck-fan";
 import { GhostFigure } from "./ghost-figure";
 
 /** An arrow key walks your Ghost a tenth of the Table that way. */
@@ -39,6 +41,9 @@ const NOT_EMPTY_SPACE =
  * Each Ghost walks to where the Room says it's heading, turned the way this screen turns the seats.
  * Your own walks where you click in empty room space, or by the arrow keys from anywhere on the page
  * except where they're needed for something else.
+ *
+ * Clicking a Ghost opens a deck by it, as a Card does: Reactions on your own, things to Throw at
+ * anyone else's. Its deck walks with it.
  */
 export function GhostLayer({
   participants,
@@ -49,6 +54,11 @@ export function GhostLayer({
   tableRef,
   ghostRef,
   onMove,
+  openDeck,
+  deckFor,
+  onToggleDeck,
+  onCloseDeck,
+  onSent,
 }: {
   participants: ParticipantView[];
   myId: ParticipantId;
@@ -64,8 +74,18 @@ export function GhostLayer({
   ghostRef: (id: ParticipantId, element: HTMLElement | null) => void;
   /** Sends your own Ghost walking to a point on the shared Table, from a click or a key. */
   onMove: (to: TablePoint, event: Event) => void;
+  /** Whose deck is open, a Ghost's or a seat's, if any. */
+  openDeck: ParticipantId | null;
+  /** The deck a Participant's Ghost opens, the same as their Card would. */
+  deckFor: (p: ParticipantView) => DeckItem[];
+  onToggleDeck: (id: ParticipantId) => void;
+  onCloseDeck: () => void;
+  /** Plays what you just sent at once, rather than waiting for the server's echo. */
+  onSent: (event: FunEvent) => void;
 }) {
   const [walker] = useState(createGhostWalker);
+  /** Whether the open deck shows above its Ghost, as the Ghost was placed when it opened. */
+  const [deckAbove, setDeckAbove] = useState(true);
   const withGhosts = participants.filter(
     (p): p is ParticipantView & { ghost: GhostView } => p.ghost !== null,
   );
@@ -136,35 +156,82 @@ export function GhostLayer({
     <div className={cn("pointer-events-none absolute inset-0 z-10", tableBox)}>
       <ul aria-label="Ghosts" className="relative h-full">
         {withGhosts.map((p) => {
+          const isMe = p.id === myId;
+          const isOpen = openDeck === p.id;
           return (
             <li
               key={p.id}
               data-ghost
+              // A click on a Ghost or its deck doesn't close the deck.
+              data-deck-host
               // Placed, walked and posed by the walker.
               ref={(element) => walker.setElement(p.id, element)}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || openDeck !== p.id) return;
+                onCloseDeck();
+                event.currentTarget.querySelector("button")?.focus();
+              }}
               className={cn(
                 // Centred on its point by the middle of its body, with its name tag below.
                 "group pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
+                isOpen && "z-10 opacity-100",
               )}
             >
-              <div
-                ref={(element) => ghostRef(p.id, element)}
-                // Floats with a slow bob, and trots while walking.
-                className="animate-ghost-bob group-data-walking:animate-ghost-trot motion-reduce:animate-none"
+              <button
+                aria-label={
+                  isMe
+                    ? "Your Ghost: send a Reaction"
+                    : `Throw something at ${p.name}'s Ghost`
+                }
+                title={
+                  isMe ? "Send a Reaction" : `Throw something at ${p.name}`
+                }
+                aria-expanded={isOpen}
+                onClick={(event) => {
+                  // Opens on the side with more room, as this screen shows the Ghost now.
+                  const room = roomRef.current?.getBoundingClientRect();
+                  const ghost = event.currentTarget.getBoundingClientRect();
+                  if (room)
+                    setDeckAbove(
+                      ghost.top + ghost.height / 2 > room.top + room.height / 2,
+                    );
+                  onToggleDeck(p.id);
+                }}
+                className="focus-visible:ring-ring/50 cursor-pointer rounded-full transition-transform outline-none hover:scale-110 focus-visible:ring-[3px]"
               >
-                <GhostFigure
-                  skin={p.ghost.skin}
-                  className="h-[46px] w-[42px]"
-                />
-              </div>
+                <div
+                  ref={(element) => ghostRef(p.id, element)}
+                  // Floats with a slow bob, and trots while walking.
+                  className="animate-ghost-bob group-data-walking:animate-ghost-trot motion-reduce:animate-none"
+                >
+                  <GhostFigure
+                    skin={p.ghost.skin}
+                    className="h-[46px] w-[42px]"
+                  />
+                </div>
+              </button>
               <span className="bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold">
                 {p.name}
                 <span className="sr-only">
                   's Ghost{!p.connected && ", away"}
                 </span>
               </span>
+              {isOpen && (
+                <div
+                  className={cn(
+                    "absolute left-1/2 -translate-x-1/2",
+                    deckAbove ? "bottom-full pb-1" : "top-full pt-1",
+                  )}
+                >
+                  <DeckFan
+                    deck={deckFor(p)}
+                    label={isMe ? "Reactions" : `Throw at ${p.name}`}
+                    onSent={onSent}
+                  />
+                </div>
+              )}
             </li>
           );
         })}
