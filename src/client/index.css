@@ -99,6 +99,7 @@
   --animate-pop: pop 380ms cubic-bezier(0.3, 1.8, 0.5, 1) both;
   --animate-grow-up: grow-up 700ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
   --animate-ghost-bob: ghost-bob 2.4s ease-in-out infinite;
+  --animate-ghost-trot: ghost-trot 0.45s ease-in-out infinite;
 
   @keyframes pop {
     0% {
@@ -118,6 +119,15 @@
     }
     50% {
       translate: 0 -5px;
+    }
+  }
+  @keyframes ghost-trot {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -2px;
     }
   }
   @keyframes grow-up {
@@ -184,5 +194,89 @@
   .card-hand > [data-selected] {
     translate: 0 -10px;
     z-index: 5;
+  }
+}
+
+/*
+ * A Ghost's pose, set on an ancestor of its figure by the walker: `data-facing="left"` turns it
+ * with a quick flip, `data-walking` makes it walk, `--lean` leans the whole Ghost into the walk
+ * from its hem, and `--look-x`/`--look-y` point its face where it's going. On stopping, the lean
+ * eases back with a small swing past upright. Units in the SVG are the drawing's own.
+ */
+@layer components {
+  .ghost-lean {
+    transform-box: view-box;
+    transform-origin: 32px 62px;
+    rotate: var(--lean, 0deg);
+    transition: rotate 0.5s cubic-bezier(0.3, 2.4, 0.5, 1);
+  }
+  [data-walking] .ghost-lean {
+    transition: rotate 0.25s ease-out;
+  }
+  .ghost-turn {
+    transform-box: view-box;
+    transform-origin: 32px 35px;
+    transition: transform 0.14s ease-in-out;
+  }
+  [data-facing="left"] .ghost-turn {
+    transform: scaleX(-1);
+  }
+  .ghost-face {
+    transform: translate(calc(2.5px + var(--look-x, 0px)), var(--look-y, 0px));
+    transition: transform 0.2s ease-out;
+  }
+  .ghost-tail {
+    transform-box: fill-box;
+    transform-origin: 80% 0%;
+    animation: ghost-tail-sway 2.4s ease-in-out infinite;
+  }
+  [data-walking] .ghost-tail {
+    animation: ghost-tail-trail 0.7s ease-in-out infinite;
+  }
+  .ghost-hem {
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+  }
+  [data-walking] .ghost-hem {
+    animation: ghost-hem-flutter 0.28s ease-in-out infinite alternate;
+  }
+  .ghost-flame {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  [data-walking] .ghost-flame {
+    opacity: 1;
+  }
+}
+@keyframes ghost-tail-sway {
+  0%,
+  100% {
+    rotate: -8deg;
+  }
+  50% {
+    rotate: 8deg;
+  }
+}
+/* Swung back behind the Ghost, and swaying faster. */
+@keyframes ghost-tail-trail {
+  0%,
+  100% {
+    rotate: 8deg;
+  }
+  50% {
+    rotate: 22deg;
+  }
+}
+@keyframes ghost-hem-flutter {
+  from {
+    transform: skewX(-3deg);
+  }
+  to {
+    transform: skewX(3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost-tail {
+    animation: none;
   }
 }

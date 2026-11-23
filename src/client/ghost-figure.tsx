@@ -171,21 +171,73 @@ function fabricColours(fabric: Fabric): CSSProperties {
 const INK = { stroke: "var(--ink)" };
 
 /**
- * What each disguise wears, in three layers: over the dome but under the face, on the face itself
- * (moving with it), and over everything. Its colours come from the fabric.
+ * What each disguise wears, in four layers: on its back (behind everything, on the side away from
+ * the face), over the dome but under the face, on the face itself (moving with it), and over
+ * everything. Its colours come from the fabric.
  */
 const DISGUISE_LAYERS: Record<
   Disguise,
   {
+    back: ReactNode;
     underFace?: ReactNode;
     /** Takes the id of the drawing's glow filter. */
     onFace?: (glowId: string) => ReactNode;
     overAll?: ReactNode;
   }
 > = {
-  none: {},
+  // A bow tied on the dress.
+  none: {
+    back: (
+      <g strokeLinejoin="round" strokeLinecap="round">
+        <path
+          d="M14.5 35 Q5.5 29 6.5 35.5 Q7.5 40 14.5 36.5 Z"
+          style={{ fill: "var(--f-main)", ...INK }}
+          strokeWidth="2"
+        />
+        <path
+          d="M14.5 36.5 Q8 42.5 10.5 45 Q13.5 45.5 15 38 Z"
+          style={{ fill: "var(--f-main)", ...INK }}
+          strokeWidth="2"
+        />
+        <circle
+          cx="14.2"
+          cy="35.8"
+          r="2"
+          style={{ fill: "var(--f-dark)", ...INK }}
+          strokeWidth="1.8"
+        />
+      </g>
+    ),
+  },
   // A face wrap, and a headband with its tails flying behind.
   ninja: {
+    // A sword slung across the back, its wrapped hilt over the shoulder.
+    back: (
+      <g strokeLinecap="round" fill="none">
+        <path d="M8.5 53 L21 12" style={INK} strokeWidth="5.4" />
+        <path
+          d="M8.5 53 L21 12"
+          style={{ stroke: "var(--f-dark)" }}
+          strokeWidth="3"
+        />
+        <path d="M21.2 11.5 L24.2 2.5" style={INK} strokeWidth="4.4" />
+        <path
+          d="M21.2 11.5 L24.2 2.5"
+          style={{ stroke: "var(--f-main)" }}
+          strokeWidth="2.2"
+          strokeDasharray="1.6 1.2"
+        />
+        <ellipse
+          cx="21.2"
+          cy="11.8"
+          rx="3.6"
+          ry="1.5"
+          transform="rotate(-17 21.2 11.8)"
+          style={{ fill: "var(--f-light)", ...INK }}
+          strokeWidth="1.6"
+        />
+      </g>
+    ),
     overAll: (
       <g strokeLinejoin="round" strokeLinecap="round">
         <path
@@ -214,6 +266,31 @@ const DISGUISE_LAYERS: Record<
   },
   // A domino mask, with the eyes looking out of it, and a beanie with a bobble.
   thief: {
+    // A loot sack over the shoulder, with a patch.
+    back: (
+      <g strokeLinejoin="round" strokeLinecap="round">
+        <path
+          d="M15 31 C4 30 1.5 44 5.5 48.5 C9 52.5 15 50.5 15 50.5 Z"
+          style={{ fill: "var(--f-light)", ...INK }}
+          strokeWidth="2.2"
+        />
+        <path
+          d="M13.5 31 L9.5 26 M13.5 31 L15.5 25.5"
+          fill="none"
+          style={INK}
+          strokeWidth="2"
+        />
+        <rect
+          x="6.5"
+          y="38"
+          width="5"
+          height="5"
+          rx="1"
+          style={{ fill: "var(--f-main)", ...INK }}
+          strokeWidth="1.4"
+        />
+      </g>
+    ),
     onFace: () => (
       <g>
         <path
@@ -267,6 +344,37 @@ const DISGUISE_LAYERS: Record<
   },
   // A bubble helmet with an antenna, on a collar ring.
   astronaut: {
+    // A small jetpack, whose flame shows while walking.
+    back: (
+      <g strokeLinejoin="round" strokeLinecap="round">
+        <path
+          className="ghost-flame"
+          d="M7.5 51 Q8.8 57 10.3 51 Z"
+          style={{ fill: "var(--pop-4)", stroke: "var(--pop-1)" }}
+          strokeWidth="1.2"
+        />
+        <path
+          d="M7 47 L6.6 51 H11.2 L10.8 47 Z"
+          style={{ fill: "var(--ink)" }}
+        />
+        <rect
+          x="4.5"
+          y="29.5"
+          width="11"
+          height="18"
+          rx="3.5"
+          style={{ fill: "var(--f-main)", ...INK }}
+          strokeWidth="2.2"
+        />
+        <path
+          d="M7.5 33 V44"
+          fill="none"
+          style={{ stroke: "var(--f-light)" }}
+          strokeWidth="1.6"
+          opacity="0.8"
+        />
+      </g>
+    ),
     overAll: (
       <g strokeLinejoin="round" strokeLinecap="round">
         <path
@@ -311,6 +419,29 @@ const DISGUISE_LAYERS: Record<
   },
   // A narrow hood flaring over the shoulders with its edge trimmed, and a pale mask with glowing eyes.
   rogue: {
+    // A quiver of arrows.
+    back: (
+      <g strokeLinecap="round" strokeLinejoin="round">
+        <path
+          d="M15 13 L13.5 5 M17.5 13.5 L18 5.5 M19.5 15 L22 8"
+          fill="none"
+          style={INK}
+          strokeWidth="1.6"
+        />
+        <path
+          d="M13.5 5 l-2 -2.5 l3.2 0.6 Z M18 5.5 l-1 -3 l2.6 1.2 Z M22 8 l0.2 -3.2 l1.8 2.4 Z"
+          style={{ fill: "var(--f-main)", ...INK }}
+          strokeWidth="1"
+        />
+        <path d="M7.5 47 L16.5 14" fill="none" style={INK} strokeWidth="7.4" />
+        <path
+          d="M7.5 47 L16.5 14"
+          fill="none"
+          style={{ stroke: "var(--f-dark)" }}
+          strokeWidth="5"
+        />
+      </g>
+    ),
     underFace: (
       <g>
         <path
@@ -374,8 +505,12 @@ const DISGUISE_LAYERS: Record<
 
 /**
  * A Ghost, drawn facing right: a white dome with a face, wearing a Card as a long dress with a
- * wavy hem in its fabric, and a short wisp of a tail peeking out underneath. Its disguise takes its
- * colours from the fabric. It fills its box, which should keep the drawing's 64:70 shape.
+ * wavy hem in its fabric, a short wisp of a tail peeking out underneath, and what its disguise
+ * carries on its back. Its disguise takes its colours from the fabric. It fills its box, which
+ * should keep the drawing's 64:70 shape.
+ *
+ * It's posed from an ancestor (see `.ghost-lean` in index.css): `data-facing="left"` turns it,
+ * `data-walking` makes it walk, and `--lean` and `--look-x`/`--look-y` lean it and point its face.
  */
 export function GhostFigure({
   skin,
@@ -407,93 +542,102 @@ export function GhostFigure({
           </feMerge>
         </filter>
       </defs>
-      {/* The tail, peeking out under the hem. */}
-      <path
-        d="M34 52 H23 C22.5 56.5 21.5 59 19 59.8 C17.5 60.3 16 59.4 15.5 58 C15 62 18 65.5 22.5 65 C28.5 64.5 32.5 60 34 52 Z"
-        style={{ fill: "var(--ghost)", ...INK }}
-        strokeWidth="2.6"
-        strokeLinejoin="round"
-      />
-      {/* The dome, and a highlight on its shoulder. */}
-      <path
-        d="M14 36 C14 18 22 8 32 8 C42 8 50 18 50 36 Z"
-        style={{ fill: "var(--ghost)", ...INK }}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M44 15 C47 19 48 24 48 29"
-        fill="none"
-        style={{ stroke: "var(--ghost-shade)" }}
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      {/* The Card it wears as a dress, with the Card's inner border. */}
-      <path
-        d="M12.5 33 Q12.5 29 16.5 29 H47.5 Q51.5 29 51.5 33 V56 Q48 62 44 56 Q40 50 36 56 Q32 62 28 56 Q24 50 20 56 Q16 62 12.5 56 Z"
-        fill={`url(#${patternId})`}
-        style={INK}
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      <rect
-        x="16"
-        y="32.5"
-        width="32"
-        height="17.5"
-        rx="2.4"
-        fill="none"
-        style={{ stroke: "var(--cream)" }}
-        strokeWidth="1.6"
-      />
-      {disguise.underFace}
-      {/* The face, a little toward the side it faces. */}
-      <g
-        transform="translate(2.5 0)"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      >
-        <ellipse
-          cx="21"
-          cy="25"
-          rx="2.8"
-          ry="1.6"
-          style={{ fill: "var(--pop-1)" }}
-          opacity="0.45"
-        />
-        <ellipse
-          cx="43"
-          cy="25"
-          rx="2.8"
-          ry="1.6"
-          style={{ fill: "var(--pop-1)" }}
-          opacity="0.45"
-        />
-        <path
-          d="M29.5 24.8 Q32 27.2 34.5 24.8"
-          fill="none"
-          style={INK}
-          strokeWidth="2"
-        />
-        <ellipse
-          cx="26"
-          cy="19.5"
-          rx="2.7"
-          ry="3.6"
-          style={{ fill: "var(--ink)" }}
-        />
-        <ellipse
-          cx="38"
-          cy="19.5"
-          rx="2.7"
-          ry="3.6"
-          style={{ fill: "var(--ink)" }}
-        />
-        <circle cx="27" cy="18.1" r="1" fill="#fff" />
-        <circle cx="39" cy="18.1" r="1" fill="#fff" />
-        {disguise.onFace?.(glowId)}
+      <g className="ghost-lean">
+        <g className="ghost-turn">
+          {/* Its back is on the left, away from the face. */}
+          {disguise.back}
+          {/* The tail, peeking out under the hem. */}
+          <path
+            className="ghost-tail"
+            d="M34 52 H23 C22.5 56.5 21.5 59 19 59.8 C17.5 60.3 16 59.4 15.5 58 C15 62 18 65.5 22.5 65 C28.5 64.5 32.5 60 34 52 Z"
+            style={{ fill: "var(--ghost)", ...INK }}
+            strokeWidth="2.6"
+            strokeLinejoin="round"
+          />
+          {/* The dome, and a highlight on its shoulder. */}
+          <path
+            d="M14 36 C14 18 22 8 32 8 C42 8 50 18 50 36 Z"
+            style={{ fill: "var(--ghost)", ...INK }}
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M44 15 C47 19 48 24 48 29"
+            fill="none"
+            style={{ stroke: "var(--ghost-shade)" }}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          {/* The Card it wears as a dress, with the Card's inner border. */}
+          <g className="ghost-hem">
+            <path
+              d="M12.5 33 Q12.5 29 16.5 29 H47.5 Q51.5 29 51.5 33 V56 Q48 62 44 56 Q40 50 36 56 Q32 62 28 56 Q24 50 20 56 Q16 62 12.5 56 Z"
+              fill={`url(#${patternId})`}
+              style={INK}
+              strokeWidth="3"
+              strokeLinejoin="round"
+            />
+            <rect
+              x="16"
+              y="32.5"
+              width="32"
+              height="17.5"
+              rx="2.4"
+              fill="none"
+              style={{ stroke: "var(--cream)" }}
+              strokeWidth="1.6"
+            />
+          </g>
+          {disguise.underFace}
+          {/* The face, a little toward the side it faces, and looking where it's going. */}
+          <g
+            className="ghost-face"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          >
+            <ellipse
+              cx="21"
+              cy="25"
+              rx="2.8"
+              ry="1.6"
+              style={{ fill: "var(--pop-1)" }}
+              opacity="0.45"
+            />
+            <ellipse
+              cx="43"
+              cy="25"
+              rx="2.8"
+              ry="1.6"
+              style={{ fill: "var(--pop-1)" }}
+              opacity="0.45"
+            />
+            <path
+              d="M29.5 24.8 Q32 27.2 34.5 24.8"
+              fill="none"
+              style={INK}
+              strokeWidth="2"
+            />
+            <ellipse
+              cx="26"
+              cy="19.5"
+              rx="2.7"
+              ry="3.6"
+              style={{ fill: "var(--ink)" }}
+            />
+            <ellipse
+              cx="38"
+              cy="19.5"
+              rx="2.7"
+              ry="3.6"
+              style={{ fill: "var(--ink)" }}
+            />
+            <circle cx="27" cy="18.1" r="1" fill="#fff" />
+            <circle cx="39" cy="18.1" r="1" fill="#fff" />
+            {disguise.onFace?.(glowId)}
+          </g>
+          {disguise.overAll}
+        </g>
       </g>
-      {disguise.overAll}
     </svg>
   );
 }

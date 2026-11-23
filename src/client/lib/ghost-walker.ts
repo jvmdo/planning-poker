@@ -17,6 +17,69 @@ const LONGEST_FRAME_S = 0.1;
  */
 const KEEP_IN = { side: 24, top: 26, bottom: 40 };
 
+/** A walk turns a Ghost to face its way only if it goes at least this many pixels sideways. */
+const TURNS_AFTER_PX = 6;
+/** How far a Ghost leans into a walk that's all sideways, in degrees. */
+const MOST_LEAN = 10;
+/** How far its face shifts to look where it's going, in the drawing's units. */
+const LOOK = 1.4;
+
+/** How a Ghost is posed on this screen. */
+interface Pose {
+  facing: "left" | "right";
+  walking: boolean;
+  /** Degrees, clockwise: positive leans right. */
+  lean: number;
+  /** Where its face looks, in the drawing's units, as if it faces right. */
+  lookX: number;
+  lookY: number;
+}
+
+const STANDING: Pose = {
+  facing: "right",
+  walking: false,
+  lean: 0,
+  lookX: 0,
+  lookY: 0,
+};
+
+/**
+ * How a Ghost stands, given the trip left to where it's heading as this screen shows it, in
+ * pixels. It turns to face the way a trip goes noticeably sideways, and otherwise keeps its facing.
+ * A jump (with reduced motion) turns it too, though it never walks. While walking it leans into the walk, in proportion to how sideways it goes,
+ * and looks ahead; stopped, it stands upright looking straight out.
+ */
+function poseFor(
+  previous: Pose,
+  trip: { x: number; y: number },
+  walking: boolean,
+): Pose {
+  const facing =
+    Math.abs(trip.x) > TURNS_AFTER_PX
+      ? trip.x < 0
+        ? "left"
+        : "right"
+      : previous.facing;
+  const distance = Math.hypot(trip.x, trip.y);
+  if (!walking || distance === 0) return { ...STANDING, facing };
+  return {
+    facing,
+    walking,
+    lean: (MOST_LEAN * trip.x) / distance,
+    lookX: (LOOK * Math.abs(trip.x)) / distance,
+    lookY: (LOOK * trip.y) / distance,
+  };
+}
+
+/** Poses a Ghost's element, which its figure reads (see `.ghost-lean` in index.css). */
+function drawPose(element: HTMLElement, pose: Pose) {
+  element.dataset.facing = pose.facing;
+  element.toggleAttribute("data-walking", pose.walking);
+  element.style.setProperty("--lean", `${pose.lean.toFixed(2)}deg`);
+  element.style.setProperty("--look-x", `${pose.lookX.toFixed(2)}px`);
+  element.style.setProperty("--look-y", `${pose.lookY.toFixed(2)}px`);
+}
+
 interface Walk {
   /** Where the Ghost is drawn from, on the shared Table. */
   at: TablePoint;
@@ -62,11 +125,12 @@ function stepWalk(walk: Walk, to: TablePoint, dt: number): Walk {
 /**
  * Walks every Ghost on this screen, frame by frame, towards where the Room says it's heading. Walks
  * run on the shared Table, so they take as long on every screen; each frame is then drawn through
- * this screen's turn and kept inside its room area. Draws straight onto the Ghosts' elements, so a
- * walk never re-renders anything.
+ * this screen's turn and kept inside its room area, and each Ghost is posed for the way it moves on
+ * this screen. Draws straight onto the Ghosts' elements, so a walk never re-renders anything.
  */
 export function createGhostWalker() {
   const walks = new Map<ParticipantId, Walk>();
+  const poses = new Map<ParticipantId, Pose>();
   const elements = new Map<ParticipantId, HTMLElement>();
   let targets = new Map<ParticipantId, TablePoint>();
   let turn = 0;
@@ -94,8 +158,9 @@ export function createGhostWalker() {
 
   /** Moves every walk on by `dt` seconds and draws it. Says whether any is still walking. */
   function draw(dt: number): boolean {
+    const measured = measure();
     const jump = reducedMotion();
-    let walking = false;
+    let anyWalking = false;
     for (const [id, to] of targets) {
       const walk = walks.get(id);
       const next =
@@ -103,20 +168,35 @@ export function createGhostWalker() {
           ? { at: to, velocity: { x: 0, y: 0 } }
           : stepWalk(walk, to, dt);
       walks.set(id, next);
-      if (next.at !== to) walking = true;
+      const walking = next.at !== to;
+      if (walking) anyWalking = true;
+      // Posed by the trip as this screen shows it, from where it was drawn to where it's heading.
+      if (measured && walk) {
+        const from = tableToScreen(walk.at, turn, measured.bounds);
+        const there = tableToScreen(to, turn, measured.bounds);
+        const trip = {
+          x: (there.x - from.x) * measured.box.width,
+          y: (there.y - from.y) * measured.box.height,
+        };
+        poses.set(id, poseFor(poses.get(id) ?? STANDING, trip, walking));
+      }
     }
-    for (const id of walks.keys()) if (!targets.has(id)) walks.delete(id);
+    for (const id of walks.keys()) {
+      if (targets.has(id)) continue;
+      walks.delete(id);
+      poses.delete(id);
+    }
 
-    const measured = measure();
-    if (!measured) return walking;
+    if (!measured) return anyWalking;
     for (const [id, element] of elements) {
       const walk = walks.get(id);
       if (!walk) continue;
       const { x, y } = tableToScreen(walk.at, turn, measured.bounds);
       element.style.left = `${100 * x}%`;
       element.style.top = `${100 * y}%`;
+      drawPose(element, poses.get(id) ?? STANDING);
     }
-    return walking;
+    return anyWalking;
   }
 
   function tick(now: number) {

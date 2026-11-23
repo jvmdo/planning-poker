@@ -140,18 +140,19 @@ export function GhostLayer({
             <li
               key={p.id}
               data-ghost
-              // Placed, and walked, by the walker.
+              // Placed, walked and posed by the walker.
               ref={(element) => walker.setElement(p.id, element)}
               className={cn(
                 // Centred on its point by the middle of its body, with its name tag below.
-                "pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5",
+                "group pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
               )}
             >
               <div
                 ref={(element) => ghostRef(p.id, element)}
-                className="animate-ghost-bob motion-reduce:animate-none"
+                // Floats with a slow bob, and trots while walking.
+                className="animate-ghost-bob group-data-walking:animate-ghost-trot motion-reduce:animate-none"
               >
                 <GhostFigure
                   skin={p.ghost.skin}
