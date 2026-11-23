@@ -120,16 +120,16 @@ export function GhostPicker({
             {skin && (
               <Button
                 variant="outline"
-                size="sm"
                 aria-label="Vent: put your Ghost away"
                 title="Hop in the vent: put your Ghost away"
                 onClick={() => {
                   onDismiss();
                   close();
                 }}
-                className="ml-auto self-start"
+                // A tile, its drawing over its label, centred on the preview beside it.
+                className="ml-auto h-auto shrink-0 flex-col gap-0.5 self-center rounded-2xl px-2.5 pt-2 pb-1.5 leading-none"
               >
-                <VentIcon className="size-4" />
+                <VentIcon className="h-9 w-10" />
                 Vent
               </Button>
             )}
@@ -202,19 +202,87 @@ export function GhostPicker({
   );
 }
 
-/** A floor vent's grate, which a Ghost hops into to go away. */
+/**
+ * A Ghost peeking over the vent plate it's about to hop behind, holding on to its edge. Drawn in
+ * the Ghost's own white and the app's ink, so it reads the same on either theme.
+ */
 function VentIcon({ className }: { className?: string }) {
+  const ink = { stroke: "var(--ink)" };
   return (
     <svg
-      viewBox="0 0 16 16"
+      viewBox="0 0 40 36"
       aria-hidden
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
       className={className}
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <rect x="1.5" y="3" width="13" height="10" rx="2" strokeWidth="1.6" />
-      <path d="M4.5 6 H11.5 M4.5 8 H11.5 M4.5 10 H11.5" strokeWidth="1.3" />
+      {/* The Ghost behind the plate: its dome, a highlight, and its eyes. */}
+      <path
+        d="M10 22 C10 10 14.5 3.5 20 3.5 C25.5 3.5 30 10 30 22 Z"
+        style={{ fill: "var(--ghost)", ...ink }}
+        strokeWidth="2.2"
+      />
+      <path
+        d="M26.4 8.2 C27.9 10.6 28.6 13.2 28.7 15.8"
+        fill="none"
+        style={{ stroke: "var(--ghost-shade)" }}
+        strokeWidth="2"
+      />
+      <ellipse
+        cx="16.6"
+        cy="12.4"
+        rx="1.7"
+        ry="2.3"
+        style={{ fill: "var(--ink)" }}
+      />
+      <ellipse
+        cx="23.4"
+        cy="12.4"
+        rx="1.7"
+        ry="2.3"
+        style={{ fill: "var(--ink)" }}
+      />
+      <circle cx="17.2" cy="11.5" r="0.6" fill="#fff" />
+      <circle cx="24" cy="11.5" r="0.6" fill="#fff" />
+      {/* The vent plate: slats and a screw in each corner. */}
+      <rect
+        x="2.5"
+        y="18"
+        width="35"
+        height="15.5"
+        rx="3"
+        style={{ fill: "var(--plate)", ...ink }}
+        strokeWidth="2.2"
+      />
+      <path
+        d="M9 23 H31 M9 26.5 H31 M9 30 H31"
+        fill="none"
+        style={ink}
+        strokeWidth="1.8"
+      />
+      <g style={{ fill: "var(--ink)" }}>
+        <circle cx="5.6" cy="21.1" r="0.9" />
+        <circle cx="34.4" cy="21.1" r="0.9" />
+        <circle cx="5.6" cy="30.4" r="0.9" />
+        <circle cx="34.4" cy="30.4" r="0.9" />
+      </g>
+      {/* Its hands, holding on to the plate's top edge. */}
+      <ellipse
+        cx="12"
+        cy="18.4"
+        rx="2.5"
+        ry="1.9"
+        style={{ fill: "var(--ghost)", ...ink }}
+        strokeWidth="1.8"
+      />
+      <ellipse
+        cx="28"
+        cy="18.4"
+        rx="2.5"
+        ry="1.9"
+        style={{ fill: "var(--ghost)", ...ink }}
+        strokeWidth="1.8"
+      />
     </svg>
   );
 }
