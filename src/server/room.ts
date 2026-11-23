@@ -38,11 +38,11 @@ import {
 } from "../shared/fun.js";
 import {
   GHOST_MOVE_BURST,
+  freeSummonPlace,
   isSkin,
   isTablePoint,
   type GhostMove,
   type GhostView,
-  type TablePoint,
 } from "../shared/ghost.js";
 import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
 
@@ -51,35 +51,6 @@ import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
  * Participant their own snapshot, and that CPU is the free instance's real limit (ADR 0002).
  */
 const MAX_PARTICIPANTS = 30;
-
-/** How far apart, sideways on the shared Table, new Ghosts appear: enough for their name tags. */
-const GHOST_NUDGE = 0.1;
-/** How many places fit in a row of them, from the middle out to the edge of the room area. */
-const PLACES_IN_A_ROW = 21;
-
-/**
- * The places new Ghosts appear at, in the order they're tried: the middle of the Table, then
- * taking turns either side of it, out to the edge of the room area. A full row starts another
- * just below it, so a full Room's Ghosts all fit.
- */
-function summonPlace(i: number): TablePoint {
-  const inRow = i % PLACES_IN_A_ROW;
-  const steps = Math.ceil(inRow / 2) * (inRow % 2 === 1 ? 1 : -1);
-  const row = Math.floor(i / PLACES_IN_A_ROW);
-  return { x: 0.5 + steps * GHOST_NUDGE, y: 0.5 + row * GHOST_NUDGE * 1.5 };
-}
-
-/** The first summon place no Ghost already out is standing on. */
-function freeSummonPlace(taken: TablePoint[]): TablePoint {
-  for (let i = 0; ; i++) {
-    const place = summonPlace(i);
-    const free = taken.every(
-      (point) =>
-        Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
-    );
-    if (free) return place;
-  }
-}
 
 interface Participant {
   id: ParticipantId;

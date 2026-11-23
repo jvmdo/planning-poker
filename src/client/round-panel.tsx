@@ -52,8 +52,8 @@ export function RoundPanel({
   ghost: {
     /** Your Ghost's Skin while it's out, or null. */
     skin: Skin | null;
-    onSummon: (skin: Skin) => void;
-    onDress: (skin: Skin) => void;
+    /** Brings out your Ghost in this Skin, or re-dresses it. */
+    onWear: (skin: Skin) => void;
     onDismiss: () => void;
   } | null;
 }) {
@@ -122,8 +122,7 @@ export function RoundPanel({
                 <GhostPicker
                   skin={ghost.skin}
                   disabled={reconnecting}
-                  onSummon={ghost.onSummon}
-                  onDress={ghost.onDress}
+                  onWear={ghost.onWear}
                   onDismiss={ghost.onDismiss}
                 />
               )}

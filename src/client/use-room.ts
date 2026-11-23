@@ -26,10 +26,12 @@ import {
   findParticipant,
   isPendingCommand,
   settlePendingCommand,
+  settlePendingGhost,
   settlePendingRole,
   settlePendingVote,
   withPending,
   type PendingCommand,
+  type PendingGhost,
   type PendingVote,
 } from "./pending";
 
@@ -81,6 +83,7 @@ export function useRoom(
   const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
+  const [pendingGhost, setPendingGhost] = useState<PendingGhost | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
     null,
   );
@@ -134,6 +137,7 @@ export function useRoom(
       // Whatever was in flight may never reach the server. The snapshot after rejoining says.
       setPendingVote(null);
       setPendingRole(null);
+      setPendingGhost(null);
       setPendingCommand(null);
       setPendingMove(null);
     }
@@ -146,6 +150,9 @@ export function useRoom(
       setPendingVote((pending) => settlePendingVote(pending, next));
       setPendingRole((pending) =>
         settlePendingRole(pending, next, identity.id),
+      );
+      setPendingGhost((pending) =>
+        settlePendingGhost(pending, next, identity.id),
       );
       setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
@@ -180,6 +187,12 @@ export function useRoom(
         return;
       }
       if (rejection.command === "vote") setPendingVote(null);
+      if (
+        rejection.command === "summonGhost" ||
+        rejection.command === "dressGhost" ||
+        rejection.command === "dismissGhost"
+      )
+        setPendingGhost(null);
       if (
         rejection.command === "becomeVoter" ||
         rejection.command === "becomeObserver"
@@ -331,19 +344,21 @@ export function useRoom(
     return true;
   }
 
-  /** Brings out your Ghost in `skin`, as an Observer. Its button shows it once the snapshot does. */
-  function summonGhost(skin: Skin) {
-    if (canSend()) socket.emit("summonGhost", skin);
+  /**
+   * Brings out your Ghost in `skin`, as an Observer, or re-dresses it if it's out. Either shows at
+   * once, before the server answers.
+   */
+  function wearSkin(skin: Skin) {
+    if (!canSend()) return;
+    socket.emit(me?.ghost ? "dressGhost" : "summonGhost", skin);
+    setPendingGhost(skin);
   }
 
-  /** Re-dresses your Ghost while it's out, for everyone. */
-  function dressGhost(skin: Skin) {
-    if (canSend()) socket.emit("dressGhost", skin);
-  }
-
-  /** Puts your Ghost away, back to the Watching line. */
+  /** Puts your Ghost away, back to the Watching line, at once. */
   function dismissGhost() {
-    if (canSend()) socket.emit("dismissGhost");
+    if (!canSend()) return;
+    socket.emit("dismissGhost");
+    setPendingGhost("away");
   }
 
   /**
@@ -362,7 +377,13 @@ export function useRoom(
   const displayed =
     snapshot &&
     withGhostMoves(
-      withPending(snapshot, identity.id, pendingVote, pendingRole),
+      withPending(
+        snapshot,
+        identity.id,
+        pendingVote,
+        pendingRole,
+        pendingGhost,
+      ),
       pendingMove
         ? new Map(ghostMoves).set(identity.id, pendingMove)
         : ghostMoves,
@@ -398,8 +419,7 @@ export function useRoom(
     leave,
     react,
     throwAt,
-    summonGhost,
-    dressGhost,
+    wearSkin,
     dismissGhost,
     moveGhost,
   };

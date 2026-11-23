@@ -17,29 +17,31 @@ const OPTION =
   "border-ink focus-visible:ring-ring/50 cursor-pointer outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-[3px] aria-pressed:bg-pop-4 aria-pressed:text-[oklch(0.26_0.06_285)] aria-pressed:shadow-hard-sm";
 
 /**
- * An Observer's Ghost button and the Skin picker it opens: a row of fabrics, a row of disguises,
- * and a button to bring the Ghost out or put it away. With no Ghost out, picking a fabric or a
- * disguise brings one out in that Skin; with one out, it re-dresses it for everyone. The first time,
- * a random Skin is selected, so one click brings out a Ghost.
+ * An Observer's Ghost button and the Skin picker it opens. Picking a fabric and a disguise only
+ * tries them on, in the preview; "Bring out Ghost" or "Wear this" puts them on your Ghost and
+ * closes the picker, as does "Put Ghost away". Closing it any other way drops what was tried on.
+ * It opens on your Ghost's Skin, or the first time on a random one, so one click brings out a Ghost.
  */
 export function GhostPicker({
   skin,
   disabled,
-  onSummon,
-  onDress,
+  onWear,
   onDismiss,
 }: {
   /** Your Ghost's Skin while it's out, or null. */
   skin: Skin | null;
   disabled: boolean;
-  onSummon: (skin: Skin) => void;
-  onDress: (skin: Skin) => void;
+  /** Brings out your Ghost in this Skin, or re-dresses it. */
+  onWear: (skin: Skin) => void;
   onDismiss: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  /** The Skin picked last, which a Ghost that isn't out yet would wear. */
-  const [chosen, setChosen] = useState(randomSkin);
-  const shown = skin ?? chosen;
+  /** The Skin last worn, which the picker opens on while no Ghost is out. */
+  const [lastWorn, setLastWorn] = useState(randomSkin);
+  /** What's being tried on. */
+  const [shown, setShown] = useState(lastWorn);
+  const wearing =
+    skin?.fabric === shown.fabric && skin.disguise === shown.disguise;
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const ids = { panel: useId(), fabric: useId(), disguise: useId() };
@@ -54,23 +56,20 @@ export function GhostPicker({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
-  /** A Ghost asked for that the snapshot doesn't show yet. */
-  const summoning = useRef(false);
-  useEffect(() => {
-    summoning.current = false;
-  }, [skin]);
+  function toggle() {
+    if (!open) setShown(skin ?? lastWorn);
+    setOpen(!open);
+  }
 
-  function pick(next: Skin) {
-    setChosen(next);
-    if (skin) {
-      onDress(next);
-      return;
-    }
-    // A second pick before the first Ghost arrives re-dresses it. Asking again is harmless if it's
-    // out by then (that's refused quietly) and brings it out if the first ask went astray.
-    onSummon(next);
-    if (summoning.current) onDress(next);
-    summoning.current = true;
+  function close() {
+    setOpen(false);
+    button.current?.focus();
+  }
+
+  function wear() {
+    setLastWorn(shown);
+    onWear(shown);
+    close();
   }
 
   return (
@@ -78,9 +77,7 @@ export function GhostPicker({
       ref={root}
       className="relative"
       onKeyDown={(event) => {
-        if (event.key !== "Escape" || !open) return;
-        setOpen(false);
-        button.current?.focus();
+        if (event.key === "Escape" && open) close();
       }}
     >
       <Button
@@ -91,7 +88,7 @@ export function GhostPicker({
         aria-expanded={open}
         aria-controls={ids.panel}
         title="Your Ghost"
-        onClick={() => setOpen((was) => !was)}
+        onClick={toggle}
         disabled={disabled}
       >
         <Ghost aria-hidden className="size-4" />
@@ -114,6 +111,9 @@ export function GhostPicker({
                   {DISGUISES[shown.disguise].name}
                 </span>
               )}
+              <span className="text-muted-foreground block text-xs font-normal">
+                {wearing ? "Your Ghost is wearing this" : "Trying on"}
+              </span>
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export function GhostPicker({
                   aria-pressed={shown.fabric === fabric}
                   aria-label={FABRICS[fabric].name}
                   title={FABRICS[fabric].name}
-                  onClick={() => pick({ ...shown, fabric })}
+                  onClick={() => setShown({ ...shown, fabric })}
                   className={cn(
                     OPTION,
                     "size-10 overflow-hidden rounded-xl border-2 aria-pressed:ring-[3px] aria-pressed:ring-pop-4 aria-pressed:ring-offset-2 aria-pressed:ring-offset-card",
@@ -159,7 +159,7 @@ export function GhostPicker({
                   key={disguise}
                   type="button"
                   aria-pressed={shown.disguise === disguise}
-                  onClick={() => pick({ ...shown, disguise })}
+                  onClick={() => setShown({ ...shown, disguise })}
                   className={cn(
                     OPTION,
                     "bg-card flex flex-col items-center min-w-0 rounded-xl border-2 px-0.5 tracking-tight pt-1.5 pb-0.5 text-[0.6rem] font-semibold",
@@ -175,20 +175,22 @@ export function GhostPicker({
             </div>
           </div>
 
-          {skin ? (
-            <Button
-              variant="outline"
-              onClick={() => {
-                onDismiss();
-                setOpen(false);
-                button.current?.focus();
-              }}
-            >
-              Put Ghost away
+          <div className="flex gap-2">
+            <Button onClick={wear} disabled={wearing} className="flex-1">
+              {skin ? "Wear this" : "Bring out Ghost"}
             </Button>
-          ) : (
-            <Button onClick={() => pick(shown)}>Bring out Ghost</Button>
-          )}
+            {skin && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  onDismiss();
+                  close();
+                }}
+              >
+                Put Ghost away
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

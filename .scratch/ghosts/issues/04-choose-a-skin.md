@@ -2,7 +2,7 @@
 
 **What to build:** The Ghost button opens a Skin picker, and every Ghost wears its owner's Skin.
 - **Picker:** a popover with a fabric row (Coral stripes, Berry gingham, Sunny suits, Mint dots, Lilac zigzag, Night stars), a disguise row (None, Ninja, Thief, Astronaut, Rogue) and "Put Ghost away". The first time, a random Skin is preselected.
-- **Picking:** with no Ghost out, picking summons one in that Skin. With a Ghost out, picking re-dresses it live for everyone.
+- **Picking:** fabric and disguise picks are tried on in the picker's preview only. "Bring out Ghost" (no Ghost out) or "Wear this" (Ghost out) applies them for everyone and closes the picker, as does "Put Ghost away". Closing it any other way drops what was tried on. Your own screen shows each change at once, before the server answers.
 - **Colours:** each fabric has a main, dark, light and glow colour, and the disguise takes its colours from the fabric.
 - **Sharing:** two Observers may wear the same Skin.
 

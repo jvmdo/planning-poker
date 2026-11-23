@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { RoomSnapshot } from "../shared/protocol.js";
-import { settlePendingCommand } from "./pending.js";
+import type { ParticipantView, RoomSnapshot } from "../shared/protocol.js";
+import {
+  findParticipant,
+  settlePendingCommand,
+  settlePendingGhost,
+  withPending,
+} from "./pending.js";
 
 const noFacilitator: RoomSnapshot = {
   participants: [],
@@ -42,6 +47,145 @@ describe("a pending change to Auto Reveal", () => {
   it("is answered once the Room has Auto Reveal off", () => {
     expect(
       settlePendingCommand(turnOff, { ...noFacilitator, autoReveal: false }),
+      ).toBeNull();
+  });
+});
+
+describe("your own Ghost, before the Room answers", () => {
+  const coral = { fabric: "coral-stripes", disguise: "none" } as const;
+  const berryNinja = { fabric: "berry-gingham", disguise: "ninja" } as const;
+  const middle = { x: 0.5, y: 0.5 };
+  const somewhere = { x: 0.2, y: 0.8 };
+
+  function person(
+    id: string,
+    overrides: Partial<ParticipantView> = {},
+  ): ParticipantView {
+    return {
+      id,
+      name: id,
+      role: "observer",
+      isFacilitator: false,
+      hasVoted: false,
+      vote: null,
+      connected: true,
+      ghost: null,
+      ...overrides,
+    };
+  }
+
+  /** Ana is a Voter; Davi (you) and Eva are Observers. */
+  function room(
+    davi: Partial<ParticipantView> = {},
+    eva: Partial<ParticipantView> = {},
+  ) {
+    return {
+      ...noFacilitator,
+      participants: [
+        person("ana", { role: "voter" }),
+        person("davi", davi),
+        person("eva", eva),
+      ],
+    };
+  }
+  const shown = (snapshot: RoomSnapshot, id: string) =>
+    findParticipant(snapshot, id)?.ghost;
+
+  it("appears at once in the Skin you picked, where the Room will put it", () => {
+    const alone = withPending(room(), "davi", null, null, coral);
+    expect(shown(alone, "davi")).toEqual({ skin: coral, to: middle });
+
+    const withEva = withPending(
+      room({}, { ghost: { skin: coral, to: middle } }),
+      "davi",
+      null,
+      null,
+      berryNinja,
+    );
+    expect(shown(withEva, "davi")).toEqual({
+      skin: berryNinja,
+      to: { x: 0.6, y: 0.5 },
+    });
+  });
+
+  it("is re-dressed at once, where it stands", () => {
+    const displayed = withPending(
+      room({ ghost: { skin: coral, to: somewhere } }),
+      "davi",
+      null,
+      null,
+      berryNinja,
+    );
+    expect(shown(displayed, "davi")).toEqual({
+      skin: berryNinja,
+      to: somewhere,
+    });
+  });
+
+  it("goes at once when you put it away", () => {
+    const displayed = withPending(
+      room({ ghost: { skin: coral, to: somewhere } }),
+      "davi",
+      null,
+      null,
+      "away",
+    );
+    expect(shown(displayed, "davi")).toBeNull();
+  });
+
+  it("goes at once when you become a Voter", () => {
+    const displayed = withPending(
+      room({ ghost: { skin: coral, to: somewhere } }),
+      "davi",
+      null,
+      "voter",
+      null,
+    );
+    expect(shown(displayed, "davi")).toBeNull();
+  });
+
+  it("changes nobody else's Ghost", () => {
+    const eva = { ghost: { skin: coral, to: somewhere } };
+    const displayed = withPending(
+      room({}, eva),
+      "davi",
+      null,
+      null,
+      berryNinja,
+    );
+    expect(shown(displayed, "eva")).toEqual(eva.ghost);
+  });
+
+  it("stays pending until the Room shows it, even through snapshots that predate it", () => {
+    expect(settlePendingGhost(berryNinja, room(), "davi")).toEqual(berryNinja);
+    expect(
+      settlePendingGhost(
+        berryNinja,
+        room({ ghost: { skin: coral, to: middle } }),
+        "davi",
+      ),
+    ).toEqual(berryNinja);
+    expect(
+      settlePendingGhost(
+        berryNinja,
+        room({ ghost: { skin: berryNinja, to: middle } }),
+        "davi",
+      ),
+    ).toBeNull();
+  });
+
+  it("stays pending away until the Room shows it gone", () => {
+    const out = room({ ghost: { skin: coral, to: middle } });
+    expect(settlePendingGhost("away", out, "davi")).toBe("away");
+    expect(settlePendingGhost("away", room(), "davi")).toBeNull();
+  });
+
+  it("is dropped once you're no longer an Observer in the Room", () => {
+    expect(
+      settlePendingGhost(coral, room({ role: "voter" }), "davi"),
+    ).toBeNull();
+    expect(
+      settlePendingGhost(coral, { ...noFacilitator, participants: [] }, "davi"),
     ).toBeNull();
   });
 });

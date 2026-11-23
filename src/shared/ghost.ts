@@ -88,6 +88,38 @@ export function isTablePoint(value: unknown): value is TablePoint {
   return inReach(x) && inReach(y);
 }
 
+/** How far apart, sideways on the shared Table, new Ghosts appear: enough for their name tags. */
+const GHOST_NUDGE = 0.1;
+/** How many places fit in a row of them, from the middle out to the edge of the room area. */
+const PLACES_IN_A_ROW = 21;
+
+/**
+ * The places new Ghosts appear at, in the order they're tried: the middle of the Table, then
+ * taking turns either side of it, out to the edge of the room area. A full row starts another
+ * just below it, so a full Room's Ghosts all fit.
+ */
+function summonPlace(i: number): TablePoint {
+  const inRow = i % PLACES_IN_A_ROW;
+  const steps = Math.ceil(inRow / 2) * (inRow % 2 === 1 ? 1 : -1);
+  const row = Math.floor(i / PLACES_IN_A_ROW);
+  return { x: 0.5 + steps * GHOST_NUDGE, y: 0.5 + row * GHOST_NUDGE * 1.5 };
+}
+
+/**
+ * Where a new Ghost appears: the first summon place no Ghost already out is standing on. The Room
+ * decides; your browser uses the same rule to show your own new Ghost before the Room answers.
+ */
+export function freeSummonPlace(taken: TablePoint[]): TablePoint {
+  for (let i = 0; ; i++) {
+    const place = summonPlace(i);
+    const free = taken.every(
+      (point) =>
+        Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
+    );
+    if (free) return place;
+  }
+}
+
 /** Ghost moves have a budget of their own: 10 in a row (a held arrow key), then one every 100 ms. */
 export const GHOST_MOVE_BURST: BurstRule = { size: 10, refillMs: 100 };
 
