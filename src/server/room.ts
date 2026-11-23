@@ -1,6 +1,7 @@
 import type {
   ClaimFacilitatorRejectionReason,
   CommandResult,
+  DismissGhostRejectionReason,
   DisconnectRejectionReason,
   HandOverRejectionReason,
   JoinRejectionReason,
@@ -14,6 +15,7 @@ import type {
   RoomSnapshot,
   SetAutoRevealRejectionReason,
   SetDeckRejectionReason,
+  SummonGhostRejectionReason,
   ThrowRejectionReason,
   VoteRejectionReason,
 } from "../shared/protocol.js";
@@ -32,6 +34,7 @@ import {
   type Burst,
   type FunEvent,
 } from "../shared/fun.js";
+import { isSkin, type GhostView, type TablePoint } from "../shared/ghost.js";
 import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 /**
@@ -40,12 +43,43 @@ import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
  */
 const MAX_PARTICIPANTS = 30;
 
+/** How far apart, sideways on the shared Table, new Ghosts appear: enough for their name tags. */
+const GHOST_NUDGE = 0.1;
+/** How many places fit in a row of them, from the middle out to the edge of the room area. */
+const PLACES_IN_A_ROW = 21;
+
+/**
+ * The places new Ghosts appear at, in the order they're tried: the middle of the Table, then
+ * taking turns either side of it, out to the edge of the room area. A full row starts another
+ * just below it, so a full Room's Ghosts all fit.
+ */
+function summonPlace(i: number): TablePoint {
+  const inRow = i % PLACES_IN_A_ROW;
+  const steps = Math.ceil(inRow / 2) * (inRow % 2 === 1 ? 1 : -1);
+  const row = Math.floor(i / PLACES_IN_A_ROW);
+  return { x: 0.5 + steps * GHOST_NUDGE, y: 0.5 + row * GHOST_NUDGE * 1.5 };
+}
+
+/** The first summon place no Ghost already out is standing on. */
+function freeSummonPlace(taken: TablePoint[]): TablePoint {
+  for (let i = 0; ; i++) {
+    const place = summonPlace(i);
+    const free = taken.every(
+      (point) =>
+        Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
+    );
+    if (free) return place;
+  }
+}
+
 interface Participant {
   id: ParticipantId;
   name: string;
   role: ParticipantRole;
   /** Open connections (one per browser tab). Zero means they're away in their grace period. */
   connections: number;
+  /** An Observer's Ghost while it's out. */
+  ghost: GhostView | null;
 }
 
 export interface Room {
@@ -100,6 +134,16 @@ export interface Room {
     to: ParticipantId,
     item: string,
   ): CommandResult<ThrowRejectionReason>;
+  /**
+   * Brings out an Observer's Ghost in the middle of the Table. Takes any value as the Skin, since
+   * callers pass untrusted input; only listed fabrics and disguises are accepted.
+   */
+  summonGhost(
+    id: ParticipantId,
+    skin: unknown,
+  ): CommandResult<SummonGhostRejectionReason>;
+  /** Puts an Observer's Ghost away. */
+  dismissGhost(id: ParticipantId): CommandResult<DismissGhostRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** No Participants, counting those away in their grace period. */
   isEmpty(): boolean;
@@ -209,6 +253,8 @@ export function createRoom(): Room {
     if (participant.role === role) return { ok: true };
 
     participant.role = role;
+    // Only Observers have Ghosts.
+    if (role === "voter") participant.ghost = null;
     // An Observer has no Vote, unless it was already revealed (Votes are locked after the Reveal).
     if (role === "observer" && !revealed) votes.delete(id);
     notifyChanged();
@@ -270,6 +316,7 @@ export function createRoom(): Room {
         name: name.trim(),
         role: existing?.role ?? "voter",
         connections: (existing?.connections ?? 0) + 1,
+        ghost: existing?.ghost ?? null,
       });
       notifyChanged();
       return { ok: true };
@@ -403,6 +450,35 @@ export function createRoom(): Room {
       return sendFun(by, { kind: "throw", from: by, to, item });
     },
 
+    summonGhost(id, skin) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (participant.role === "voter") {
+        return { ok: false, reason: "voter-cannot-have-ghost" };
+      }
+      if (!isSkin(skin)) return { ok: false, reason: "not-a-skin" };
+      if (participant.ghost) return { ok: false, reason: "ghost-already-out" };
+      participant.ghost = {
+        skin: { fabric: skin.fabric, disguise: skin.disguise },
+        to: freeSummonPlace(
+          [...participants.values()].flatMap((p) =>
+            p.ghost ? [p.ghost.to] : [],
+          ),
+        ),
+      };
+      notifyChanged();
+      return { ok: true };
+    },
+
+    dismissGhost(id) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      participant.ghost = null;
+      notifyChanged();
+      return { ok: true };
+    },
+
     snapshotFor(id) {
       return {
         participants: [...participants.values()].map((p) => ({
@@ -413,6 +489,7 @@ export function createRoom(): Room {
           hasVoted: votes.has(p.id),
           vote: revealed ? (votes.get(p.id) ?? null) : null,
           connected: p.connections > 0,
+          ghost: p.ghost,
         })),
         myVote: votes.get(id) ?? null,
         hasFacilitator: facilitatorId !== null,

@@ -14,6 +14,7 @@ import {
   type Reaction,
   type Throwable,
 } from "../shared/fun";
+import { DEFAULT_SKIN } from "../shared/ghost";
 import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
 import { connectTo, socket } from "./lib/socket";
 import {
@@ -295,6 +296,16 @@ export function useRoom(
     return true;
   }
 
+  /** Brings out your Ghost, as an Observer. Its button shows the Ghost once the snapshot does. */
+  function summonGhost() {
+    if (canSend()) socket.emit("summonGhost", DEFAULT_SKIN);
+  }
+
+  /** Puts your Ghost away, back to the Watching line. */
+  function dismissGhost() {
+    if (canSend()) socket.emit("dismissGhost");
+  }
+
   const displayed =
     snapshot && withPending(snapshot, identity.id, pendingVote, pendingRole);
   const me = displayed ? findParticipant(displayed, identity.id) : null;
@@ -328,5 +339,7 @@ export function useRoom(
     leave,
     react,
     throwAt,
+    summonGhost,
+    dismissGhost,
   };
 }

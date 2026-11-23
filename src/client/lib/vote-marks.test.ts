@@ -11,6 +11,7 @@ function voter(name: string, vote: number | null): ParticipantView {
     hasVoted: vote !== null,
     vote,
     connected: true,
+    ghost: null,
   };
 }
 

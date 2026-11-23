@@ -57,6 +57,8 @@ export function App({
     leave,
     react,
     throwAt,
+    summonGhost,
+    dismissGhost,
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
@@ -142,6 +144,15 @@ export function App({
           onSetDeck={setDeck}
           onSetAutoReveal={setAutoReveal}
           onClaimFacilitator={claimFacilitator}
+          ghost={
+            me.role === "observer"
+              ? {
+                  out: me.ghost !== null,
+                  onSummon: summonGhost,
+                  onDismiss: dismissGhost,
+                }
+              : null
+          }
           pendingCommand={pendingCommand}
         />
         <div className="relative flex min-h-0 flex-1 flex-col">
@@ -160,7 +171,8 @@ export function App({
           <NoticeToast notice={notice} />
         </div>
         {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
-        <div className="h-(--hand-height) shrink-0">
+        {/* Above the room area, so Ghosts pass under the Hand. */}
+        <div className="relative z-20 h-(--hand-height) shrink-0">
           {snapshot.revealed ? (
             <ResultBreakdown
               snapshot={snapshot}

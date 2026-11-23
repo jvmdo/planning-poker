@@ -17,6 +17,7 @@ function participant(
     hasVoted: false,
     vote: null,
     connected: true,
+    ghost: null,
     ...overrides,
   };
 }
@@ -1772,5 +1773,261 @@ describe("Auto Reveal", () => {
     room.join("bruno-id", "Bruno");
 
     expect(room.snapshotFor("bruno-id").autoReveal).toBe(false);
+  });
+});
+
+describe("Ghosts", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const coral = { fabric: "coral-stripes", disguise: "none" } as const;
+  const middle = { x: 0.5, y: 0.5 };
+
+  /** Ana and Bruno are Voters; Davi and Eva are Observers. */
+  function meeting() {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("davi-id", "Davi");
+    room.becomeObserver("davi-id");
+    room.join("eva-id", "Eva");
+    room.becomeObserver("eva-id");
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+    const everyone = ["ana-id", "bruno-id", "davi-id", "eva-id"];
+    const snapshots = () => everyone.map((id) => room.snapshotFor(id));
+    /** Someone's Ghost, as each Participant's snapshot shows it. */
+    const ghostOf = (id: string) =>
+      everyone.map(
+        (viewer) =>
+          room.snapshotFor(viewer).participants.find((p) => p.id === id)?.ghost,
+      );
+    return { room, onChange, snapshots, ghostOf };
+  }
+
+  it("appears in the middle of the Table when an Observer summons one, for everyone", () => {
+    const { room, onChange, ghostOf } = meeting();
+
+    expect(room.summonGhost("davi-id", coral)).toEqual({ ok: true });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(ghostOf("davi-id")).toEqual(
+      Array(4).fill({ skin: coral, to: middle }),
+    );
+    expect(ghostOf("eva-id")).toEqual(Array(4).fill(null));
+  });
+
+  it("nudges each new Ghost a little sideways from the ones already out, so they don't stack", () => {
+    const { room, ghostOf } = meeting();
+    room.join("fabio-id", "Fábio");
+    room.becomeObserver("fabio-id");
+
+    room.summonGhost("davi-id", coral);
+    room.summonGhost("eva-id", coral);
+    room.summonGhost("fabio-id", coral);
+
+    const points = ["davi-id", "eva-id", "fabio-id"].map(
+      (id) => ghostOf(id)[0]?.to,
+    );
+    expect(points[0]).toEqual(middle);
+    expect(new Set(points.map((p) => p?.x)).size).toBe(3);
+    for (const point of points) {
+      expect(point?.y).toBe(0.5);
+      expect(Math.abs((point?.x ?? 0) - 0.5)).toBeLessThanOrEqual(0.1);
+    }
+  });
+
+  it("puts a new Ghost in a free place, even after another was put away", () => {
+    const { room, ghostOf } = meeting();
+    room.join("fabio-id", "Fábio");
+    room.becomeObserver("fabio-id");
+    room.summonGhost("davi-id", coral);
+    room.summonGhost("eva-id", coral);
+    room.dismissGhost("davi-id");
+
+    room.summonGhost("fabio-id", coral);
+
+    expect(ghostOf("fabio-id")[0]?.to).not.toEqual(ghostOf("eva-id")[0]?.to);
+  });
+
+  it("finds every Ghost of a full Room a place of its own within reach", () => {
+    const room = createRoom();
+    const ids = Array.from({ length: 30 }, (_, i) => `observer-${i}`);
+    for (const id of ids) {
+      room.join(id, id);
+      room.becomeObserver(id);
+      room.summonGhost(id, coral);
+    }
+
+    const points = room
+      .snapshotFor(ids[0] ?? "")
+      .participants.map((p) => p.ghost?.to);
+    expect(new Set(points.map((p) => `${p?.x},${p?.y}`)).size).toBe(30);
+    for (const point of points) {
+      expect(point?.x).toBeGreaterThanOrEqual(-0.5);
+      expect(point?.x).toBeLessThanOrEqual(1.5);
+      expect(point?.y).toBeGreaterThanOrEqual(-0.5);
+      expect(point?.y).toBeLessThanOrEqual(1.5);
+    }
+  });
+
+  it.each([
+    ["a Voter", "ana-id", coral, "voter-cannot-have-ghost"],
+    ["someone who isn't in the Room", "stranger-id", coral, "not-in-room"],
+    [
+      "an unknown fabric",
+      "eva-id",
+      { fabric: "plaid", disguise: "none" },
+      "not-a-skin",
+    ],
+    [
+      "an unknown disguise",
+      "eva-id",
+      { fabric: "coral-stripes", disguise: "pirate" },
+      "not-a-skin",
+    ],
+    ["no Skin at all", "eva-id", null, "not-a-skin"],
+    ["a Skin that isn't an object", "eva-id", "coral-stripes", "not-a-skin"],
+    [
+      "an Observer whose Ghost is already out",
+      "davi-id",
+      coral,
+      "ghost-already-out",
+    ],
+  ] as const)(
+    "rejects summoning a Ghost by %s, leaving the Room unchanged",
+    (_, id, skin, reason) => {
+      const { room, onChange, snapshots } = meeting();
+      room.summonGhost("davi-id", coral);
+      onChange.mockClear();
+      const before = snapshots();
+
+      expect(room.summonGhost(id, skin)).toEqual({ ok: false, reason });
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(snapshots()).toEqual(before);
+    },
+  );
+
+  it("goes away for everyone when its owner puts it away, back to the Watching line", () => {
+    const { room, onChange, ghostOf } = meeting();
+    room.summonGhost("davi-id", coral);
+    onChange.mockClear();
+
+    expect(room.dismissGhost("davi-id")).toEqual({ ok: true });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(ghostOf("davi-id")).toEqual(Array(4).fill(null));
+  });
+
+  it.each([
+    ["an Observer with no Ghost out", "eva-id", "no-ghost"],
+    ["a Voter", "ana-id", "no-ghost"],
+    ["someone who isn't in the Room", "stranger-id", "not-in-room"],
+  ] as const)(
+    "rejects putting away a Ghost by %s, leaving the Room unchanged",
+    (_, id, reason) => {
+      const { room, onChange, snapshots } = meeting();
+      room.summonGhost("davi-id", coral);
+      onChange.mockClear();
+      const before = snapshots();
+
+      expect(room.dismissGhost(id)).toEqual({ ok: false, reason });
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(snapshots()).toEqual(before);
+    },
+  );
+
+  it("is put away when its owner becomes a Voter, and stays away if they go back to observing", () => {
+    const { room, ghostOf } = meeting();
+    room.summonGhost("davi-id", coral);
+
+    room.becomeVoter("davi-id");
+    expect(ghostOf("davi-id")).toEqual(Array(4).fill(null));
+
+    room.becomeObserver("davi-id");
+    expect(ghostOf("davi-id")).toEqual(Array(4).fill(null));
+  });
+
+  it("leaves with its owner", () => {
+    const { room } = meeting();
+    room.summonGhost("davi-id", coral);
+
+    room.leave("davi-id");
+    room.join("davi-id", "Davi");
+    room.becomeObserver("davi-id");
+
+    expect(room.snapshotFor("ana-id").participants.at(-1)).toEqual(
+      participant("davi-id", "Davi", { role: "observer" }),
+    );
+  });
+
+  it("stays out, away, while its owner's connection is down, and is back as it was when they reconnect", () => {
+    const { room, ghostOf } = meeting();
+    room.summonGhost("eva-id", coral);
+    room.summonGhost("davi-id", coral);
+    const [shown] = ghostOf("davi-id");
+
+    room.disconnect("davi-id");
+    vi.advanceTimersByTime(29_999);
+    const away = room
+      .snapshotFor("ana-id")
+      .participants.find((p) => p.id === "davi-id");
+    expect(away).toMatchObject({ connected: false, ghost: shown });
+
+    room.join("davi-id", "Davi");
+    vi.advanceTimersByTime(1);
+    expect(ghostOf("davi-id")).toEqual(Array(4).fill(shown));
+  });
+
+  it("goes when its owner's grace period runs out", () => {
+    const { room } = meeting();
+    room.summonGhost("davi-id", coral);
+
+    room.disconnect("davi-id");
+    vi.advanceTimersByTime(30_000);
+    room.join("davi-id", "Davi");
+
+    expect(
+      room.snapshotFor("ana-id").participants.find((p) => p.id === "davi-id")
+        ?.ghost,
+    ).toBeNull();
+  });
+
+  it("can be seen by someone who joins after it was summoned", () => {
+    const { room } = meeting();
+    room.summonGhost("davi-id", coral);
+
+    room.join("carla-id", "Carla");
+
+    expect(
+      room.snapshotFor("carla-id").participants.find((p) => p.id === "davi-id")
+        ?.ghost,
+    ).toEqual({ skin: coral, to: middle });
+  });
+
+  it("changes nothing in the Round, before or after the Reveal", () => {
+    const { room, snapshots } = meeting();
+    room.vote("ana-id", 8);
+    const withoutGhost = (ss: RoomSnapshot[]) =>
+      ss.map((s) => ({
+        ...s,
+        participants: s.participants.map((p) => ({ ...p, ghost: null })),
+      }));
+    const voting = withoutGhost(snapshots());
+
+    expect(room.summonGhost("davi-id", coral)).toEqual({ ok: true });
+    expect(withoutGhost(snapshots())).toEqual(voting);
+
+    room.reveal("ana-id");
+    const revealed = withoutGhost(snapshots());
+    expect(room.dismissGhost("davi-id")).toEqual({ ok: true });
+    expect(room.summonGhost("davi-id", coral)).toEqual({ ok: true });
+    expect(withoutGhost(snapshots())).toEqual(revealed);
   });
 });

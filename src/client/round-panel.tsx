@@ -1,4 +1,4 @@
-import { Copy, LoaderCircle } from "lucide-react";
+import { Copy, Ghost, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
 import type { RoomId, RoomSnapshot } from "../shared/protocol";
 import { shortRoomId } from "./lib/page-room";
@@ -17,7 +17,8 @@ const ROOM_ID_SHOWN = 16;
  * on, the Room settings for everyone, and the Facilitator's New Round while voting (the Table has
  * Reveal, and New Round after the Reveal). While the Room has no
  * Facilitator it says so, and offers everyone "Become Facilitator" where those controls would be:
- * the first click wins. While the connection is down it says so instead, and the buttons wait for
+ * the first click wins. An Observer also gets a button to bring out their Ghost or put it away,
+ * left of those controls. While the connection is down it says so instead, and the buttons wait for
  * the Room's snapshot after rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
@@ -30,6 +31,7 @@ export function RoundPanel({
   onSetDeck,
   onSetAutoReveal,
   onClaimFacilitator,
+  ghost,
   pendingCommand,
 }: {
   roomId: RoomId;
@@ -44,6 +46,8 @@ export function RoundPanel({
   onSetDeck: (deck: Deck) => void;
   onSetAutoReveal: (on: boolean) => void;
   onClaimFacilitator: () => void;
+  /** Your Ghost's button, only for an Observer. */
+  ghost: { out: boolean; onSummon: () => void; onDismiss: () => void } | null;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
@@ -104,8 +108,23 @@ export function RoundPanel({
         </div>
         {/* The Round's actions sit together; the gear stands apart from them. */}
         <div className="ml-auto flex items-center gap-4">
-          {(showClaim || showNewRound) && (
+          {(ghost || showClaim || showNewRound) && (
             <div className="flex items-center gap-2">
+              {ghost && (
+                <Button
+                  variant={ghost.out ? "default" : "outline"}
+                  aria-pressed={ghost.out}
+                  title={
+                    ghost.out ? "Put your Ghost away" : "Bring out your Ghost"
+                  }
+                  onClick={ghost.out ? ghost.onDismiss : ghost.onSummon}
+                  disabled={reconnecting}
+                >
+                  <Ghost aria-hidden className="size-4" />
+                  {/* Only the icon on narrow screens, so the status bar still fits. */}
+                  <span className="max-md:sr-only">Ghost</span>
+                </Button>
+              )}
               {showClaim && (
                 <Button
                   onClick={onClaimFacilitator}

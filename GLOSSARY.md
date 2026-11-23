@@ -111,3 +111,7 @@ _Avoid_: Mock, attack, poke
 **Ghost**:
 A small character an Observer can choose to have and walk around the Table, seen by everyone with its owner's name. It is where that Observer is on the Table: their Reactions and Throws come from it, and others can Throw at it. It changes nothing in the Round. Having a Ghost is not a role: its owner is still an Observer, and only Observers have Ghosts.
 _Avoid_: Avatar, sprite, pet; and "ghost" for a Participant who disconnected (they are away)
+
+**Skin**:
+How a Ghost looks: the fabric of its dress and its disguise, chosen by its owner. Two Ghosts may wear the same Skin.
+_Avoid_: Costume, outfit, theme

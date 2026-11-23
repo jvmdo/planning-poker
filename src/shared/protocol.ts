@@ -1,5 +1,6 @@
 import type { Card, Deck, InvalidDeckReason } from "./deck.js";
 import type { FunEvent } from "./fun.js";
+import type { GhostView } from "./ghost.js";
 
 export type ParticipantId = string;
 
@@ -24,6 +25,8 @@ export interface ParticipantView {
   vote: Card | null;
   /** False while they're away in their grace period after their connection dropped. */
   connected: boolean;
+  /** An Observer's Ghost while it's out, the same for everyone. Always null for a Voter. */
+  ghost: GhostView | null;
 }
 
 /** What one Participant is allowed to see of the Room. Built per recipient, never broadcast. */
@@ -76,6 +79,12 @@ export type ThrowRejectionReason =
   | "cannot-throw-at-observer"
   | "not-throwable"
   | "burst-used-up";
+export type SummonGhostRejectionReason =
+  | "not-in-room"
+  | "voter-cannot-have-ghost"
+  | "not-a-skin"
+  | "ghost-already-out";
+export type DismissGhostRejectionReason = "not-in-room" | "no-ghost";
 
 /** What a Room command returns: success, or the reason it was refused (the Room is then unchanged). */
 export type CommandResult<Reason extends string> =
@@ -94,7 +103,9 @@ export type Rejection =
   | { command: "handOver"; reason: HandOverRejectionReason }
   | { command: "claimFacilitator"; reason: ClaimFacilitatorRejectionReason }
   | { command: "react"; reason: ReactRejectionReason }
-  | { command: "throwAt"; reason: ThrowRejectionReason };
+  | { command: "throwAt"; reason: ThrowRejectionReason }
+  | { command: "summonGhost"; reason: SummonGhostRejectionReason }
+  | { command: "dismissGhost"; reason: DismissGhostRejectionReason };
 
 export interface ClientToServerEvents {
   join: (id: ParticipantId, name: string) => void;
@@ -110,6 +121,9 @@ export interface ClientToServerEvents {
   leave: () => void;
   react: (reaction: string) => void;
   throwAt: (to: ParticipantId, item: string) => void;
+  /** The Skin is untrusted input, checked by the Room. */
+  summonGhost: (skin: unknown) => void;
+  dismissGhost: () => void;
 }
 
 export interface ServerToClientEvents {

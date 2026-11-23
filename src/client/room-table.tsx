@@ -12,14 +12,20 @@ import {
   type Throwable,
 } from "../shared/fun";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
 import { seatLayout } from "./lib/seat-layout";
 import type { RoundReading } from "./lib/vote-marks";
+import { GhostLayer } from "./ghost-layer";
 import { TableSeat, type DeckItem } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
 import type { PendingCommand } from "./pending";
 import { Waiting as Spinner } from "./waiting";
 import { Button } from "@/components/ui/button";
+
+/** Leaves room round the Table for the seats, which sit half outside its edge. */
+const ROOM_AROUND_TABLE =
+  "px-[clamp(64px,7vw,140px)] pt-[clamp(48px,7vh,90px)] pb-[clamp(40px,6vh,70px)]";
 
 /**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
@@ -54,7 +60,6 @@ export function RoomTable({
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const { seats } = seatLayout(snapshot.participants, myId);
-  const observers = snapshot.participants.filter((p) => p.role === "observer");
   const everyVoterVoted = voters.length > 0 && voters.every((p) => p.hasVoted);
   /**
    * Your own last Vote shows before the server's answer, and so does the countdown it starts, so
@@ -63,17 +68,24 @@ export function RoomTable({
   const countingDown =
     snapshot.countingDown ||
     (snapshot.autoReveal && snapshot.hasFacilitator && everyVoterVoted);
+  // An Observer whose Ghost is out is shown by their Ghost instead.
+  const watchers = snapshot.participants.filter(
+    (p) => p.role === "observer" && p.ghost === null,
+  );
   const [openSeat, setOpenSeat] = useState<ParticipantId | null>(null);
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
+  const ghosts = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
 
   /**
    * Where a Participant is on screen, for Reactions and Throws to start from and land on: a Voter
-   * at their Card, an Observer on the "Watching" line. Nowhere once they've left.
+   * at their Card, an Observer at their Ghost while it's out, or else on the "Watching" line.
+   * Nowhere once they've left.
    */
   function placeOf(id: ParticipantId): HTMLElement | null {
     const participant = snapshot.participants.find((p) => p.id === id);
     if (!participant) return null;
+    if (participant.ghost) return ghosts.current.get(id) ?? null;
     if (participant.role === "observer") return watching.current;
     return cards.current.get(id) ?? null;
   }
@@ -128,8 +140,7 @@ export function RoomTable({
   return (
     <section
       aria-label="Table"
-      // The padding leaves room for the seats, which sit half outside the table's edge.
-      className="relative min-h-0 flex-1 px-[clamp(64px,7vw,140px)] pt-[clamp(48px,7vh,90px)] pb-[clamp(40px,6vh,70px)]"
+      className={cn("relative min-h-0 flex-1", ROOM_AROUND_TABLE)}
     >
       <div className="border-ink relative h-full rounded-[50%] border-4 bg-[color-mix(in_oklch,var(--pop-3)_22%,var(--background))] shadow-[8px_8px_0_var(--ink)]">
         <div className="absolute inset-[12%_14%] grid place-items-center">
@@ -208,12 +219,20 @@ export function RoomTable({
           })}
         </ul>
       </div>
-      {observers.length > 0 && (
+      <GhostLayer
+        participants={snapshot.participants}
+        tableBox={ROOM_AROUND_TABLE}
+        ghostRef={(id, element) => {
+          if (element) ghosts.current.set(id, element);
+          else ghosts.current.delete(id);
+        }}
+      />
+      {watchers.length > 0 && (
         <p
           ref={watching}
           className="text-muted-foreground absolute top-3 right-6 max-w-[40%] truncate text-xs"
         >
-          Watching: {observers.map((p) => p.name).join(", ")}
+          Watching: {watchers.map((p) => p.name).join(", ")}
         </p>
       )}
     </section>

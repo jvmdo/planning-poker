@@ -14,6 +14,7 @@ function participant(
     hasVoted: false,
     vote: null,
     connected: true,
+    ghost: null,
   };
 }
 
