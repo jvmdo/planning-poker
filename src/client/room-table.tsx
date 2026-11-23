@@ -244,9 +244,11 @@ export function RoomTable({
         roomRef={roomArea}
         tableRef={table}
         onMove={(to, event) => {
-          // The press that closed a deck isn't also a walk.
-          if (event.timeStamp - closedDeckAt.current > CLICK_AFTER_PRESS_MS)
-            onMoveGhost(to);
+          // The click that closed a deck isn't also a walk.
+          const closedADeck =
+            event.type === "click" &&
+            event.timeStamp - closedDeckAt.current < CLICK_AFTER_PRESS_MS;
+          if (!closedADeck) onMoveGhost(to);
         }}
         ghostRef={(id, element) => {
           if (element) ghosts.current.set(id, element);

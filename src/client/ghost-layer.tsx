@@ -3,7 +3,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 import type { ParticipantId, ParticipantView } from "../shared/protocol";
@@ -21,6 +20,13 @@ const HOPS: Record<string, [number, number]> = {
   ArrowDown: [0, HOP],
 };
 
+/**
+ * Where focus may be without the arrow keys walking your Ghost: anywhere you type, or anything that
+ * uses the arrow keys itself, or an open dialog.
+ */
+const KEEPS_ARROWS =
+  "input, select, textarea, [contenteditable]:not([contenteditable='false']), [role='listbox'], [role='menu'], [role='radiogroup'], [role='slider'], [role='tablist'], [role='combobox'], [role='grid'], [role='tree'], [role='dialog'], dialog";
+
 /** What a click in the room area may land on without walking your Ghost there. */
 const NOT_EMPTY_SPACE =
   "[data-seat], [data-ghost], button, a, input, select, textarea, label, [role='dialog']";
@@ -31,7 +37,8 @@ const NOT_EMPTY_SPACE =
  * out an inner box exactly over the Table, which Ghosts are positioned on.
  *
  * Each Ghost walks to where the Room says it's heading, turned the way this screen turns the seats.
- * Your own walks where you click in empty room space, or by arrow keys while it has focus.
+ * Your own walks where you click in empty room space, or by the arrow keys from anywhere on the page
+ * except where they're needed for something else.
  */
 export function GhostLayer({
   participants,
@@ -63,12 +70,15 @@ export function GhostLayer({
     (p): p is ParticipantView & { ghost: GhostView } => p.ghost !== null,
   );
   const myGhost = withGhosts.find((p) => p.id === myId)?.ghost ?? null;
-  /** The latest `onMove`, so the click listener needn't be added again on every render. */
+  /** The latest `onMove`, so the listeners needn't be added again on every render. */
   const move = useRef(onMove);
+  /** Where your own Ghost is heading, which an arrow key hops on from. */
+  const heading = useRef(myGhost?.to ?? null);
 
   // Before paint, so a new Ghost is never drawn anywhere but its place.
   useLayoutEffect(() => {
     move.current = onMove;
+    heading.current = myGhost?.to ?? null;
     walker.setFrame(roomRef.current, tableRef.current);
     walker.update(
       new Map(withGhosts.map((p) => [p.id, p.ghost.to] as const)),
@@ -101,13 +111,24 @@ export function GhostLayer({
     return () => room.removeEventListener("click", onClick);
   }, [walker, roomRef, hasGhost]);
 
-  function onKeyDown(event: KeyboardEvent) {
-    const hop = HOPS[event.key];
-    if (!hop || !myGhost) return;
-    event.preventDefault();
-    const to = walker.hop(myGhost.to, ...hop);
-    if (to) onMove(to, event.nativeEvent);
-  }
+  // The arrow keys walk your Ghost, wherever focus is, unless it's somewhere that needs them.
+  useEffect(() => {
+    if (!hasGhost) return;
+    function onKeyDown(event: KeyboardEvent) {
+      const hop = HOPS[event.key];
+      const from = heading.current;
+      if (!hop || !from || event.defaultPrevented) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+        return;
+      const focused = document.activeElement;
+      if (focused instanceof Element && focused.closest(KEEPS_ARROWS)) return;
+      event.preventDefault();
+      const to = walker.hop(from, ...hop);
+      if (to) move.current(to, event);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [walker, hasGhost]);
 
   if (withGhosts.length === 0) return null;
 
@@ -115,19 +136,15 @@ export function GhostLayer({
     <div className={cn("pointer-events-none absolute inset-0 z-10", tableBox)}>
       <ul aria-label="Ghosts" className="relative h-full">
         {withGhosts.map((p) => {
-          const isMine = p.id === myId;
           return (
             <li
               key={p.id}
               data-ghost
               // Placed, and walked, by the walker.
               ref={(element) => walker.setElement(p.id, element)}
-              tabIndex={isMine ? 0 : undefined}
-              aria-label={isMine ? "Your Ghost: arrow keys walk it" : undefined}
-              onKeyDown={isMine ? onKeyDown : undefined}
               className={cn(
                 // Centred on its point by the middle of its body, with its name tag below.
-                "pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5 rounded-lg outline-offset-2",
+                "pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23px] flex-col items-center gap-0.5",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
               )}
@@ -141,10 +158,7 @@ export function GhostLayer({
                   className="h-[46px] w-[42px]"
                 />
               </div>
-              <span
-                aria-hidden={isMine}
-                className="bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold"
-              >
+              <span className="bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold">
                 {p.name}
                 <span className="sr-only">
                   's Ghost{!p.connected && ", away"}

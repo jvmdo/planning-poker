@@ -1,7 +1,7 @@
 # 03: Walk the Ghost
 
 **What to build:** An Observer walks their Ghost anywhere in the room area, and everyone sees it walk there.
-- **Input:** click or tap empty room space, or press the arrow keys (a hop of a tenth of the Table) while the Ghost has focus.
+- **Input:** click or tap empty room space, or press the arrow keys (a hop of a tenth of the Table) from anywhere on the page, except where focus needs them (a text field, a dialog, a control that uses arrow keys itself) or with a modifier key held.
 - **Walking:** at a steady speed (one Table width in about 1.5 s) with a gentle start and stop. The owner's Ghost starts moving on the click, before the server answers.
 - **Same Card on every screen:** a Ghost over Bruno's Card is over Bruno's Card on every screen, Bruno's included. Positions live on the shared Table, and each Voter's screen turns them the way it turns the seats.
 - **Where it can go:** each screen keeps the Ghost inside its own room area. Ghosts stay out of the sidebar and status bar, and pass under the Hand and toasts.
@@ -29,7 +29,7 @@ Only the destination crosses the network; each screen animates the walk itself. 
 **Implemented (2026-11-23).** Choices worth knowing:
 - **Walking** is a small steering model in `src/client/lib/ghost-walker.ts`, not a fixed-length tween: the Ghost speeds up over 0.3 s, cruises at one Table width per 1.5 s and slows to a stop exactly at its destination. A new destination mid-walk keeps its current speed and turns towards it, so a held arrow key walks smoothly instead of stuttering. Walks run on the shared Table (so every screen takes the same time) and are drawn straight onto the Ghost's element each frame, without re-rendering.
 - **The room area** each screen keeps Ghosts in is the Table section, kept in by enough pixels that the whole Ghost and its name tag stay visible. A Ghost held in at one screen's edge sets off from where it's drawn on its next move.
-- **Arrow keys** hop a tenth of the Table from where the Ghost is heading, not where it's drawn, so a held key goes in a straight line. Your own Ghost is focusable for this.
+- **Arrow keys** hop a tenth of the Table from where the Ghost is heading, not where it's drawn, so a held key goes in a straight line.
 - **The move limit** also runs in the browser, as for Reactions and Throws: moves past the budget aren't sent. A refused move just drops the Ghost's pending destination, without a toast.
 - **Your own moves** show at once and stay until the server sends them back, so a snapshot arriving in between doesn't pull the Ghost back.
 - **A click that closes an open deck** doesn't also walk your Ghost.
@@ -40,3 +40,5 @@ Only the destination crosses the network; each screen animates the walk itself. 
 Checked in the browser (separate server): with Ana, Bruno and Carla voting on screens of three sizes, Davi observing, and a bot Observer's Ghost parked on Bruno's Card, it sat on Bruno's Card on all four screens, Bruno's included. Davi's Ghost walked to a click and others saw it there; three arrow presses moved it three tenths of the Table; clicking a seat didn't move it; a Ghost sent to the far corner stayed inside the narrow screen's room area, above the Hand.
 
 **Closed (2026-11-23).**
+
+**Arrow keys from anywhere (2026-11-23).** As first built, the arrow keys walked your Ghost only while it had focus, and nothing gave it focus: after summoning it focus was on the Ghost button, and after a click-to-walk on the page, so the keys looked broken. They now work from anywhere on the page, unless focus is in a text field, a dialog or a control that uses arrow keys itself, or a modifier key is held. Your Ghost is no longer focusable. The spec's Input line says the same. Checked in the browser: → right after summoning, ↓ after a click-to-walk, Shift+← ignored, ← ignored while typing in the Deck dialog.
