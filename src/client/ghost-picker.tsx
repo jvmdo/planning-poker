@@ -9,6 +9,7 @@ import {
   type Skin,
 } from "../shared/ghost";
 import { Button } from "@/components/ui/button";
+import { loadIdentity } from "./lib/identity";
 import { cn } from "@/lib/utils";
 import { FabricSwatch, GhostFigure } from "./ghost-figure";
 
@@ -20,7 +21,8 @@ const OPTION =
  * An Observer's Ghost button and the Skin picker it opens. Picking a fabric and a disguise only
  * tries them on, in the preview; "Bring out Ghost" or "Wear this" puts them on your Ghost and
  * closes the picker, as does "Vent", which puts it away. Closing it any other way drops what was tried on.
- * It opens on your Ghost's Skin, or the first time on a random one, so one click brings out a Ghost.
+ * It opens on your Ghost's Skin, else the one this browser remembers, else the one last worn here, or
+ * the first time on a random one, so one click brings out a Ghost.
  */
 export function GhostPicker({
   skin,
@@ -36,7 +38,7 @@ export function GhostPicker({
   onDismiss: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  /** The Skin last worn, which the picker opens on while no Ghost is out. */
+  /** The Skin last worn in this tab, which the picker opens on when this browser remembers none. */
   const [lastWorn, setLastWorn] = useState(randomSkin);
   /** What's being tried on. */
   const [shown, setShown] = useState(lastWorn);
@@ -57,7 +59,7 @@ export function GhostPicker({
   }, [open]);
 
   function toggle() {
-    if (!open) setShown(skin ?? lastWorn);
+    if (!open) setShown(skin ?? loadIdentity().ghost ?? lastWorn);
     setOpen(!open);
   }
 

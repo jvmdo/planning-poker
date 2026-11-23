@@ -1,5 +1,6 @@
 import type { ParticipantId, RoomId } from "../../shared/protocol";
 import { parseRoomId } from "../../shared/room-id";
+import { isSkin, type Skin } from "../../shared/ghost";
 
 const STORAGE_KEY = "planning-poker:identity";
 
@@ -13,6 +14,11 @@ export interface Identity {
   name: string;
   /** The last Room joined, which `/` goes back to. Null after leaving it, or before joining one. */
   lastRoom: RoomId | null;
+  /**
+   * The Skin this browser's Ghost comes out in whenever it's an Observer without one, in every
+   * Room. Null when no Ghost is wanted: never picked, or put away down the vent since.
+   */
+  ghost: Skin | null;
 }
 
 export function loadIdentity(): Identity {
@@ -23,12 +29,20 @@ export function loadIdentity(): Identity {
     if (isStoredIdentity(stored)) {
       // Stored before Rooms had IDs (with `inRoom`), it names no Room: the join screen shows once.
       const lastRoom = parseRoomId(stored.lastRoom);
-      return { id: stored.id, name: stored.name, lastRoom };
+      const ghost = isSkin(stored.ghost)
+        ? { fabric: stored.ghost.fabric, disguise: stored.ghost.disguise }
+        : null;
+      return { id: stored.id, name: stored.name, lastRoom, ghost };
     }
   } catch {
     // Unreadable storage: start over with a fresh identity.
   }
-  const identity = { id: newParticipantId(), name: "", lastRoom: null };
+  const identity = {
+    id: newParticipantId(),
+    name: "",
+    lastRoom: null,
+    ghost: null,
+  };
   saveIdentity(identity);
   return identity;
 }
@@ -46,9 +60,13 @@ export function updateIdentity(change: (stored: Identity) => Identity): void {
   saveIdentity(change(loadIdentity()));
 }
 
-function isStoredIdentity(
-  value: unknown,
-): value is Pick<Identity, "id" | "name"> & { lastRoom?: unknown } {
+function isStoredIdentity(value: unknown): value is Pick<
+  Identity,
+  "id" | "name"
+> & {
+  lastRoom?: unknown;
+  ghost?: unknown;
+} {
   return (
     typeof value === "object" &&
     value !== null &&

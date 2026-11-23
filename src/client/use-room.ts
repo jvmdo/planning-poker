@@ -22,6 +22,7 @@ import {
 } from "../shared/ghost";
 import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
 import { connectTo, socket } from "./lib/socket";
+import { ghostComeback } from "./ghost-comeback";
 import {
   findParticipant,
   isPendingCommand,
@@ -100,6 +101,8 @@ export function useRoom(
   const burst = useRef<Burst | undefined>(undefined);
   /** This browser's count of Ghost moves left, on a budget of their own. */
   const moveBurst = useRef<Burst | undefined>(undefined);
+  /** The remembered Ghost has been summoned since you last became an Observer here, joined or rejoined. */
+  const comebackTried = useRef(false);
   /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
   const joinedFromJoinScreen = useRef(false);
 
@@ -231,6 +234,23 @@ export function useRoom(
     };
   }, [identity.id, roomId, resetToJoinScreen, showNotice]);
 
+  // Whenever you're an Observer without a Ghost, the one this browser remembers comes back, once.
+  useEffect(() => {
+    // Out of the Room, or not yet back in it, counts as not being there.
+    const me =
+      snapshot && rejoined ? findParticipant(snapshot, identity.id) : null;
+    const { summon, tried } = ghostComeback(
+      comebackTried.current,
+      me,
+      loadIdentity().ghost,
+      pendingGhost,
+    );
+    comebackTried.current = tried;
+    if (!summon || !socket.connected) return;
+    socket.emit("summonGhost", summon);
+    setPendingGhost(summon);
+  }, [snapshot, rejoined, pendingGhost, identity.id]);
+
   useEffect(() => {
     if (notice === null) return;
     const timer = setTimeout(() => setNotice(null), notice.ms);
@@ -346,17 +366,22 @@ export function useRoom(
 
   /**
    * Brings out your Ghost in `skin`, as an Observer, or re-dresses it if it's out. Either shows at
-   * once, before the server answers.
+   * once, before the server answers. This browser remembers it, in every Room, until it's put away.
    */
   function wearSkin(skin: Skin) {
     if (!canSend()) return;
     socket.emit(me?.ghost ? "dressGhost" : "summonGhost", skin);
     setPendingGhost(skin);
+    updateIdentity((stored) => ({ ...stored, ghost: skin }));
   }
 
-  /** Puts your Ghost away down a vent, back to the Watching line, at once. */
+  /**
+   * Puts your Ghost away down a vent, back to the Watching line, at once. This browser forgets it,
+   * so it no longer comes back.
+   */
   function dismissGhost() {
     if (!canSend()) return;
+    updateIdentity((stored) => ({ ...stored, ghost: null }));
     socket.emit("dismissGhost");
     setPendingGhost("away");
     showNotice("Folded and vented. Nobody suspects a thing.");
