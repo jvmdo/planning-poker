@@ -47,7 +47,10 @@ describe("bringing back the Ghost this browser remembers", () => {
   });
 
   it("leaves the Ghost to a change you've just asked for", () => {
-    expect(ghostComeback(false, me(), coralNinja, mintPlain).summon).toBeNull();
+    expect(
+      ghostComeback(false, me(), coralNinja, { skin: mintPlain, roll: 0.5 })
+        .summon,
+    ).toBeNull();
     expect(ghostComeback(false, me(), coralNinja, "away").summon).toBeNull();
   });
 

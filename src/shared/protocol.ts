@@ -131,8 +131,11 @@ export interface ClientToServerEvents {
   leave: () => void;
   react: (reaction: string) => void;
   throwAt: (to: ParticipantId, item: string) => void;
-  /** The Skin is untrusted input, checked by the Room. */
-  summonGhost: (skin: unknown) => void;
+  /**
+   * The Skin and the roll that picks the Ghost's vent are untrusted input, checked by the Room. With
+   * no roll, or one that isn't, the Room rolls its own.
+   */
+  summonGhost: (skin: unknown, roll?: unknown) => void;
   /** The Skin is untrusted input, checked by the Room. */
   dressGhost: (skin: unknown) => void;
   dismissGhost: () => void;

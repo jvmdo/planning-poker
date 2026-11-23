@@ -2068,33 +2068,50 @@ describe("Ghosts", () => {
     expect(ghostOf("eva-id")).toEqual(Array(4).fill(null));
   });
 
+  it("brings a Ghost out of a vent picked at random each time it's summoned", () => {
+    const { room, ghostOf } = meeting();
+    const vents = new Set<string>();
+    for (let i = 0; i < 30; i++) {
+      room.summonGhost("davi-id", coral);
+      const at = ghostOf("davi-id")[0]?.to;
+      expect(VENTS).toContainEqual(at);
+      vents.add(`${at?.x},${at?.y}`);
+      room.dismissGhost("davi-id");
+    }
+    expect(vents.size).toBeGreaterThan(1);
+  });
+
+  it("brings a Ghost out of the vent its summon's roll picks, so its owner can show it there at once", () => {
+    const { room, ghostOf } = meeting();
+    room.summonGhost("davi-id", coral, 0.3);
+    const first = ghostOf("davi-id")[0]?.to;
+    room.dismissGhost("davi-id");
+
+    room.summonGhost("davi-id", coral, 0.3);
+
+    expect(ghostOf("davi-id")[0]?.to).toEqual(first);
+  });
+
   it("gives two Ghosts out at once different vents, and frees a vent once its Ghost walks off or is put away", () => {
     const { room, ghostOf } = meeting();
-    room.join("fabio-id", "Fábio");
-    room.becomeObserver("fabio-id");
-    // Davi and Fábio's Ghosts happen to try the same vent first: alone, Fábio's comes out at it.
-    room.summonGhost("fabio-id", coral);
-    const fabiosFirst = ghostOf("fabio-id")[0]?.to;
-    room.dismissGhost("fabio-id");
-    room.summonGhost("davi-id", coral);
-    expect(ghostOf("davi-id")[0]?.to).toEqual(fabiosFirst);
-
-    room.summonGhost("fabio-id", coral);
+    // Both summons roll the same, so both Ghosts try the same vent first.
+    room.summonGhost("davi-id", coral, 0.3);
+    room.summonGhost("eva-id", coral, 0.3);
     const davis = ghostOf("davi-id")[0]?.to;
-    const fabios = ghostOf("fabio-id")[0]?.to;
-    expect(VENTS).toContainEqual(fabios);
-    expect(fabios).not.toEqual(davis);
+    const evas = ghostOf("eva-id")[0]?.to;
+    expect(VENTS).toContainEqual(evas);
+    expect(evas).not.toEqual(davis);
 
-    // Once Davi's Ghost walks off its vent, Fábio's next Ghost gets it.
+    // Once Davi's Ghost walks off its vent, Eva's next Ghost gets it.
     expect(room.moveGhost("davi-id", { x: 1.2, y: 1.2 })).toEqual({ ok: true });
-    room.dismissGhost("fabio-id");
-    room.summonGhost("fabio-id", coral);
-    expect(ghostOf("fabio-id")[0]?.to).toEqual(davis);
+    room.dismissGhost("eva-id");
+    room.summonGhost("eva-id", coral, 0.3);
+    expect(ghostOf("eva-id")[0]?.to).toEqual(davis);
 
-    // Once Fábio's Ghost is put away, Davi's next Ghost gets it back.
-    room.dismissGhost("fabio-id");
+    // Once Eva's Ghost is put away, Davi's next Ghost gets it back.
+    room.dismissGhost("eva-id");
     room.dismissGhost("davi-id");
-    room.summonGhost("davi-id", coral);
+    room.summonGhost("davi-id", coral, 0.3);
     expect(ghostOf("davi-id")[0]?.to).toEqual(davis);
   });
 

@@ -116,7 +116,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 ### Room module (server)
 
 - **New commands:**
-  - `summonGhost(id, skin)`. Rejected for a Voter, an invalid Skin, or a Ghost already out. The Room places the new Ghost at a free vent spot, picked in an order shuffled by the owner's Participant ID, so it feels random but the owner's browser can predict it. When every vent has a Ghost on it, it takes one anyway and is nudged aside.
+  - `summonGhost(id, skin)`. Rejected for a Voter, an invalid Skin, or a Ghost already out. The Room places the new Ghost at a free vent spot picked by a roll of the dice that the owner's browser sends with the summon, so each summon comes out of a vent picked at random, and the owner's browser can show it there at once. Without a valid roll (a bot, say), the Room rolls its own. When every vent has a Ghost on it, it takes one anyway and is nudged aside.
   - `dressGhost(id, skin)`. Rejected with no Ghost or an invalid Skin.
   - `dismissGhost(id)`. Rejected with no Ghost.
   - `moveGhost(id, to)`. Rejected with no Ghost, a point that isn't two finite numbers in range, or the move limit spent.

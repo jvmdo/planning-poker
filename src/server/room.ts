@@ -38,6 +38,8 @@ import {
 } from "../shared/fun.js";
 import {
   GHOST_MOVE_BURST,
+  isVentRoll,
+  rollVent,
   ventFor,
   isSkin,
   isTablePoint,
@@ -121,12 +123,14 @@ export interface Room {
     item: string,
   ): CommandResult<ThrowRejectionReason>;
   /**
-   * Brings out an Observer's Ghost in the middle of the Table. Takes any value as the Skin, since
-   * callers pass untrusted input; only listed fabrics and disguises are accepted.
+   * Brings out an Observer's Ghost at a free vent, picked by `roll`. Takes any value as the Skin and
+   * the roll, since callers pass untrusted input; only listed fabrics and disguises are accepted,
+   * and without a roll of the dice, 0 up to 1, the Room rolls its own.
    */
   summonGhost(
     id: ParticipantId,
     skin: unknown,
+    roll?: unknown,
   ): CommandResult<SummonGhostRejectionReason>;
   /**
    * Changes the Skin of an Observer's Ghost that's out, where it stands. Takes any value as the
@@ -468,7 +472,7 @@ export function createRoom(): Room {
       return sendFun(by, { kind: "throw", from: by, to, item });
     },
 
-    summonGhost(id, skin) {
+    summonGhost(id, skin, roll) {
       const participant = participants.get(id);
       if (!participant) return { ok: false, reason: "not-in-room" };
       if (participant.role === "voter") {
@@ -479,7 +483,7 @@ export function createRoom(): Room {
       participant.ghost = {
         skin: { fabric: skin.fabric, disguise: skin.disguise },
         to: ventFor(
-          id,
+          isVentRoll(roll) ? roll : rollVent(),
           [...participants.values()].flatMap((p) =>
             p.ghost ? [p.ghost.to] : [],
           ),

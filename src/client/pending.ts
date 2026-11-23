@@ -44,8 +44,11 @@ export function settlePendingRole(
   return pending;
 }
 
-/** Your Ghost as you last asked for it: out in a Skin (brought out or re-dressed), or put away. */
-export type PendingGhost = Skin | "away";
+/**
+ * Your Ghost as you last asked for it: out in a Skin (brought out or re-dressed), or put away. A
+ * summon's roll picks the vent it comes out of.
+ */
+export type PendingGhost = { skin: Skin; roll: number } | "away";
 
 /** Drops the pending Ghost once the snapshot shows it, or once you're no longer an Observer. */
 export function settlePendingGhost(
@@ -57,8 +60,8 @@ export function settlePendingGhost(
   if (!pending || me?.role !== "observer") return null;
   if (pending === "away") return me.ghost ? pending : null;
   const shown =
-    me.ghost?.skin.fabric === pending.fabric &&
-    me.ghost.skin.disguise === pending.disguise;
+    me.ghost?.skin.fabric === pending.skin.fabric &&
+    me.ghost.skin.disguise === pending.skin.disguise;
   return shown ? null : pending;
 }
 
@@ -137,7 +140,7 @@ export function withPending(
     const others = snapshot.participants.flatMap((p) =>
       p.id !== myId && p.ghost ? [p.ghost.to] : [],
     );
-    return { skin: ghost, to: shown?.to ?? ventFor(myId, others) };
+    return { skin: ghost.skin, to: shown?.to ?? ventFor(ghost.roll, others) };
   }
 
   return {

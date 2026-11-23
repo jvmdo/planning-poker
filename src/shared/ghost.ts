@@ -90,8 +90,11 @@ export function isTablePoint(value: unknown): value is TablePoint {
   return ok(x) && ok(y);
 }
 
-/** How many vents there are round the Table. */
-const VENT_COUNT = 8;
+/**
+ * How many vents there are round the Table: enough that a new Ghost rarely comes out where the last
+ * one did. On a phone, Ghosts on neighbouring vents at the top and bottom of the Table touch tags.
+ */
+const VENT_COUNT = 12;
 /**
  * How far out from the middle of the Table the vents sit, as a share of the way to the seats: in a
  * ring between the Result and the Cards, so they're inside the Table on every screen.
@@ -119,25 +122,23 @@ const GHOST_NUDGE = 0.1;
 /** How far apart, up and down, Ghosts are nudged: enough for a Ghost and its name tag. */
 const GHOST_NUDGE_DOWN = 0.15;
 
-/** The vents in the order an owner's Ghost tries them: shuffled, the same way every time, by their Participant ID. */
-function ventOrder(owner: ParticipantId): TablePoint[] {
-  // FNV-1a seeds a small generator (mulberry32), which shuffles the vents (Fisher–Yates).
-  let seed = 0x811c9dc5;
-  for (let i = 0; i < owner.length; i++) {
-    seed = Math.imul(seed ^ owner.charCodeAt(i), 0x01000193);
-  }
-  const next = () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32;
-  };
-  const order = [...VENTS];
-  for (let i = order.length - 1; i > 0; i--) {
-    const j = Math.floor(next() * (i + 1));
-    [order[i], order[j]] = [order[j] as TablePoint, order[i] as TablePoint];
-  }
-  return order;
+/**
+ * A summon's roll of the dice, 0 up to 1, which picks the order its Ghost tries the vents in. The
+ * owner's browser rolls it and sends it with the summon, so it can show the Ghost at the same vent
+ * the Room will put it.
+ */
+export function rollVent(): number {
+  return Math.random();
+}
+
+/** Takes any value, since callers pass untrusted input: a roll of the dice, 0 up to 1. */
+export function isVentRoll(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value < 1
+  );
 }
 
 /**
@@ -175,24 +176,25 @@ function* nudgesAround(vent: TablePoint): Generator<TablePoint> {
 }
 
 /**
- * Where a new Ghost comes out: the first vent, in its owner's order, that no Ghost out is standing
- * on. When every vent is taken it comes out of its first vent anyway, nudged aside to the nearest
- * free place. The Room decides; the owner's browser uses the same rule to show their new Ghost
- * before the Room answers.
+ * Where a new Ghost comes out: the vent its summon's roll picks among those no Ghost out is
+ * standing on. When every vent is taken it comes out of the vent the roll picks among them all,
+ * nudged aside to the nearest free place. The Room decides; the owner's browser uses the same rule,
+ * and the same roll, to show their new Ghost before the Room answers.
  */
-export function ventFor(owner: ParticipantId, taken: TablePoint[]): TablePoint {
+export function ventFor(roll: number, taken: TablePoint[]): TablePoint {
   const isFree = (place: TablePoint) =>
     taken.every(
       (point) =>
         Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
     );
-  const order = ventOrder(owner);
-  const free = order.find(isFree);
-  if (free) return free;
-  const first = order[0] as TablePoint;
-  for (const place of nudgesAround(first)) if (isFree(place)) return place;
+  const pick = (vents: readonly TablePoint[]) =>
+    vents[Math.floor(roll * vents.length)] as TablePoint;
+  const free = VENTS.filter(isFree);
+  if (free.length > 0) return pick(free);
+  const vent = pick(VENTS);
+  for (const place of nudgesAround(vent)) if (isFree(place)) return place;
   // Only if the whole room area is full of Ghosts, far more than a Room holds.
-  return first;
+  return vent;
 }
 
 /** Ghost moves have a budget of their own: 10 in a row (a held arrow key), then one every 100 ms. */

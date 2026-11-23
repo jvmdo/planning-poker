@@ -163,8 +163,8 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
       if (typeof to !== "string" || typeof item !== "string") return;
       act("throwAt", (room, id) => room.throwAt(id, to, item));
     });
-    socket.on("summonGhost", (skin) =>
-      act("summonGhost", (room, id) => room.summonGhost(id, skin)),
+    socket.on("summonGhost", (skin, roll) =>
+      act("summonGhost", (room, id) => room.summonGhost(id, skin, roll)),
     );
     socket.on("dressGhost", (skin) =>
       act("dressGhost", (room, id) => room.dressGhost(id, skin)),

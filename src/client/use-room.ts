@@ -16,6 +16,7 @@ import {
 } from "../shared/fun";
 import {
   GHOST_MOVE_BURST,
+  rollVent,
   type GhostMove,
   type Skin,
   type TablePoint,
@@ -256,8 +257,9 @@ export function useRoom(
     );
     comebackTried.current = tried;
     if (!summon || !socket.connected) return;
-    socket.emit("summonGhost", summon);
-    setPendingGhost(summon);
+    const roll = rollVent();
+    socket.emit("summonGhost", summon, roll);
+    setPendingGhost({ skin: summon, roll });
   }, [snapshot, rejoined, pendingGhost, identity.id]);
 
   useEffect(() => {
@@ -381,8 +383,10 @@ export function useRoom(
    */
   function wearSkin(skin: Skin) {
     if (!canSend()) return;
-    socket.emit(me?.ghost ? "dressGhost" : "summonGhost", skin);
-    setPendingGhost(skin);
+    const roll = rollVent();
+    if (me?.ghost) socket.emit("dressGhost", skin);
+    else socket.emit("summonGhost", skin, roll);
+    setPendingGhost({ skin, roll });
     updateIdentity((stored) => ({ ...stored, ghost: skin }));
   }
 

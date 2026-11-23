@@ -7,6 +7,7 @@ import {
   withPending,
 } from "./pending.js";
 import { createRoom } from "../server/room.js";
+import type { Skin } from "../shared/ghost.js";
 
 const noFacilitator: RoomSnapshot = {
   participants: [],
@@ -56,6 +57,8 @@ describe("your own Ghost, before the Room answers", () => {
   const coral = { fabric: "coral-stripes", disguise: "none" } as const;
   const berryNinja = { fabric: "berry-gingham", disguise: "ninja" } as const;
   const somewhere = { x: 0.2, y: 0.8 };
+  /** Your Ghost as you asked for it, in a Skin, with the roll a summon would send. */
+  const wearing = (skin: Skin) => ({ skin, roll: 0.5 });
 
   function person(
     id: string,
@@ -102,8 +105,9 @@ describe("your own Ghost, before the Room answers", () => {
     theRoom.summonGhost("eva", coral);
     const before = theRoom.snapshotFor("davi");
 
-    const predicted = withPending(before, "davi", null, null, berryNinja);
-    theRoom.summonGhost("davi", berryNinja);
+    const summon = { skin: berryNinja, roll: 0.42 };
+    const predicted = withPending(before, "davi", null, null, summon);
+    theRoom.summonGhost("davi", berryNinja, summon.roll);
 
     expect(shown(predicted, "davi")).toEqual(
       shown(theRoom.snapshotFor("davi"), "davi"),
@@ -116,7 +120,7 @@ describe("your own Ghost, before the Room answers", () => {
       "davi",
       null,
       null,
-      berryNinja,
+      wearing(berryNinja),
     );
     expect(shown(displayed, "davi")).toEqual({
       skin: berryNinja,
@@ -153,23 +157,25 @@ describe("your own Ghost, before the Room answers", () => {
       "davi",
       null,
       null,
-      berryNinja,
+      wearing(berryNinja),
     );
     expect(shown(displayed, "eva")).toEqual(eva.ghost);
   });
 
   it("stays pending until the Room shows it, even through snapshots that predate it", () => {
-    expect(settlePendingGhost(berryNinja, room(), "davi")).toEqual(berryNinja);
+    expect(settlePendingGhost(wearing(berryNinja), room(), "davi")).toEqual(
+      wearing(berryNinja),
+    );
     expect(
       settlePendingGhost(
-        berryNinja,
+        wearing(berryNinja),
         room({ ghost: { skin: coral, to: somewhere } }),
         "davi",
       ),
-    ).toEqual(berryNinja);
+    ).toEqual(wearing(berryNinja));
     expect(
       settlePendingGhost(
-        berryNinja,
+        wearing(berryNinja),
         room({ ghost: { skin: berryNinja, to: somewhere } }),
         "davi",
       ),
@@ -184,10 +190,14 @@ describe("your own Ghost, before the Room answers", () => {
 
   it("is dropped once you're no longer an Observer in the Room", () => {
     expect(
-      settlePendingGhost(coral, room({ role: "voter" }), "davi"),
+      settlePendingGhost(wearing(coral), room({ role: "voter" }), "davi"),
     ).toBeNull();
     expect(
-      settlePendingGhost(coral, { ...noFacilitator, participants: [] }, "davi"),
+      settlePendingGhost(
+        wearing(coral),
+        { ...noFacilitator, participants: [] },
+        "davi",
+      ),
     ).toBeNull();
   });
 });
