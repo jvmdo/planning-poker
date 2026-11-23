@@ -113,5 +113,5 @@ A small character an Observer can choose to have and walk around the Table, seen
 _Avoid_: Avatar, sprite, pet; and "ghost" for a Participant who disconnected (they are away)
 
 **Skin**:
-How a Ghost looks: the fabric of its dress and its disguise, chosen by its owner. Two Ghosts may wear the same Skin.
+How a Ghost looks: the fabric of its dress and its disguise, chosen by its owner. Two Ghosts may wear the same Skin. Changing the Skin of a Ghost that's out is **dressing** it.
 _Avoid_: Costume, outfit, theme

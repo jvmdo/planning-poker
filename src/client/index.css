@@ -32,6 +32,12 @@
   --ghost: oklch(0.995 0.005 285);
   --ghost-shade: oklch(0.9 0.03 285);
   --cream: oklch(0.97 0.03 85);
+  /* The rest of the Ghost fabrics and disguises. */
+  --pop-5-light: oklch(0.86 0.08 330);
+  --lilac: oklch(0.72 0.12 300);
+  --night: oklch(0.32 0.09 285);
+  --glass: oklch(0.9 0.06 230 / 0.28);
+  --plate: oklch(0.88 0.015 285);
 }
 
 .dark {
@@ -52,6 +58,7 @@
   --ink: oklch(0.1 0.04 285);
   --ghost: oklch(0.96 0.02 285);
   --ghost-shade: oklch(0.82 0.04 285);
+  --night: oklch(0.42 0.1 285);
 }
 
 @theme inline {

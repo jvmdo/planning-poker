@@ -166,6 +166,9 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     socket.on("summonGhost", (skin) =>
       act("summonGhost", (room, id) => room.summonGhost(id, skin)),
     );
+    socket.on("dressGhost", (skin) =>
+      act("dressGhost", (room, id) => room.dressGhost(id, skin)),
+    );
     socket.on("dismissGhost", () =>
       act("dismissGhost", (room, id) => room.dismissGhost(id)),
     );

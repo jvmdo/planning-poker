@@ -15,9 +15,9 @@ import {
   type Throwable,
 } from "../shared/fun";
 import {
-  DEFAULT_SKIN,
   GHOST_MOVE_BURST,
   type GhostMove,
+  type Skin,
   type TablePoint,
 } from "../shared/ghost";
 import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
@@ -331,9 +331,14 @@ export function useRoom(
     return true;
   }
 
-  /** Brings out your Ghost, as an Observer. Its button shows the Ghost once the snapshot does. */
-  function summonGhost() {
-    if (canSend()) socket.emit("summonGhost", DEFAULT_SKIN);
+  /** Brings out your Ghost in `skin`, as an Observer. Its button shows it once the snapshot does. */
+  function summonGhost(skin: Skin) {
+    if (canSend()) socket.emit("summonGhost", skin);
+  }
+
+  /** Re-dresses your Ghost while it's out, for everyone. */
+  function dressGhost(skin: Skin) {
+    if (canSend()) socket.emit("dressGhost", skin);
   }
 
   /** Puts your Ghost away, back to the Watching line. */
@@ -394,6 +399,7 @@ export function useRoom(
     react,
     throwAt,
     summonGhost,
+    dressGhost,
     dismissGhost,
     moveGhost,
   };

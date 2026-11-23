@@ -1,7 +1,9 @@
-import { Copy, Ghost, LoaderCircle } from "lucide-react";
+import { Copy, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
+import type { Skin } from "../shared/ghost";
 import type { RoomId, RoomSnapshot } from "../shared/protocol";
 import { shortRoomId } from "./lib/page-room";
+import { GhostPicker } from "./ghost-picker";
 import { RoomSettings } from "./room-settings";
 import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
@@ -15,11 +17,11 @@ const ROOM_ID_SHOWN = 16;
 /**
  * The Room ID with a button that copies its Share link, where the Round stands, who we're waiting
  * on, the Room settings for everyone, and the Facilitator's New Round while voting (the Table has
- * Reveal, and New Round after the Reveal). While the Room has no
- * Facilitator it says so, and offers everyone "Become Facilitator" where those controls would be:
- * the first click wins. An Observer also gets a button to bring out their Ghost or put it away,
- * left of those controls. While the connection is down it says so instead, and the buttons wait for
- * the Room's snapshot after rejoining, since nothing they send would arrive.
+ * Reveal, and New Round after the Reveal). While the Room has no Facilitator it says so, and offers
+ * everyone "Become Facilitator" where those controls would be: the first click wins. An Observer
+ * also gets a Ghost button, first among the Round's actions, which opens the Skin picker. While the
+ * connection is down it says so instead, and the buttons wait for the Room's snapshot after
+ * rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
   roomId,
@@ -46,8 +48,14 @@ export function RoundPanel({
   onSetDeck: (deck: Deck) => void;
   onSetAutoReveal: (on: boolean) => void;
   onClaimFacilitator: () => void;
-  /** Your Ghost's button, only for an Observer. */
-  ghost: { out: boolean; onSummon: () => void; onDismiss: () => void } | null;
+  /** Your Ghost's button and Skin picker, only for an Observer. */
+  ghost: {
+    /** Your Ghost's Skin while it's out, or null. */
+    skin: Skin | null;
+    onSummon: (skin: Skin) => void;
+    onDress: (skin: Skin) => void;
+    onDismiss: () => void;
+  } | null;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
@@ -111,19 +119,13 @@ export function RoundPanel({
           {(ghost || showClaim || showNewRound) && (
             <div className="flex items-center gap-2">
               {ghost && (
-                <Button
-                  variant={ghost.out ? "default" : "outline"}
-                  aria-pressed={ghost.out}
-                  title={
-                    ghost.out ? "Put your Ghost away" : "Bring out your Ghost"
-                  }
-                  onClick={ghost.out ? ghost.onDismiss : ghost.onSummon}
+                <GhostPicker
+                  skin={ghost.skin}
                   disabled={reconnecting}
-                >
-                  <Ghost aria-hidden className="size-4" />
-                  {/* Only the icon on narrow screens, so the status bar still fits. */}
-                  <span className="max-md:sr-only">Ghost</span>
-                </Button>
+                  onSummon={ghost.onSummon}
+                  onDress={ghost.onDress}
+                  onDismiss={ghost.onDismiss}
+                />
               )}
               {showClaim && (
                 <Button

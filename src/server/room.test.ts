@@ -2011,6 +2011,101 @@ describe("Ghosts", () => {
     ).toEqual({ skin: coral, to: middle });
   });
 
+  describe("Skins", () => {
+    const berryNinja = { fabric: "berry-gingham", disguise: "ninja" } as const;
+
+    it("can be summoned in any fabric and disguise", () => {
+      const { room, ghostOf } = meeting();
+      const nightRogue = { fabric: "night-stars", disguise: "rogue" } as const;
+
+      expect(room.summonGhost("davi-id", nightRogue)).toEqual({ ok: true });
+
+      expect(ghostOf("davi-id")).toEqual(
+        Array(4).fill({ skin: nightRogue, to: middle }),
+      );
+    });
+
+    it("re-dresses a Ghost that's out, for everyone, where it stands", () => {
+      const { room, onChange, ghostOf } = meeting();
+      room.summonGhost("eva-id", coral);
+      room.summonGhost("davi-id", coral);
+      vi.advanceTimersByTime(1000);
+      room.moveGhost("davi-id", { x: 0.2, y: 0.8 });
+      onChange.mockClear();
+
+      expect(room.dressGhost("davi-id", berryNinja)).toEqual({ ok: true });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(ghostOf("davi-id")).toEqual(
+        Array(4).fill({ skin: berryNinja, to: { x: 0.2, y: 0.8 } }),
+      );
+      expect(ghostOf("eva-id")[0]?.skin).toEqual(coral);
+    });
+
+    it("lets two Observers wear the same Skin", () => {
+      const { room, ghostOf } = meeting();
+      room.summonGhost("davi-id", coral);
+
+      expect(room.summonGhost("eva-id", berryNinja)).toEqual({ ok: true });
+      expect(room.dressGhost("davi-id", berryNinja)).toEqual({ ok: true });
+
+      expect(ghostOf("davi-id")[0]?.skin).toEqual(berryNinja);
+      expect(ghostOf("eva-id")[0]?.skin).toEqual(berryNinja);
+    });
+
+    it.each([
+      ["an Observer with no Ghost out", "eva-id", berryNinja, "no-ghost"],
+      ["a Voter", "ana-id", berryNinja, "no-ghost"],
+      [
+        "someone who isn't in the Room",
+        "stranger-id",
+        berryNinja,
+        "not-in-room",
+      ],
+      [
+        "an unknown fabric",
+        "davi-id",
+        { fabric: "plaid", disguise: "ninja" },
+        "not-a-skin",
+      ],
+      [
+        "an unknown disguise",
+        "davi-id",
+        { fabric: "berry-gingham", disguise: "pirate" },
+        "not-a-skin",
+      ],
+      [
+        "a fabric that's only on an object's prototype",
+        "davi-id",
+        { fabric: "toString", disguise: "none" },
+        "not-a-skin",
+      ],
+      ["no Skin at all", "davi-id", undefined, "not-a-skin"],
+    ] as const)(
+      "rejects dressing a Ghost by %s, leaving the Room unchanged",
+      (_, id, skin, reason) => {
+        const { room, onChange, snapshots } = meeting();
+        room.summonGhost("davi-id", coral);
+        onChange.mockClear();
+        const before = snapshots();
+
+        expect(room.dressGhost(id, skin)).toEqual({ ok: false, reason });
+
+        expect(onChange).not.toHaveBeenCalled();
+        expect(snapshots()).toEqual(before);
+      },
+    );
+
+    it("keeps only the fabric and disguise of what it was sent", () => {
+      const { room, ghostOf } = meeting();
+      room.summonGhost("davi-id", coral);
+
+      room.dressGhost("davi-id", { ...berryNinja, hat: "crown" });
+
+      expect(ghostOf("davi-id")[0]?.skin).toEqual(berryNinja);
+    });
+  });
+
   describe("walking", () => {
     /** Davi's Ghost is out; `moves` hears every accepted move. */
     function walking() {

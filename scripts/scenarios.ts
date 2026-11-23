@@ -8,8 +8,8 @@
  *   3. The bots play the first scenario. Click Reveal, look, then New Round for the next one.
  *
  * Bot Observers bring out Ghosts that wander round the Table, now and then parking on a Voter's
- * Card (it says whose), so you can check it sits on that Card in every Voter's browser. `--ghosts 0`
- * leaves them out; the default is 1.
+ * Card (it says whose), so you can check it sits on that Card in every Voter's browser. Each comes
+ * out in a random Skin and changes it now and then. `--ghosts 0` leaves them out; the default is 1.
  *
  * Ctrl+C makes every bot Leave the Room. Set SERVER_URL to use another server than :8000.
  */
@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 import { io, type Socket } from "socket.io-client";
 import type { Card } from "../src/shared/deck.js";
 import { DEFAULT_DECK } from "../src/shared/deck.js";
-import { DEFAULT_SKIN, type TablePoint } from "../src/shared/ghost.js";
+import { randomSkin, type TablePoint } from "../src/shared/ghost.js";
 import { seatLayout } from "../src/client/lib/seat-layout.js";
 import type {
   ClientToServerEvents,
@@ -134,14 +134,16 @@ for (const bot of ghostBots) {
   bot.socket.on("connect", () => {
     bot.socket.emit("join", bot.id, bot.name);
     bot.socket.emit("becomeObserver");
-    bot.socket.emit("summonGhost", DEFAULT_SKIN);
+    bot.socket.emit("summonGhost", randomSkin());
   });
   bot.socket.on("rejected", (r) =>
     console.warn(`  ${bot.name}: ${r.command} refused (${r.reason})`),
   );
   const wander = () => {
-    if (bot.socket.connected)
+    if (bot.socket.connected) {
       bot.socket.emit("moveGhost", wanderFrom(bot.name));
+      if (Math.random() < 0.2) bot.socket.emit("dressGhost", randomSkin());
+    }
     setTimeout(wander, 3000 + Math.random() * 4000);
   };
   setTimeout(wander, 2000 + Math.random() * 2000);

@@ -84,6 +84,8 @@ export type SummonGhostRejectionReason =
   | "voter-cannot-have-ghost"
   | "not-a-skin"
   | "ghost-already-out";
+export type DressGhostRejectionReason =
+  "not-in-room" | "no-ghost" | "not-a-skin";
 export type DismissGhostRejectionReason = "not-in-room" | "no-ghost";
 export type MoveGhostRejectionReason =
   "not-in-room" | "no-ghost" | "not-a-point" | "moves-used-up";
@@ -107,6 +109,7 @@ export type Rejection =
   | { command: "react"; reason: ReactRejectionReason }
   | { command: "throwAt"; reason: ThrowRejectionReason }
   | { command: "summonGhost"; reason: SummonGhostRejectionReason }
+  | { command: "dressGhost"; reason: DressGhostRejectionReason }
   | { command: "dismissGhost"; reason: DismissGhostRejectionReason }
   | { command: "moveGhost"; reason: MoveGhostRejectionReason };
 
@@ -126,6 +129,8 @@ export interface ClientToServerEvents {
   throwAt: (to: ParticipantId, item: string) => void;
   /** The Skin is untrusted input, checked by the Room. */
   summonGhost: (skin: unknown) => void;
+  /** The Skin is untrusted input, checked by the Room. */
+  dressGhost: (skin: unknown) => void;
   dismissGhost: () => void;
   /** The point on the shared Table is untrusted input, checked by the Room. */
   moveGhost: (to: unknown) => void;

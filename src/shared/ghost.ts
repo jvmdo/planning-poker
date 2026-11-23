@@ -4,6 +4,11 @@ import type { ParticipantId } from "./protocol.js";
 /** Every fabric a Ghost's dress can be made of, by its key, with its name. */
 export const FABRICS = {
   "coral-stripes": { name: "Coral stripes" },
+  "berry-gingham": { name: "Berry gingham" },
+  "sunny-suits": { name: "Sunny suits" },
+  "mint-dots": { name: "Mint dots" },
+  "lilac-zigzag": { name: "Lilac zigzag" },
+  "night-stars": { name: "Night stars" },
 } as const;
 
 export type Fabric = keyof typeof FABRICS;
@@ -15,6 +20,10 @@ export function isFabric(value: unknown): value is Fabric {
 /** Every disguise a Ghost can wear, by its key, with its name. */
 export const DISGUISES = {
   none: { name: "None" },
+  ninja: { name: "Ninja" },
+  thief: { name: "Thief" },
+  astronaut: { name: "Astronaut" },
+  rogue: { name: "Rogue" },
 } as const;
 
 export type Disguise = keyof typeof DISGUISES;
@@ -35,8 +44,15 @@ export function isSkin(value: unknown): value is Skin {
   return isFabric(fabric) && isDisguise(disguise);
 }
 
-/** The Skin a Ghost wears until its owner can pick one. */
-export const DEFAULT_SKIN: Skin = { fabric: "coral-stripes", disguise: "none" };
+/** Any Skin, each equally likely: what the picker offers the first time. */
+export function randomSkin(): Skin {
+  const pick = <T>(options: readonly T[]) =>
+    options[Math.floor(Math.random() * options.length)] as T;
+  return {
+    fabric: pick(Object.keys(FABRICS) as Fabric[]),
+    disguise: pick(Object.keys(DISGUISES) as Disguise[]),
+  };
+}
 
 /**
  * A point on the shared Table: relative to the Table's box, 0 to 1 on each axis, with the seats in

@@ -2,6 +2,7 @@ import type {
   ClaimFacilitatorRejectionReason,
   CommandResult,
   DismissGhostRejectionReason,
+  DressGhostRejectionReason,
   DisconnectRejectionReason,
   HandOverRejectionReason,
   JoinRejectionReason,
@@ -150,6 +151,14 @@ export interface Room {
     id: ParticipantId,
     skin: unknown,
   ): CommandResult<SummonGhostRejectionReason>;
+  /**
+   * Changes the Skin of an Observer's Ghost that's out, where it stands. Takes any value as the
+   * Skin, since callers pass untrusted input; only listed fabrics and disguises are accepted.
+   */
+  dressGhost(
+    id: ParticipantId,
+    skin: unknown,
+  ): CommandResult<DressGhostRejectionReason>;
   /** Puts an Observer's Ghost away. */
   dismissGhost(id: ParticipantId): CommandResult<DismissGhostRejectionReason>;
   /**
@@ -492,6 +501,20 @@ export function createRoom(): Room {
             p.ghost ? [p.ghost.to] : [],
           ),
         ),
+      };
+      notifyChanged();
+      return { ok: true };
+    },
+
+    dressGhost(id, skin) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      if (!isSkin(skin)) return { ok: false, reason: "not-a-skin" };
+      // A new Ghost, not a changed one, so snapshots already sent keep what they showed.
+      participant.ghost = {
+        ...participant.ghost,
+        skin: { fabric: skin.fabric, disguise: skin.disguise },
       };
       notifyChanged();
       return { ok: true };

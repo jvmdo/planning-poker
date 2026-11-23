@@ -58,6 +58,7 @@ export function App({
     react,
     throwAt,
     summonGhost,
+    dressGhost,
     dismissGhost,
     moveGhost,
   } = useRoom(identity, roomId, rejoin);
@@ -148,8 +149,9 @@ export function App({
           ghost={
             me.role === "observer"
               ? {
-                  out: me.ghost !== null,
+                  skin: me.ghost?.skin ?? null,
                   onSummon: summonGhost,
+                  onDress: dressGhost,
                   onDismiss: dismissGhost,
                 }
               : null
