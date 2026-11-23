@@ -30,10 +30,14 @@ export type FunEvent =
   | { kind: "reaction"; from: ParticipantId; reaction: Reaction }
   | { kind: "throw"; from: ParticipantId; to: ParticipantId; item: Throwable };
 
-/** How many Reactions or Throws a Participant can send in a row. */
-export const BURST_SIZE = 3;
-/** After a burst, one more becomes available this often. */
-export const BURST_REFILL_MS = 300;
+/** How many can be sent in a row, and how often one more becomes available after that. */
+export interface BurstRule {
+  size: number;
+  refillMs: number;
+}
+
+/** Reactions and Throws share one budget: 3 in a row, then one more every 300 ms. */
+export const FUN_BURST: BurstRule = { size: 3, refillMs: 300 };
 
 /** How many a Participant has left, as of `at` (ms). Fractions are part of the way to the next. */
 export interface Burst {
@@ -42,16 +46,17 @@ export interface Burst {
 }
 
 /**
- * Spends one Reaction or Throw at `now`, or says there's none left. A Participant who hasn't sent
- * any yet (`burst` undefined) has a full burst. The server enforces this; the client runs the same
- * rule only to avoid sending what the server would refuse.
+ * Spends one of a budget (Reactions and Throws by default) at `now`, or says there's none left. A
+ * Participant who hasn't sent any yet (`burst` undefined) has a full burst. The server enforces
+ * this; the client runs the same rule only to avoid sending what the server would refuse.
  */
 export function spendBurst(
   burst: Burst | undefined,
   now: number,
+  rule: BurstRule = FUN_BURST,
 ): Burst | null {
   const left = burst
-    ? Math.min(BURST_SIZE, burst.left + (now - burst.at) / BURST_REFILL_MS)
-    : BURST_SIZE;
+    ? Math.min(rule.size, burst.left + (now - burst.at) / rule.refillMs)
+    : rule.size;
   return left >= 1 ? { left: left - 1, at: now } : null;
 }

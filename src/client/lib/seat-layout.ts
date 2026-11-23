@@ -1,4 +1,4 @@
-import type { ParticipantId, ParticipantView } from "../../shared/protocol";
+import type { ParticipantId, ParticipantView } from "../../shared/protocol.js";
 
 export interface Seat {
   participant: ParticipantView;

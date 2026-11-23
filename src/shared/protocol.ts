@@ -1,6 +1,6 @@
 import type { Card, Deck, InvalidDeckReason } from "./deck.js";
 import type { FunEvent } from "./fun.js";
-import type { GhostView } from "./ghost.js";
+import type { GhostMove, GhostView } from "./ghost.js";
 
 export type ParticipantId = string;
 
@@ -85,6 +85,8 @@ export type SummonGhostRejectionReason =
   | "not-a-skin"
   | "ghost-already-out";
 export type DismissGhostRejectionReason = "not-in-room" | "no-ghost";
+export type MoveGhostRejectionReason =
+  "not-in-room" | "no-ghost" | "not-a-point" | "moves-used-up";
 
 /** What a Room command returns: success, or the reason it was refused (the Room is then unchanged). */
 export type CommandResult<Reason extends string> =
@@ -105,7 +107,8 @@ export type Rejection =
   | { command: "react"; reason: ReactRejectionReason }
   | { command: "throwAt"; reason: ThrowRejectionReason }
   | { command: "summonGhost"; reason: SummonGhostRejectionReason }
-  | { command: "dismissGhost"; reason: DismissGhostRejectionReason };
+  | { command: "dismissGhost"; reason: DismissGhostRejectionReason }
+  | { command: "moveGhost"; reason: MoveGhostRejectionReason };
 
 export interface ClientToServerEvents {
   join: (id: ParticipantId, name: string) => void;
@@ -124,6 +127,8 @@ export interface ClientToServerEvents {
   /** The Skin is untrusted input, checked by the Room. */
   summonGhost: (skin: unknown) => void;
   dismissGhost: () => void;
+  /** The point on the shared Table is untrusted input, checked by the Room. */
+  moveGhost: (to: unknown) => void;
 }
 
 export interface ServerToClientEvents {
@@ -137,4 +142,6 @@ export interface ServerToClientEvents {
   deckChanged: (by: ParticipantId) => void;
   /** The Facilitator (`by`) turned Auto Reveal on or off. It holds no Votes, so it's broadcast. */
   autoRevealChanged: (by: ParticipantId, on: boolean) => void;
+  /** A Ghost is heading somewhere new. It holds no Votes, so it's broadcast. */
+  ghostMoved: (move: GhostMove) => void;
 }

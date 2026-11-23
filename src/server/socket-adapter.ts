@@ -37,7 +37,8 @@ function channelOf(roomId: RoomId): string {
  * change. Holds no rules. A socket that joins is put in the Socket.IO room named after its Room ID,
  * and a Room's updates go only to that Socket.IO room, never to every socket on the server. Never
  * broadcast a snapshot to a whole Room, because what a Participant may see depends on who they
- * are. Reactions, Throws, Deck changes and Auto Reveal changes hold no Votes, so they are broadcast within the Room.
+ * are. Reactions, Throws, Deck changes, Auto Reveal changes and Ghost moves hold no Votes, so they
+ * are broadcast within the Room.
  */
 export function attachRooms(io: RoomServer, rooms: Rooms): void {
   /** The sockets that have joined this Room as a Participant. */
@@ -64,6 +65,9 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     );
     room.subscribeToAutoRevealChanges((by, on) =>
       io.to(channelOf(roomId)).emit("autoRevealChanged", by, on),
+    );
+    room.subscribeToGhosts((move) =>
+      io.to(channelOf(roomId)).emit("ghostMoved", move),
     );
   });
 
@@ -164,6 +168,9 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     );
     socket.on("dismissGhost", () =>
       act("dismissGhost", (room, id) => room.dismissGhost(id)),
+    );
+    socket.on("moveGhost", (to) =>
+      act("moveGhost", (room, id) => room.moveGhost(id, to)),
     );
     socket.on("leave", () => {
       const { participantId } = socket.data;

@@ -14,7 +14,12 @@ import {
   type Reaction,
   type Throwable,
 } from "../shared/fun";
-import { DEFAULT_SKIN } from "../shared/ghost";
+import {
+  DEFAULT_SKIN,
+  GHOST_MOVE_BURST,
+  type GhostMove,
+  type TablePoint,
+} from "../shared/ghost";
 import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
 import { connectTo, socket } from "./lib/socket";
 import {
@@ -79,8 +84,19 @@ export function useRoom(
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
     null,
   );
+  /**
+   * Where Ghosts have been sent since the latest snapshot, which carries them all from then on.
+   * Moves change nothing else in the Room, so they come on their own, without a snapshot.
+   */
+  const [ghostMoves, setGhostMoves] = useState<
+    ReadonlyMap<ParticipantId, TablePoint>
+  >(new Map());
+  /** Where you sent your own Ghost, shown at once, until the server sends the move back. */
+  const [pendingMove, setPendingMove] = useState<TablePoint | null>(null);
   /** This browser's count of the Reactions and Throws left; the server keeps the real one. */
   const burst = useRef<Burst | undefined>(undefined);
+  /** This browser's count of Ghost moves left, on a budget of their own. */
+  const moveBurst = useRef<Burst | undefined>(undefined);
   /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
   const joinedFromJoinScreen = useRef(false);
 
@@ -102,6 +118,7 @@ export function useRoom(
     setPendingVote(null);
     setPendingRole(null);
     setPendingCommand(null);
+    setPendingMove(null);
     updateIdentity((stored) =>
       stored.lastRoom === roomId ? { ...stored, lastRoom: null } : stored,
     );
@@ -118,9 +135,13 @@ export function useRoom(
       setPendingVote(null);
       setPendingRole(null);
       setPendingCommand(null);
+      setPendingMove(null);
     }
     function onSnapshot(next: RoomSnapshot) {
       setSnapshot(next);
+      setGhostMoves(new Map());
+      // A Ghost that's been put away has nowhere to walk to.
+      if (!findParticipant(next, identity.id)?.ghost) setPendingMove(null);
       setRejoined(true);
       setPendingVote((pending) => settlePendingVote(pending, next));
       setPendingRole((pending) =>
@@ -145,7 +166,19 @@ export function useRoom(
       if (by !== identity.id)
         showNotice(`The Facilitator turned Auto Reveal ${on ? "on" : "off"}.`);
     }
+    function onGhostMoved({ id, to }: GhostMove) {
+      setGhostMoves((moves) => new Map(moves).set(id, to));
+      if (id === identity.id)
+        setPendingMove((pending) =>
+          pending && pending.x === to.x && pending.y === to.y ? null : pending,
+        );
+    }
     function onRejected(rejection: Rejection) {
+      // A refused move is no news to anyone: your Ghost just walks back to where the Room has it.
+      if (rejection.command === "moveGhost") {
+        setPendingMove(null);
+        return;
+      }
       if (rejection.command === "vote") setPendingVote(null);
       if (
         rejection.command === "becomeVoter" ||
@@ -169,6 +202,7 @@ export function useRoom(
     socket.on("rejected", onRejected);
     socket.on("deckChanged", onDeckChanged);
     socket.on("autoRevealChanged", onAutoRevealChanged);
+    socket.on("ghostMoved", onGhostMoved);
     socket.on("left", resetToJoinScreen);
     if (roomId !== null) connectTo(roomId);
     return () => {
@@ -178,6 +212,7 @@ export function useRoom(
       socket.off("rejected", onRejected);
       socket.off("deckChanged", onDeckChanged);
       socket.off("autoRevealChanged", onAutoRevealChanged);
+      socket.off("ghostMoved", onGhostMoved);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
@@ -306,8 +341,27 @@ export function useRoom(
     if (canSend()) socket.emit("dismissGhost");
   }
 
+  /**
+   * Sends your Ghost walking to a point on the shared Table. It sets off at once, before the server
+   * answers. Moves past the budget aren't sent: the server would refuse them.
+   */
+  function moveGhost(to: TablePoint) {
+    if (!canSend()) return;
+    const next = spendBurst(moveBurst.current, Date.now(), GHOST_MOVE_BURST);
+    if (!next) return;
+    moveBurst.current = next;
+    setPendingMove(to);
+    socket.emit("moveGhost", to);
+  }
+
   const displayed =
-    snapshot && withPending(snapshot, identity.id, pendingVote, pendingRole);
+    snapshot &&
+    withGhostMoves(
+      withPending(snapshot, identity.id, pendingVote, pendingRole),
+      pendingMove
+        ? new Map(ghostMoves).set(identity.id, pendingMove)
+        : ghostMoves,
+    );
   const me = displayed ? findParticipant(displayed, identity.id) : null;
   const joining = me === null && wantsToJoin;
 
@@ -341,5 +395,21 @@ export function useRoom(
     throwAt,
     summonGhost,
     dismissGhost,
+    moveGhost,
+  };
+}
+
+/** The snapshot with each Ghost heading where it was last sent. */
+function withGhostMoves(
+  snapshot: RoomSnapshot,
+  moves: ReadonlyMap<ParticipantId, TablePoint>,
+): RoomSnapshot {
+  if (moves.size === 0) return snapshot;
+  return {
+    ...snapshot,
+    participants: snapshot.participants.map((p) => {
+      const to = moves.get(p.id);
+      return p.ghost && to ? { ...p, ghost: { ...p.ghost, to } } : p;
+    }),
   };
 }

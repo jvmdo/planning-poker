@@ -59,6 +59,7 @@ export function App({
     throwAt,
     summonGhost,
     dismissGhost,
+    moveGhost,
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
@@ -167,6 +168,7 @@ export function App({
             onNewRound={newRound}
             onReact={react}
             onThrow={throwAt}
+            onMoveGhost={moveGhost}
           />
           <NoticeToast notice={notice} />
         </div>

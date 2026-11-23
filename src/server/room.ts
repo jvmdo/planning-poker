@@ -6,6 +6,7 @@ import type {
   HandOverRejectionReason,
   JoinRejectionReason,
   LeaveRejectionReason,
+  MoveGhostRejectionReason,
   NewRoundRejectionReason,
   ParticipantId,
   ParticipantRole,
@@ -34,7 +35,14 @@ import {
   type Burst,
   type FunEvent,
 } from "../shared/fun.js";
-import { isSkin, type GhostView, type TablePoint } from "../shared/ghost.js";
+import {
+  GHOST_MOVE_BURST,
+  isSkin,
+  isTablePoint,
+  type GhostMove,
+  type GhostView,
+  type TablePoint,
+} from "../shared/ghost.js";
 import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 /**
@@ -144,6 +152,14 @@ export interface Room {
   ): CommandResult<SummonGhostRejectionReason>;
   /** Puts an Observer's Ghost away. */
   dismissGhost(id: ParticipantId): CommandResult<DismissGhostRejectionReason>;
+  /**
+   * Sends an Observer's Ghost walking to a point on the shared Table. Takes any value as the point,
+   * since callers pass untrusted input. Moves are capped by a budget of their own.
+   */
+  moveGhost(
+    id: ParticipantId,
+    to: unknown,
+  ): CommandResult<MoveGhostRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
   /** No Participants, counting those away in their grace period. */
   isEmpty(): boolean;
@@ -166,6 +182,13 @@ export interface Room {
   subscribeToAutoRevealChanges(
     listener: (by: ParticipantId, on: boolean) => void,
   ): () => void;
+
+  /**
+   * Calls `listener` with every accepted Ghost move. A move doesn't notify `subscribe`'s listeners,
+   * but the next snapshot carries the Ghost's latest destination. Returns a function that
+   * unsubscribes.
+   */
+  subscribeToGhosts(listener: (move: GhostMove) => void): () => void;
 }
 
 /** Names are compared after trimming and ignoring case. */
@@ -231,6 +254,9 @@ export function createRoom(): Room {
       countdown = null;
     }
   }
+  const ghostListeners = new Set<(move: GhostMove) => void>();
+  /** Each Participant's Ghost moves left, on a budget of their own. */
+  const moveBursts = new Map<ParticipantId, Burst>();
 
   function notifyChanged() {
     syncCountdown();
@@ -279,6 +305,7 @@ export function createRoom(): Room {
     graceTimers.delete(id);
     participants.delete(id);
     bursts.delete(id);
+    moveBursts.delete(id);
     const vote = votes.get(id);
     if (keepVote && vote !== undefined) setAside.set(id, vote);
     votes.delete(id);
@@ -479,6 +506,25 @@ export function createRoom(): Room {
       return { ok: true };
     },
 
+    moveGhost(id, to) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      if (!isTablePoint(to)) return { ok: false, reason: "not-a-point" };
+      const burst = spendBurst(
+        moveBursts.get(id),
+        Date.now(),
+        GHOST_MOVE_BURST,
+      );
+      if (!burst) return { ok: false, reason: "moves-used-up" };
+      moveBursts.set(id, burst);
+      const point = { x: to.x, y: to.y };
+      // A new Ghost, not a changed one, so snapshots already sent keep what they showed.
+      participant.ghost = { ...participant.ghost, to: point };
+      for (const listener of ghostListeners) listener({ id, to: point });
+      return { ok: true };
+    },
+
     snapshotFor(id) {
       return {
         participants: [...participants.values()].map((p) => ({
@@ -524,6 +570,10 @@ export function createRoom(): Room {
     subscribeToAutoRevealChanges(listener) {
       autoRevealListeners.add(listener);
       return () => autoRevealListeners.delete(listener);
+    },
+    subscribeToGhosts(listener) {
+      ghostListeners.add(listener);
+      return () => ghostListeners.delete(listener);
     },
   };
 }

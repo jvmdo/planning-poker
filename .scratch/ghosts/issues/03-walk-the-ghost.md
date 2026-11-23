@@ -12,14 +12,31 @@ Only the destination crosses the network; each screen animates the walk itself. 
 
 **Blocked by:** 02
 
-**Status:** ready-for-agent
+**Status:** closed
 
-- [ ] Room: `moveGhost(id, to)`, rejected with no Ghost, a point that isn't two finite numbers from −0.5 to 1.5, or the move limit spent. A rejected move leaves the Room unchanged.
-- [ ] Move limit: a burst of 10 moves, then one more every 100 ms, on its own budget separate from Reactions and Throws (fake-timer tests in the style of the existing burst-limit tests).
-- [ ] An accepted move sends no snapshot. It reaches a ghost subscriber once, as a one-off event, and the next snapshot carries the latest destination for late joiners.
-- [ ] The adapter broadcasts `ghostMoved` within the Room. The client shows no toast for a rejected move.
-- [ ] A pure Ghost frame module, built on ticket 01's seat layout, converts between the shared Table and a screen: map onto a unit circle, turn by the viewer's seat, map back, clamp to the room area. Screen to Table is the reverse.
-- [ ] Ghost frame tests: a point over seat i lands over seat i on every Voter's screen for several Room sizes; converting there and back gives the same point; clamping keeps points inside the room area.
-- [ ] Clicks on seats, Cards, controls and the Hand keep their current behaviour and never move the Ghost.
-- [ ] The walk is animated frame by frame at a constant speed measured on the shared Table, easing in and out. A new destination mid-walk continues smoothly from where the Ghost is drawn.
-- [ ] Checked by hand: with three Voters and one bot Observer, the Ghost parked on one Voter's Card sits on that Card in every Voter's browser.
+- [x] Room: `moveGhost(id, to)`, rejected with no Ghost, a point that isn't two finite numbers from −0.5 to 1.5, or the move limit spent. A rejected move leaves the Room unchanged.
+- [x] Move limit: a burst of 10 moves, then one more every 100 ms, on its own budget separate from Reactions and Throws (fake-timer tests in the style of the existing burst-limit tests).
+- [x] An accepted move sends no snapshot. It reaches a ghost subscriber once, as a one-off event, and the next snapshot carries the latest destination for late joiners.
+- [x] The adapter broadcasts `ghostMoved` within the Room. The client shows no toast for a rejected move.
+- [x] A pure Ghost frame module, built on ticket 01's seat layout, converts between the shared Table and a screen: map onto a unit circle, turn by the viewer's seat, map back, clamp to the room area. Screen to Table is the reverse.
+- [x] Ghost frame tests: a point over seat i lands over seat i on every Voter's screen for several Room sizes; converting there and back gives the same point; clamping keeps points inside the room area.
+- [x] Clicks on seats, Cards, controls and the Hand keep their current behaviour and never move the Ghost.
+- [x] The walk is animated frame by frame at a constant speed measured on the shared Table, easing in and out. A new destination mid-walk continues smoothly from where the Ghost is drawn.
+- [x] Checked by hand: with three Voters and one bot Observer, the Ghost parked on one Voter's Card sits on that Card in every Voter's browser.
+
+## Comments
+
+**Implemented (2026-11-23).** Choices worth knowing:
+- **Walking** is a small steering model in `src/client/lib/ghost-walker.ts`, not a fixed-length tween: the Ghost speeds up over 0.3 s, cruises at one Table width per 1.5 s and slows to a stop exactly at its destination. A new destination mid-walk keeps its current speed and turns towards it, so a held arrow key walks smoothly instead of stuttering. Walks run on the shared Table (so every screen takes the same time) and are drawn straight onto the Ghost's element each frame, without re-rendering.
+- **The room area** each screen keeps Ghosts in is the Table section, kept in by enough pixels that the whole Ghost and its name tag stay visible. A Ghost held in at one screen's edge sets off from where it's drawn on its next move.
+- **Arrow keys** hop a tenth of the Table from where the Ghost is heading, not where it's drawn, so a held key goes in a straight line. Your own Ghost is focusable for this.
+- **The move limit** also runs in the browser, as for Reactions and Throws: moves past the budget aren't sent. A refused move just drops the Ghost's pending destination, without a toast.
+- **Your own moves** show at once and stay until the server sends them back, so a snapshot arriving in between doesn't pull the Ghost back.
+- **A click that closes an open deck** doesn't also walk your Ghost.
+- **Reduced motion:** walks jump straight to the destination.
+- **Bots:** `scripts/scenarios.ts` adds bot Observers (`--ghosts 0-4`, default 1) whose Ghosts wander, and now and then park on a Voter's Card, saying whose.
+- `spendBurst` takes the budget's rule (`FUN_BURST` or `GHOST_MOVE_BURST`).
+
+Checked in the browser (separate server): with Ana, Bruno and Carla voting on screens of three sizes, Davi observing, and a bot Observer's Ghost parked on Bruno's Card, it sat on Bruno's Card on all four screens, Bruno's included. Davi's Ghost walked to a click and others saw it there; three arrow presses moved it three tenths of the Table; clicking a seat didn't move it; a Ghost sent to the far corner stayed inside the narrow screen's room area, above the Hand.
+
+**Closed (2026-11-23).**

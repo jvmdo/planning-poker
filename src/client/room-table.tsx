@@ -12,6 +12,7 @@ import {
   type Throwable,
 } from "../shared/fun";
 import { useEffect, useRef, useState } from "react";
+import type { TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
 import { seatLayout } from "./lib/seat-layout";
@@ -26,6 +27,9 @@ import { Button } from "@/components/ui/button";
 /** Leaves room round the Table for the seats, which sit half outside its edge. */
 const ROOM_AROUND_TABLE =
   "px-[clamp(64px,7vw,140px)] pt-[clamp(48px,7vh,90px)] pb-[clamp(40px,6vh,70px)]";
+
+/** A click comes this soon after the press it started with. */
+const CLICK_AFTER_PRESS_MS = 1000;
 
 /**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
@@ -44,6 +48,7 @@ export function RoomTable({
   onNewRound,
   onReact,
   onThrow,
+  onMoveGhost,
 }: {
   snapshot: RoomSnapshot;
   round: RoundReading;
@@ -57,9 +62,11 @@ export function RoomTable({
   /** Both say false when nothing was sent, because the burst is used up. True plays it at once. */
   onReact: (reaction: Reaction) => boolean;
   onThrow: (to: ParticipantId, item: Throwable) => boolean;
+  /** Sends your own Ghost walking to a point on the shared Table. */
+  onMoveGhost: (to: TablePoint) => void;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
-  const { seats } = seatLayout(snapshot.participants, myId);
+  const { seats, turn } = seatLayout(snapshot.participants, myId);
   const everyVoterVoted = voters.length > 0 && voters.every((p) => p.hasVoted);
   /**
    * Your own last Vote shows before the server's answer, and so does the countdown it starts, so
@@ -76,6 +83,10 @@ export function RoomTable({
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const ghosts = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
+  const roomArea = useRef<HTMLElement>(null);
+  const table = useRef<HTMLDivElement>(null);
+  /** When a click outside the seats last closed a deck: that click does nothing else. */
+  const closedDeckAt = useRef(-Infinity);
 
   /**
    * Where a Participant is on screen, for Reactions and Throws to start from and land on: a Voter
@@ -111,7 +122,9 @@ export function RoomTable({
   useEffect(() => {
     if (openSeat === null) return;
     function onPointerDown(event: PointerEvent) {
-      if (!(event.target as Element).closest("[data-seat]")) setOpenSeat(null);
+      if ((event.target as Element).closest("[data-seat]")) return;
+      setOpenSeat(null);
+      closedDeckAt.current = event.timeStamp;
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -139,10 +152,14 @@ export function RoomTable({
 
   return (
     <section
+      ref={roomArea}
       aria-label="Table"
       className={cn("relative min-h-0 flex-1", ROOM_AROUND_TABLE)}
     >
-      <div className="border-ink relative h-full rounded-[50%] border-4 bg-[color-mix(in_oklch,var(--pop-3)_22%,var(--background))] shadow-[8px_8px_0_var(--ink)]">
+      <div
+        ref={table}
+        className="border-ink relative h-full rounded-[50%] border-4 bg-[color-mix(in_oklch,var(--pop-3)_22%,var(--background))] shadow-[8px_8px_0_var(--ink)]"
+      >
         <div className="absolute inset-[12%_14%] grid place-items-center">
           {snapshot.revealed ? (
             <div className="flex flex-col items-center gap-3">
@@ -221,7 +238,16 @@ export function RoomTable({
       </div>
       <GhostLayer
         participants={snapshot.participants}
+        myId={myId}
+        turn={turn}
         tableBox={ROOM_AROUND_TABLE}
+        roomRef={roomArea}
+        tableRef={table}
+        onMove={(to, event) => {
+          // The press that closed a deck isn't also a walk.
+          if (event.timeStamp - closedDeckAt.current > CLICK_AFTER_PRESS_MS)
+            onMoveGhost(to);
+        }}
         ghostRef={(id, element) => {
           if (element) ghosts.current.set(id, element);
           else ghosts.current.delete(id);

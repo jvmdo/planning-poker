@@ -7,12 +7,18 @@
  *   2. `npx tsx scripts/scenarios.ts <room>` (add `--from 5` to start at scenario 5).
  *   3. The bots play the first scenario. Click Reveal, look, then New Round for the next one.
  *
+ * Bot Observers bring out Ghosts that wander round the Table, now and then parking on a Voter's
+ * Card (it says whose), so you can check it sits on that Card in every Voter's browser. `--ghosts 0`
+ * leaves them out; the default is 1.
+ *
  * Ctrl+C makes every bot Leave the Room. Set SERVER_URL to use another server than :8000.
  */
 import { randomUUID } from "node:crypto";
 import { io, type Socket } from "socket.io-client";
 import type { Card } from "../src/shared/deck.js";
 import { DEFAULT_DECK } from "../src/shared/deck.js";
+import { DEFAULT_SKIN, type TablePoint } from "../src/shared/ghost.js";
+import { seatLayout } from "../src/client/lib/seat-layout.js";
 import type {
   ClientToServerEvents,
   RoomSnapshot,
@@ -72,15 +78,23 @@ const SCENARIOS: Scenario[] = [
 ];
 
 const NAMES = ["Ana", "Bruno", "Carla", "Davi", "Eva", "Fábio", "Gabi"];
+const GHOST_NAMES = ["Boo", "Wisp", "Casper", "Shade"];
 const SEATS = Math.max(...SCENARIOS.map((s) => s.votes.length));
 
 const args = process.argv.slice(2);
 const roomId = args.find((a) => !a.startsWith("--"));
 const fromIndex = args.indexOf("--from");
 let current = fromIndex >= 0 ? Number(args[fromIndex + 1]) - 1 : 0;
-if (!roomId || !(current >= 0 && current < SCENARIOS.length)) {
+const ghostsIndex = args.indexOf("--ghosts");
+const ghostCount = ghostsIndex >= 0 ? Number(args[ghostsIndex + 1]) : 1;
+if (
+  !roomId ||
+  !(current >= 0 && current < SCENARIOS.length) ||
+  !(Number.isInteger(ghostCount) && ghostCount >= 0) ||
+  ghostCount > GHOST_NAMES.length
+) {
   console.error(
-    `Usage: npx tsx scripts/scenarios.ts <room> [--from 1-${SCENARIOS.length}]`,
+    `Usage: npx tsx scripts/scenarios.ts <room> [--from 1-${SCENARIOS.length}] [--ghosts 0-${GHOST_NAMES.length}]`,
   );
   process.exit(1);
 }
@@ -92,7 +106,46 @@ const bots = NAMES.slice(0, SEATS).map((name) => ({
   name,
   socket: io(url, { query: { room: roomId } }) as BotSocket,
 }));
-const botIds = new Set<string>(bots.map((b) => b.id));
+const ghostBots = GHOST_NAMES.slice(0, ghostCount).map((name) => ({
+  id: randomUUID(),
+  name,
+  socket: io(url, { query: { room: roomId } }) as BotSocket,
+}));
+const botIds = new Set<string>([...bots, ...ghostBots].map((b) => b.id));
+/** The Room as the first bot last saw it. */
+let latest: RoomSnapshot | null = null;
+
+/** Somewhere new to walk to: a random spot round the Table, or now and then a Voter's Card. */
+function wanderFrom(name: string): TablePoint {
+  // Seats as an Observer sees them, which is the shared Table.
+  const { seats } = seatLayout(latest?.participants ?? [], "");
+  const seat = seats[Math.floor(Math.random() * seats.length)];
+  if (seat && Math.random() < 0.4) {
+    console.log(
+      `  ${name}'s Ghost is parking on ${seat.participant.name}'s Card`,
+    );
+    return { x: seat.x, y: seat.y };
+  }
+  const anywhere = () => -0.3 + Math.random() * 1.6;
+  return { x: anywhere(), y: anywhere() };
+}
+
+for (const bot of ghostBots) {
+  bot.socket.on("connect", () => {
+    bot.socket.emit("join", bot.id, bot.name);
+    bot.socket.emit("becomeObserver");
+    bot.socket.emit("summonGhost", DEFAULT_SKIN);
+  });
+  bot.socket.on("rejected", (r) =>
+    console.warn(`  ${bot.name}: ${r.command} refused (${r.reason})`),
+  );
+  const wander = () => {
+    if (bot.socket.connected)
+      bot.socket.emit("moveGhost", wanderFrom(bot.name));
+    setTimeout(wander, 3000 + Math.random() * 4000);
+  };
+  setTimeout(wander, 2000 + Math.random() * 2000);
+}
 
 for (const bot of bots) {
   bot.socket.on("connect", () => bot.socket.emit("join", bot.id, bot.name));
@@ -124,6 +177,7 @@ function playScenario(index: number) {
 let playedRound: number | null = null;
 let warned = false;
 bots[0]?.socket.on("snapshot", (snapshot: RoomSnapshot) => {
+  latest = snapshot;
   if (bots.some((b) => !snapshot.participants.some((p) => p.id === b.id)))
     return; // Still joining.
 
@@ -157,8 +211,10 @@ bots[0]?.socket.on("snapshot", (snapshot: RoomSnapshot) => {
 });
 
 process.on("SIGINT", () => {
-  for (const bot of bots) bot.socket.emit("leave");
+  for (const bot of [...bots, ...ghostBots]) bot.socket.emit("leave");
   setTimeout(() => process.exit(0), 300);
 });
 
-console.log(`Joining ${bots.length} bots to ${roomId} on ${url}…`);
+console.log(
+  `Joining ${bots.length + ghostBots.length} bots to ${roomId} on ${url}…`,
+);

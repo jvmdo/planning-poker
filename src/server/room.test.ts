@@ -2011,6 +2011,151 @@ describe("Ghosts", () => {
     ).toEqual({ skin: coral, to: middle });
   });
 
+  describe("walking", () => {
+    /** Davi's Ghost is out; `moves` hears every accepted move. */
+    function walking() {
+      const m = meeting();
+      m.room.summonGhost("davi-id", coral);
+      m.onChange.mockClear();
+      const moves = vi.fn();
+      m.room.subscribeToGhosts(moves);
+      return { ...m, moves };
+    }
+
+    it("tells the ghost subscriber once and sends no snapshot, and the next snapshot carries the destination", () => {
+      const { room, onChange, snapshots, ghostOf, moves } = walking();
+      const before = snapshots();
+
+      expect(room.moveGhost("davi-id", { x: 0.2, y: 0.9 })).toEqual({
+        ok: true,
+      });
+
+      expect(moves).toHaveBeenCalledTimes(1);
+      expect(moves).toHaveBeenCalledWith({
+        id: "davi-id",
+        to: { x: 0.2, y: 0.9 },
+      });
+      expect(onChange).not.toHaveBeenCalled();
+      // A snapshot already sent isn't changed under its holder.
+      expect(
+        before[0]?.participants.find((p) => p.id === "davi-id")?.ghost,
+      ).toEqual({ skin: coral, to: middle });
+
+      room.join("carla-id", "Carla");
+      expect(ghostOf("davi-id")).toEqual(
+        Array(4).fill({ skin: coral, to: { x: 0.2, y: 0.9 } }),
+      );
+    });
+
+    it("reaches as far as the room area around the Table, on any screen", () => {
+      const { room, moves } = walking();
+
+      expect(room.moveGhost("davi-id", { x: -0.5, y: 1.5 })).toEqual({
+        ok: true,
+      });
+      expect(room.moveGhost("davi-id", { x: 1.5, y: -0.5 })).toEqual({
+        ok: true,
+      });
+      expect(moves).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      [
+        "someone who isn't in the Room",
+        "stranger-id",
+        { x: 0.2, y: 0.2 },
+        "not-in-room",
+      ],
+      [
+        "an Observer with no Ghost out",
+        "eva-id",
+        { x: 0.2, y: 0.2 },
+        "no-ghost",
+      ],
+      ["a Voter", "ana-id", { x: 0.2, y: 0.2 }, "no-ghost"],
+      ["a point past the left", "davi-id", { x: -0.51, y: 0.2 }, "not-a-point"],
+      [
+        "a point past the bottom",
+        "davi-id",
+        { x: 0.2, y: 1.51 },
+        "not-a-point",
+      ],
+      [
+        "a point that isn't a number",
+        "davi-id",
+        { x: "0.2", y: 0.2 },
+        "not-a-point",
+      ],
+      [
+        "a point that isn't finite",
+        "davi-id",
+        { x: NaN, y: 0.2 },
+        "not-a-point",
+      ],
+      ["a missing coordinate", "davi-id", { x: 0.2 }, "not-a-point"],
+      ["no point at all", "davi-id", null, "not-a-point"],
+      ["a point that isn't an object", "davi-id", 0.2, "not-a-point"],
+    ] as const)(
+      "rejects a move by %s, leaving the Room unchanged",
+      (_, id, to, reason) => {
+        const { room, onChange, snapshots, moves } = walking();
+        const before = snapshots();
+
+        expect(room.moveGhost(id, to)).toEqual({ ok: false, reason });
+
+        expect(moves).not.toHaveBeenCalled();
+        expect(onChange).not.toHaveBeenCalled();
+        expect(snapshots()).toEqual(before);
+      },
+    );
+
+    it("allows a burst of 10 moves, then one more every 100 ms", () => {
+      const { room, moves, snapshots } = walking();
+      for (let i = 0; i < 10; i++)
+        expect(room.moveGhost("davi-id", { x: i / 10, y: 0.5 })).toEqual({
+          ok: true,
+        });
+      const before = snapshots();
+
+      expect(room.moveGhost("davi-id", { x: 1, y: 1 })).toEqual({
+        ok: false,
+        reason: "moves-used-up",
+      });
+      expect(snapshots()).toEqual(before);
+      vi.advanceTimersByTime(99);
+      expect(room.moveGhost("davi-id", { x: 1, y: 1 })).toEqual({
+        ok: false,
+        reason: "moves-used-up",
+      });
+      vi.advanceTimersByTime(1);
+      expect(room.moveGhost("davi-id", { x: 1, y: 1 })).toEqual({ ok: true });
+
+      expect(moves).toHaveBeenCalledTimes(11);
+    });
+
+    it("keeps moves on a budget of their own, apart from Reactions and Throws", () => {
+      const { room } = walking();
+      room.summonGhost("eva-id", coral);
+      for (let i = 0; i < 10; i++) room.moveGhost("davi-id", middle);
+
+      for (let i = 0; i < 3; i++)
+        expect(room.throwAt("davi-id", "ana-id", "rock")).toEqual({ ok: true });
+      for (let i = 0; i < 10; i++)
+        expect(room.moveGhost("eva-id", middle)).toEqual({ ok: true });
+    });
+
+    it("stops telling a subscriber once they unsubscribe", () => {
+      const { room } = walking();
+      const moves = vi.fn();
+      const unsubscribe = room.subscribeToGhosts(moves);
+
+      unsubscribe();
+      room.moveGhost("davi-id", middle);
+
+      expect(moves).not.toHaveBeenCalled();
+    });
+  });
+
   it("changes nothing in the Round, before or after the Reveal", () => {
     const { room, snapshots } = meeting();
     room.vote("ana-id", 8);
