@@ -165,7 +165,7 @@ export function flyThrow(emoji: string, from: Element, to: HTMLElement) {
   requestAnimationFrame(frame);
 }
 
-/** A small shake: what a deck does when the burst is used up. */
+/** A small shake: what a menu does when the burst is used up. */
 export function shake(element: HTMLElement) {
   if (reducedMotion()) return;
   element.animate(

@@ -18,7 +18,7 @@ import { floatReaction, flyThrow } from "./lib/fun-animations";
 import { seatLayout } from "./lib/seat-layout";
 import type { RoundReading } from "./lib/vote-marks";
 import { GhostLayer } from "./ghost-layer";
-import type { DeckItem } from "./deck-fan";
+import type { FunItem } from "./fun-menu";
 import { TableSeat } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
 import type { PendingCommand } from "./pending";
@@ -36,7 +36,7 @@ const CLICK_AFTER_PRESS_MS = 1000;
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
  * bottom nearest your hand. Its centre shows who we're waiting on and Auto Reveal's countdown, then
  * the Result; the Facilitator gets Reveal there while voting, and New Round after. Your own Card or
- * Ghost opens a deck of Reactions; anyone else's, a deck of things to Throw at them.
+ * Ghost opens a menu of Reactions; anyone else's, a menu of things to Throw at them.
  */
 export function RoomTable({
   snapshot,
@@ -80,14 +80,14 @@ export function RoomTable({
   const watchers = snapshot.participants.filter(
     (p) => p.role === "observer" && p.ghost === null,
   );
-  /** Whose deck a click opened, at their seat or their Ghost. */
-  const [openDeck, setOpenDeck] = useState<OpenDeck | null>(null);
-  // A deck whose seat or Ghost has gone closes, so it doesn't open again when they come back.
-  if (openDeck && !hasPlace(snapshot.participants, openDeck)) setOpenDeck(null);
-  const openAt = (on: OpenDeck["on"]) =>
-    openDeck?.on === on ? openDeck.id : null;
-  const toggleDeck = (id: ParticipantId, on: OpenDeck["on"]) =>
-    setOpenDeck((open) =>
+  /** Whose menu a click opened, at their seat or their Ghost. */
+  const [openMenu, setOpenMenu] = useState<OpenMenu | null>(null);
+  // A menu whose seat or Ghost has gone closes, so it doesn't open again when they come back.
+  if (openMenu && !hasPlace(snapshot.participants, openMenu)) setOpenMenu(null);
+  const openAt = (on: OpenMenu["on"]) =>
+    openMenu?.on === on ? openMenu.id : null;
+  const toggleMenu = (id: ParticipantId, on: OpenMenu["on"]) =>
+    setOpenMenu((open) =>
       open?.id === id && open.on === on ? null : { id, on },
     );
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
@@ -95,8 +95,8 @@ export function RoomTable({
   const watching = useRef<HTMLParagraphElement>(null);
   const roomArea = useRef<HTMLElement>(null);
   const table = useRef<HTMLDivElement>(null);
-  /** When a click outside the seats last closed a deck: that click does nothing else. */
-  const closedDeckAt = useRef(-Infinity);
+  /** When a click outside the seats last closed a menu: that click does nothing else. */
+  const closedMenuAt = useRef(-Infinity);
 
   /**
    * Where a Participant is on screen, for Reactions and Throws to start from and land on: a Voter
@@ -128,19 +128,19 @@ export function RoomTable({
     if (event.from !== myId) play(event);
   });
 
-  // A deck opened by a click closes on a click anywhere outside a seat or Ghost.
+  // A menu opened by a click closes on a click anywhere outside a seat or Ghost.
   useEffect(() => {
-    if (openDeck === null) return;
+    if (openMenu === null) return;
     function onPointerDown(event: PointerEvent) {
-      if ((event.target as Element).closest("[data-deck-host]")) return;
-      setOpenDeck(null);
-      closedDeckAt.current = event.timeStamp;
+      if ((event.target as Element).closest("[data-menu-host]")) return;
+      setOpenMenu(null);
+      closedMenuAt.current = event.timeStamp;
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [openDeck]);
+  }, [openMenu]);
 
-  function deckFor(p: ParticipantView): DeckItem[] {
+  function menuFor(p: ParticipantView): FunItem[] {
     if (p.id === myId)
       return REACTIONS.map((reaction) => ({
         key: reaction,
@@ -213,18 +213,18 @@ export function RoomTable({
                 mark={round.markOf(p.id)}
                 left={100 * x}
                 top={100 * y}
-                deck={deckFor(p)}
-                deckLabel={isMe ? "Reactions" : `Throw at ${p.name}`}
+                menu={menuFor(p)}
+                menuLabel={isMe ? "Reactions" : `Throw at ${p.name}`}
                 cardLabel={
                   isMe
                     ? "Your Card: send a Reaction"
                     : `Throw something at ${p.name}`
                 }
                 open={openAt("seat") === p.id}
-                onToggle={() => toggleDeck(p.id, "seat")}
+                onToggle={() => toggleMenu(p.id, "seat")}
                 onHover={() => {
-                  // Only one deck at a time: moving on closes one a click left open.
-                  if (openAt("seat") !== p.id) setOpenDeck(null);
+                  // Only one menu at a time: moving on closes one a click left open.
+                  if (openAt("seat") !== p.id) setOpenMenu(null);
                   const focused = document.activeElement;
                   if (
                     focused instanceof HTMLElement &&
@@ -233,7 +233,7 @@ export function RoomTable({
                   )
                     focused.blur();
                 }}
-                onClose={() => setOpenDeck(null)}
+                onClose={() => setOpenMenu(null)}
                 onSent={play}
                 cardRef={(element) => {
                   if (element) cards.current.set(p.id, element);
@@ -252,20 +252,20 @@ export function RoomTable({
         roomRef={roomArea}
         tableRef={table}
         onMove={(to, event) => {
-          // The click that closed a deck isn't also a walk.
-          const closedADeck =
+          // The click that closed a menu isn't also a walk.
+          const closedAMenu =
             event.type === "click" &&
-            event.timeStamp - closedDeckAt.current < CLICK_AFTER_PRESS_MS;
-          if (!closedADeck) onMoveGhost(to);
+            event.timeStamp - closedMenuAt.current < CLICK_AFTER_PRESS_MS;
+          if (!closedAMenu) onMoveGhost(to);
         }}
         ghostRef={(id, element) => {
           if (element) ghosts.current.set(id, element);
           else ghosts.current.delete(id);
         }}
-        openDeck={openAt("ghost")}
-        deckFor={deckFor}
-        onToggleDeck={(id) => toggleDeck(id, "ghost")}
-        onCloseDeck={() => setOpenDeck(null)}
+        openMenu={openAt("ghost")}
+        menuFor={menuFor}
+        onToggleMenu={(id) => toggleMenu(id, "ghost")}
+        onCloseMenu={() => setOpenMenu(null)}
         onSent={play}
       />
       {watchers.length > 0 && (
@@ -280,16 +280,16 @@ export function RoomTable({
   );
 }
 
-interface OpenDeck {
+interface OpenMenu {
   id: ParticipantId;
   on: "seat" | "ghost";
 }
 
-/** Whether a deck's seat or Ghost is still on the Table. */
-function hasPlace(participants: ParticipantView[], deck: OpenDeck) {
-  const p = participants.find((p) => p.id === deck.id);
+/** Whether a menu's seat or Ghost is still on the Table. */
+function hasPlace(participants: ParticipantView[], menu: OpenMenu) {
+  const p = participants.find((p) => p.id === menu.id);
   if (!p) return false;
-  return deck.on === "ghost" ? p.ghost !== null : p.role === "voter";
+  return menu.on === "ghost" ? p.ghost !== null : p.role === "voter";
 }
 
 /**

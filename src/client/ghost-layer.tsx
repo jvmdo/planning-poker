@@ -10,7 +10,7 @@ import type { FunEvent } from "../shared/fun";
 import type { GhostView, TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
 import { createGhostWalker } from "./lib/ghost-walker";
-import { DeckFan, type DeckItem } from "./deck-fan";
+import { FunMenu, type FunItem } from "./fun-menu";
 import { GhostFigure } from "./ghost-figure";
 
 /** An arrow key walks your Ghost a tenth of the Table that way. */
@@ -42,8 +42,8 @@ const NOT_EMPTY_SPACE =
  * Your own walks where you click in empty room space, or by the arrow keys from anywhere on the page
  * except where they're needed for something else.
  *
- * Clicking a Ghost opens a deck by it, as a Card does: Reactions on your own, things to Throw at
- * anyone else's. Its deck walks with it.
+ * Clicking a Ghost opens a menu by it, as a Card does: Reactions on your own, things to Throw at
+ * anyone else's. Its menu walks with it.
  */
 export function GhostLayer({
   participants,
@@ -54,10 +54,10 @@ export function GhostLayer({
   tableRef,
   ghostRef,
   onMove,
-  openDeck,
-  deckFor,
-  onToggleDeck,
-  onCloseDeck,
+  openMenu,
+  menuFor,
+  onToggleMenu,
+  onCloseMenu,
   onSent,
 }: {
   participants: ParticipantView[];
@@ -74,18 +74,18 @@ export function GhostLayer({
   ghostRef: (id: ParticipantId, element: HTMLElement | null) => void;
   /** Sends your own Ghost walking to a point on the shared Table, from a click or a key. */
   onMove: (to: TablePoint, event: Event) => void;
-  /** Whose deck is open, a Ghost's or a seat's, if any. */
-  openDeck: ParticipantId | null;
-  /** The deck a Participant's Ghost opens, the same as their Card would. */
-  deckFor: (p: ParticipantView) => DeckItem[];
-  onToggleDeck: (id: ParticipantId) => void;
-  onCloseDeck: () => void;
+  /** Whose menu is open, a Ghost's or a seat's, if any. */
+  openMenu: ParticipantId | null;
+  /** The menu a Participant's Ghost opens, the same as their Card would. */
+  menuFor: (p: ParticipantView) => FunItem[];
+  onToggleMenu: (id: ParticipantId) => void;
+  onCloseMenu: () => void;
   /** Plays what you just sent at once, rather than waiting for the server's echo. */
   onSent: (event: FunEvent) => void;
 }) {
   const [walker] = useState(createGhostWalker);
-  /** Whether the open deck shows above its Ghost, as the Ghost was placed when it opened. */
-  const [deckAbove, setDeckAbove] = useState(true);
+  /** Whether the open menu shows above its Ghost, as the Ghost was placed when it opened. */
+  const [menuAbove, setMenuAbove] = useState(true);
   const withGhosts = participants.filter(
     (p): p is ParticipantView & { ghost: GhostView } => p.ghost !== null,
   );
@@ -157,18 +157,18 @@ export function GhostLayer({
       <ul aria-label="Ghosts" className="relative h-full">
         {withGhosts.map((p) => {
           const isMe = p.id === myId;
-          const isOpen = openDeck === p.id;
+          const isOpen = openMenu === p.id;
           return (
             <li
               key={p.id}
               data-ghost
-              // A click on a Ghost or its deck doesn't close the deck.
-              data-deck-host
+              // A click on a Ghost or its menu doesn't close the menu.
+              data-menu-host
               // Placed, walked and posed by the walker.
               ref={(element) => walker.setElement(p.id, element)}
               onKeyDown={(event) => {
-                if (event.key !== "Escape" || openDeck !== p.id) return;
-                onCloseDeck();
+                if (event.key !== "Escape" || openMenu !== p.id) return;
+                onCloseMenu();
                 event.currentTarget.querySelector("button")?.focus();
               }}
               className={cn(
@@ -194,10 +194,10 @@ export function GhostLayer({
                   const room = roomRef.current?.getBoundingClientRect();
                   const ghost = event.currentTarget.getBoundingClientRect();
                   if (room)
-                    setDeckAbove(
+                    setMenuAbove(
                       ghost.top + ghost.height / 2 > room.top + room.height / 2,
                     );
-                  onToggleDeck(p.id);
+                  onToggleMenu(p.id);
                 }}
                 className="focus-visible:ring-ring/50 cursor-pointer rounded-full transition-transform outline-none hover:scale-110 focus-visible:ring-[3px]"
               >
@@ -222,11 +222,11 @@ export function GhostLayer({
                 <div
                   className={cn(
                     "absolute left-1/2 -translate-x-1/2",
-                    deckAbove ? "bottom-full pb-1" : "top-full pt-1",
+                    menuAbove ? "bottom-full pb-1" : "top-full pt-1",
                   )}
                 >
-                  <DeckFan
-                    deck={deckFor(p)}
+                  <FunMenu
+                    items={menuFor(p)}
                     label={isMe ? "Reactions" : `Throw at ${p.name}`}
                     onSent={onSent}
                   />

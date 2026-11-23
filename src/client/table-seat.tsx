@@ -2,11 +2,11 @@ import type { FunEvent } from "../shared/fun";
 import type { ParticipantView } from "../shared/protocol";
 import { cn } from "@/lib/utils";
 import type { VoteMark } from "./lib/vote-marks";
-import { DeckFan, type DeckItem } from "./deck-fan";
+import { FunMenu, type FunItem } from "./fun-menu";
 import { VoteCard } from "./vote-card";
 
 /**
- * A Voter's seat at the table: their Card and name. Hovering or clicking the Card opens a deck
+ * A Voter's seat at the table: their Card and name. Hovering or clicking the Card opens a menu
  * above or below it; a click keeps it open, so it works by touch and from the keyboard.
  */
 export function TableSeat({
@@ -16,8 +16,8 @@ export function TableSeat({
   mark,
   left,
   top,
-  deck,
-  deckLabel,
+  menu,
+  menuLabel,
   cardLabel,
   open,
   onToggle,
@@ -33,8 +33,8 @@ export function TableSeat({
   /** Where on the table's edge, as percentages of its box. */
   left: number;
   top: number;
-  deck: DeckItem[];
-  deckLabel: string;
+  menu: FunItem[];
+  menuLabel: string;
   cardLabel: string;
   open: boolean;
   onToggle: () => void;
@@ -44,13 +44,13 @@ export function TableSeat({
   onSent: (event: FunEvent) => void;
   cardRef: (element: HTMLButtonElement | null) => void;
 }) {
-  // Seats in the bottom half open their deck upwards, the rest downwards.
-  const deckAbove = top > 60;
+  // Seats in the bottom half open their menu upwards, the rest downwards.
+  const menuAbove = top > 60;
 
   return (
     <li
       data-seat
-      data-deck-host
+      data-menu-host
       style={{ left: `${left}%`, top: `${top}%` }}
       onMouseEnter={onHover}
       onKeyDown={(event) => {
@@ -83,15 +83,15 @@ export function TableSeat({
         {p.name}
         {isMe && " (you)"}
       </span>
-      {/* The padding bridges the gap to the Card, so the deck stays open on the way over. */}
+      {/* The padding bridges the gap to the Card, so the menu stays open on the way over. */}
       <div
         className={cn(
           "absolute left-1/2 hidden -translate-x-1/2 group-focus-within:block group-hover:block",
           open && "block",
-          deckAbove ? "bottom-full pb-2" : "top-full pt-2",
+          menuAbove ? "bottom-full pb-2" : "top-full pt-2",
         )}
       >
-        <DeckFan deck={deck} label={deckLabel} onSent={onSent} />
+        <FunMenu items={menu} label={menuLabel} onSent={onSent} />
       </div>
     </li>
   );

@@ -56,6 +56,7 @@ _Avoid_: Game, hand, iteration
 
 **Deck**:
 The set of Cards every Voter chooses from, the same for everyone in the Room. It starts as the default hours Deck and only the Facilitator can change it.
+_Avoid_: "deck" for anything else, such as the menu of Reactions or things to Throw that a Card or Ghost opens
 
 **Card**:
 One value in the Deck that a Voter can play.

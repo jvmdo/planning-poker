@@ -77,13 +77,13 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 
 ### Fun
 
-49. As an Observer with a Ghost, I want to click my own Ghost to open the Reaction deck, so that I can react like a Voter does from their Card.
+49. As an Observer with a Ghost, I want to click my own Ghost to open the Reaction menu, so that I can react like a Voter does from their Card.
 50. As an Observer with a Ghost, I want my Reactions to float up from my Ghost, so that everyone sees who reacted and where.
 51. As an Observer without a Ghost, I want Reactions to stay unavailable, so that the rule stays "Reactions come from your place at the Table".
 52. As an Observer with a Ghost, I want my Throws to fly from my Ghost, wherever it is, so that the Ghost is where the fun comes from.
 53. As an Observer with a Ghost, I want to Throw at any Voter's Card from anywhere, so that I don't have to walk over to someone first.
 54. As an Observer with a Ghost, I want to Throw at other Ghosts, so that Observers can tease each other.
-55. As a Participant, I want to click someone else's Ghost to open the Throw deck, so that throwing at a Ghost works like throwing at a Card.
+55. As a Participant, I want to click someone else's Ghost to open the Throw menu, so that throwing at a Ghost works like throwing at a Card.
 56. As a Participant, I want to be able to Throw at an away Ghost, so that it works like throwing at an away Voter's Card.
 57. As a Participant, I want Throws at Observers without a Ghost to stay refused, so that quiet watchers are left alone.
 58. As a Participant, I want a Throw at a walking Ghost to chase it and hit it on every screen, so that everyone agrees it was a hit.
@@ -141,7 +141,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 - **Vents:** fixed spots on the shared Table, turned per screen like Ghosts. A Ghost that appears between two snapshots climbs out of a grate that opens and then fades; one that goes (put away, its owner becomes a Voter, leaves, or their grace period runs out) sinks into a grate under it. Someone joining late just sees the Ghosts already out. A disconnect still only fades the Ghost. Reduced motion: Ghosts simply appear and go.
 - **Walking:** each screen animates from where the Ghost is drawn to the new destination, frame by frame, at a constant speed measured on the shared Table (one Table width per 1.5 s), easing in and out. The owner's screen starts the walk on the click, before the server answers.
 - **Input:** a click on empty room space (not a seat, Card, control or the Hand) moves your own Ghost. Arrow keys hop a tenth of the Table from anywhere on the page, except while focus is somewhere that needs them (a text field, a dialog, or a control that uses arrow keys itself) or a modifier key is held.
-- **Decks:** your own Ghost opens the Reaction deck, and anyone else's opens the Throw deck. Both reuse the seat decks.
+- **Menus:** your own Ghost opens the Reaction menu, and anyone else's opens the Throw menu. Both reuse the seat menus.
 - **Throws and Reactions:** they start from the thrower's Ghost when it's out, otherwise from the Watching line as today. A Ghost target is the Ghost as drawn on that screen. The Throw animation becomes frame-driven and re-reads the target's on-screen position every frame, so it homes in on a walking Ghost. This is all local to each browser, with nothing extra on the network. A hit Ghost wobbles in place.
 - **Watching line:** it leaves out Observers whose Ghost is out.
 - **Away:** a disconnected owner's Ghost is drawn faded.
