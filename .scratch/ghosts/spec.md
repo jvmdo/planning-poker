@@ -153,7 +153,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
   - **Body:** Sheet's dome and face, a Card worn as a long dress with a wavy hem in the fabric's pattern, and a short wisp tail peeking out under the hem.
   - **Disguises:** Ninja (face wrap and headband), Thief (domino mask and beanie), Astronaut (bubble helmet with antenna) and Rogue (narrow hood flaring over the shoulders, a pale mask, glowing eyes).
   - **Colours:** each fabric has a main, dark, light and glow colour, and the disguises take theirs from the fabric.
-  - **Size:** about as wide as a seat's Card, growing with it as the screen widens (42px next to the smallest Card, 40px). The name tag shows only while the Ghost's menu is open, below the Ghost, at the page's size like the seats' name tags. Screen readers always hear it.
+  - **Size:** about as wide as a seat's Card, growing with it as the screen widens (42px next to the smallest Card, 40px). The name tag shows only while the Ghost's menu is open, between the Ghost and its menu (above the Ghost when the menu opens upwards), at the page's size like the seats' name tags. Screen readers always hear it.
 - **Back items:** one per disguise, in the fabric's colours: a bow on the dress (None), a sword (Ninja), a loot sack (Thief), a small jetpack whose flame shows while walking (Astronaut), a quiver of arrows (Rogue).
 - **Body movement:** each screen works this out from the motion on that screen.
   - **Turning:** the Ghost faces right or left. It flips, with a quick turn, when a walk moves noticeably sideways, and keeps its facing when it walks straight up or down. Its face sits slightly toward the side it faces, with the back item on the other side.

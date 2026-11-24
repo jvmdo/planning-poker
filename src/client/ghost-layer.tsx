@@ -179,9 +179,9 @@ export function GhostLayer({
               className={cn(
                 // Drawn in Ghost pixels (see `.ghost-size`), which grow with the seats' Cards. Its
                 // name tag stays the page's size, like the seats' name tags.
-                // Centred on its point by the middle of its body, with its name tag (while its
-                // menu is open) below.
-                "group ghost-size pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23em] flex-col items-center gap-[2em]",
+                // Centred on its point by the middle of its body. Its name tag and menu hang off
+                // it, so its box is just its body and it can reach the room area's edges.
+                "group ghost-size pointer-events-auto absolute flex -translate-x-1/2 -translate-y-[23em] flex-col items-center",
                 // Slightly see-through, so a Result under it stays readable; faded while away.
                 p.connected ? "opacity-90" : "opacity-50",
                 isOpen && "z-10 opacity-100",
@@ -224,33 +224,37 @@ export function GhostLayer({
                   </div>
                 </div>
               </button>
-              {/* Shown with the Ghost's menu, on a click, as the menu's caption; always read out. */}
-              <span
+              {/* The name tag and the menu, on whichever side the menu opens, the tag nearest the
+                  Ghost: a Ghost at the room area's bottom edge opens upwards, so its tag stays on
+                  screen. In the page's sizes, not the Ghost's. */}
+              <div
                 className={cn(
-                  "ghost-vent-tag bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold",
-                  !isOpen && "sr-only",
+                  "absolute left-1/2 flex w-max -translate-x-1/2 items-center gap-1 text-base",
+                  menuAbove
+                    ? "bottom-full flex-col-reverse pb-0.5"
+                    : "top-full flex-col pt-0.5",
                 )}
               >
-                {p.name}
-                <span className="sr-only">
-                  's Ghost{!p.connected && ", away"}
-                </span>
-              </span>
-              {isOpen && (
-                <div
+                {/* Shown with the Ghost's menu, on a click, as the menu's caption; always read out. */}
+                <span
                   className={cn(
-                    // In the page's sizes, not the Ghost's.
-                    "absolute left-1/2 -translate-x-1/2 text-base",
-                    menuAbove ? "bottom-full pb-1" : "top-full pt-1",
+                    "ghost-vent-tag bg-card border-ink font-display shadow-hard-sm max-w-28 truncate rounded-full border-2 px-1.5 text-[0.65rem] leading-tight font-semibold",
+                    !isOpen && "sr-only",
                   )}
                 >
+                  {p.name}
+                  <span className="sr-only">
+                    's Ghost{!p.connected && ", away"}
+                  </span>
+                </span>
+                {isOpen && (
                   <FunMenu
                     items={menuFor(p)}
                     label={isMe ? "Reactions" : `Throw at ${p.name}`}
                     onSent={onSent}
                   />
-                </div>
-              )}
+                )}
+              </div>
             </li>
           );
         })}

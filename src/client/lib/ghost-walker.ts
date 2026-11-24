@@ -14,11 +14,9 @@ const LONGEST_FRAME_S = 0.1;
 /**
  * How far in from the room area's edges a Ghost's point is kept, in Ghost pixels (which grow with
  * the seats' Cards), so the whole Ghost stays on screen: its body is centred on the point. Its name
- * tag hangs below that, in `TAG_BELOW`.
+ * tag shows only with its menu, on the side the menu opens, so it needs no room of its own.
  */
 const KEEP_IN = { side: 24, top: 26, bottom: 24 };
-/** How far below a Ghost's body its name tag hangs, in screen pixels: tags don't grow. */
-const TAG_BELOW = 16;
 
 /** A walk turns a Ghost to face its way only if it goes at least this many pixels sideways. */
 const TURNS_AFTER_PX = 6;
@@ -157,7 +155,7 @@ export function createGhostWalker() {
     if (box.width === 0 || box.height === 0) return null;
     const side = KEEP_IN.side * ghostPixel();
     const top = KEEP_IN.top * ghostPixel();
-    const bottom = KEEP_IN.bottom * ghostPixel() + TAG_BELOW;
+    const bottom = KEEP_IN.bottom * ghostPixel();
     return {
       box,
       bounds: {
