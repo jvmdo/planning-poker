@@ -163,7 +163,14 @@ export function App({
           pendingCommand={pendingCommand}
         />
         {/* The room area: the Table and the strip under it, where Ghosts may walk. */}
-        <div ref={roomArea} className="flex min-h-0 flex-1 flex-col">
+        {/* While your Ghost is out its text can't be selected, so clicks to walk don't select it. */}
+        <div
+          ref={roomArea}
+          className={cn(
+            "flex min-h-0 flex-1 flex-col",
+            me.ghost && "select-none",
+          )}
+        >
           <div className="relative flex min-h-0 flex-1 flex-col">
             <RoomTable
               snapshot={snapshot}
