@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs the same checks as `npm run check`, except that Prettier sees only the staged files, so an
+# untracked note or a half-finished file elsewhere in the tree doesn't block the commit.
+# Skip it once with `git commit --no-verify`.
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+if [ -n "$staged" ]; then
+  echo "$staged" | xargs npx prettier --check --ignore-unknown
+fi
+npm run --silent typecheck
+npm run --silent lint
+npm test --silent
