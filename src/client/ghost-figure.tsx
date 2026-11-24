@@ -170,6 +170,13 @@ function fabricColours(fabric: Fabric): CSSProperties {
 
 const INK = { stroke: "var(--ink)" };
 
+/** The soap bubbles a walking Ghost's bow blows, in the drawing's units. */
+const BUBBLES = [
+  { cx: 8, cy: 31, r: 2.2 },
+  { cx: 5.5, cy: 36.5, r: 1.6 },
+  { cx: 9.5, cy: 40, r: 1.3 },
+];
+
 /**
  * What each disguise wears, in four layers: on its back (behind everything, on the side away from
  * the face), over the dome but under the face, on the face itself (moving with it), and over
@@ -185,16 +192,35 @@ const DISGUISE_LAYERS: Record<
     overAll?: ReactNode;
   }
 > = {
-  // A bow tied on the dress.
+  // A bow tied on the dress, whose loops flap and blow soap bubbles while walking.
   none: {
     back: (
       <g strokeLinejoin="round" strokeLinecap="round">
+        {BUBBLES.map(({ cx, cy, r }) => (
+          <g key={cx} className="ghost-trail ghost-bubble">
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              style={{ fill: "var(--glass)", ...INK }}
+              strokeWidth="0.7"
+            />
+            <path
+              d={`M${cx - r * 0.55} ${cy - r * 0.1} A${r * 0.6} ${r * 0.6} 0 0 1 ${cx - r * 0.1} ${cy - r * 0.55}`}
+              fill="none"
+              stroke="#fff"
+              strokeWidth="0.6"
+            />
+          </g>
+        ))}
         <path
+          className="ghost-bow-top"
           d="M14.5 35 Q5.5 29 6.5 35.5 Q7.5 40 14.5 36.5 Z"
           style={{ fill: "var(--f-main)", ...INK }}
           strokeWidth="2"
         />
         <path
+          className="ghost-bow-low"
           d="M14.5 36.5 Q8 42.5 10.5 45 Q13.5 45.5 15 38 Z"
           style={{ fill: "var(--f-main)", ...INK }}
           strokeWidth="2"
@@ -211,9 +237,10 @@ const DISGUISE_LAYERS: Record<
   },
   // A face wrap, and a headband with its tails flying behind.
   ninja: {
-    // A sword slung across the back, its wrapped hilt over the shoulder.
+    // A sword slung across the back, its wrapped hilt over the shoulder. It rattles while walking,
+    // and its hilt twinkles.
     back: (
-      <g strokeLinecap="round" fill="none">
+      <g className="ghost-sword" strokeLinecap="round" fill="none">
         <path d="M8.5 53 L21 12" style={INK} strokeWidth="5.4" />
         <path
           d="M8.5 53 L21 12"
@@ -235,6 +262,14 @@ const DISGUISE_LAYERS: Record<
           transform="rotate(-17 21.2 11.8)"
           style={{ fill: "var(--f-light)", ...INK }}
           strokeWidth="1.6"
+        />
+        <path
+          className="ghost-trail ghost-glint"
+          d="M26 -1.5 l1.2 -3 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 Z"
+          fill="#fff"
+          style={INK}
+          strokeWidth="0.5"
+          strokeLinejoin="round"
         />
       </g>
     ),
@@ -266,29 +301,45 @@ const DISGUISE_LAYERS: Record<
   },
   // A domino mask, with the eyes looking out of it, and a beanie with a bobble.
   thief: {
-    // A loot sack over the shoulder, with a patch.
+    // A loot sack over the shoulder, with a patch. It swings while walking, and drops coins.
     back: (
       <g strokeLinejoin="round" strokeLinecap="round">
-        <path
-          d="M15 31 C4 30 1.5 44 5.5 48.5 C9 52.5 15 50.5 15 50.5 Z"
-          style={{ fill: "var(--f-light)", ...INK }}
-          strokeWidth="2.2"
-        />
-        <path
-          d="M13.5 31 L9.5 26 M13.5 31 L15.5 25.5"
-          fill="none"
-          style={INK}
-          strokeWidth="2"
-        />
-        <rect
-          x="6.5"
-          y="38"
-          width="5"
-          height="5"
-          rx="1"
-          style={{ fill: "var(--f-main)", ...INK }}
-          strokeWidth="1.4"
-        />
+        {[
+          [6, 46],
+          [9, 48],
+        ].map(([cx, cy]) => (
+          <circle
+            key={cx}
+            className="ghost-trail ghost-coin"
+            cx={cx}
+            cy={cy}
+            r="2"
+            style={{ fill: "var(--pop-4)", ...INK }}
+            strokeWidth="1"
+          />
+        ))}
+        <g className="ghost-sack">
+          <path
+            d="M15 31 C4 30 1.5 44 5.5 48.5 C9 52.5 15 50.5 15 50.5 Z"
+            style={{ fill: "var(--f-light)", ...INK }}
+            strokeWidth="2.2"
+          />
+          <path
+            d="M13.5 31 L9.5 26 M13.5 31 L15.5 25.5"
+            fill="none"
+            style={INK}
+            strokeWidth="2"
+          />
+          <rect
+            x="6.5"
+            y="38"
+            width="5"
+            height="5"
+            rx="1"
+            style={{ fill: "var(--f-main)", ...INK }}
+            strokeWidth="1.4"
+          />
+        </g>
       </g>
     ),
     onFace: () => (
@@ -417,22 +468,31 @@ const DISGUISE_LAYERS: Record<
       </g>
     ),
   },
-  // A narrow hood flaring over the shoulders with its edge trimmed, and a pale mask with glowing eyes.
+  // A narrow hood flaring over the shoulders with its edge trimmed, and a pale mask with glowing eyes
+  // that pulse red while walking.
   rogue: {
-    // A quiver of arrows.
+    // A quiver of arrows, which rattle while walking, and a feather drifts off.
     back: (
-      <g strokeLinecap="round" strokeLinejoin="round">
+      <g className="ghost-quiver" strokeLinecap="round" strokeLinejoin="round">
         <path
-          d="M15 13 L13.5 5 M17.5 13.5 L18 5.5 M19.5 15 L22 8"
-          fill="none"
-          style={INK}
-          strokeWidth="1.6"
-        />
-        <path
-          d="M13.5 5 l-2 -2.5 l3.2 0.6 Z M18 5.5 l-1 -3 l2.6 1.2 Z M22 8 l0.2 -3.2 l1.8 2.4 Z"
+          className="ghost-trail ghost-feather"
+          d="M14 6 q-3 3 -2 7 q3 -3 2 -7 Z"
           style={{ fill: "var(--f-main)", ...INK }}
-          strokeWidth="1"
+          strokeWidth="0.8"
         />
+        <g className="ghost-arrows">
+          <path
+            d="M15 13 L13.5 5 M17.5 13.5 L18 5.5 M19.5 15 L22 8"
+            fill="none"
+            style={INK}
+            strokeWidth="1.6"
+          />
+          <path
+            d="M13.5 5 l-2 -2.5 l3.2 0.6 Z M18 5.5 l-1 -3 l2.6 1.2 Z M22 8 l0.2 -3.2 l1.8 2.4 Z"
+            style={{ fill: "var(--f-main)", ...INK }}
+            strokeWidth="1"
+          />
+        </g>
         <path d="M7.5 47 L16.5 14" fill="none" style={INK} strokeWidth="7.4" />
         <path
           d="M7.5 47 L16.5 14"
@@ -472,12 +532,15 @@ const DISGUISE_LAYERS: Record<
           strokeWidth="1.2"
           opacity="0.35"
         />
+        {/* Glowing in the fabric's colour, and pulsing red while walking. */}
         <g filter={`url(#${glowId})`}>
           <path
+            className="ghost-rogue-eye"
             d="M23.5 17.5 L30 19.8 L29 22.2 L23.5 20.3 Z"
             style={{ fill: "var(--f-glow)" }}
           />
           <path
+            className="ghost-rogue-eye"
             d="M40.5 17.5 L34 19.8 L35 22.2 L40.5 20.3 Z"
             style={{ fill: "var(--f-glow)" }}
           />

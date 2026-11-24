@@ -260,6 +260,88 @@
   [data-walking] .ghost-flame {
     opacity: 1;
   }
+  /*
+   * The other back items move in time with the trot (0.45 s), as if loose on the Ghost's back, and
+   * each has something that shows only while walking, as the flame does: soap bubbles off the
+   * bow, a twinkle on the sword's hilt, coins out of the sack, a feather off the quiver.
+   */
+  .ghost-bow-top,
+  .ghost-bow-low,
+  .ghost-sword,
+  .ghost-sack,
+  .ghost-quiver,
+  .ghost-arrows {
+    transform-box: view-box;
+  }
+  .ghost-bow-top,
+  .ghost-bow-low {
+    transform-origin: 14.2px 35.8px;
+  }
+  .ghost-sword {
+    transform-origin: 15px 32px;
+  }
+  .ghost-sack {
+    transform-origin: 13.5px 31px;
+  }
+  .ghost-quiver {
+    transform-origin: 12px 31px;
+  }
+  .ghost-arrows {
+    transform-origin: 17px 14px;
+  }
+  [data-walking] .ghost-bow-top {
+    animation: ghost-bow-top 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-bow-low {
+    animation: ghost-bow-low 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-sword {
+    animation: ghost-sword-rattle 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-sack {
+    animation: ghost-sack-swing 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-quiver {
+    animation: ghost-quiver-rock 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-arrows {
+    animation: ghost-arrows-rattle 0.225s ease-in-out infinite alternate;
+  }
+  /* What trails off a walking Ghost: hidden while it stands. */
+  .ghost-trail {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-walking] .ghost-bubble {
+    animation: ghost-bubble 1.2s ease-out infinite;
+  }
+  [data-walking] .ghost-bubble:nth-child(2) {
+    animation-delay: 0.4s;
+  }
+  [data-walking] .ghost-bubble:nth-child(3) {
+    animation-delay: 0.8s;
+  }
+  [data-walking] .ghost-glint {
+    animation: ghost-glint 0.9s ease-in-out infinite;
+  }
+  [data-walking] .ghost-coin {
+    animation: ghost-coin 0.9s cubic-bezier(0.4, 0, 0.8, 0.4) infinite;
+  }
+  [data-walking] .ghost-coin + .ghost-coin {
+    animation-delay: 0.45s;
+  }
+  [data-walking] .ghost-feather {
+    animation: ghost-feather 1.6s ease-in-out infinite;
+  }
+  /* The Rogue's eyes pulse red while walking, two pulses to a trot's four steps. */
+  .ghost-rogue-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-walking] .ghost-rogue-eye {
+    animation: ghost-rogue-eye 0.9s ease-in-out infinite;
+  }
 }
 @keyframes ghost-tail-sway {
   0%,
@@ -288,8 +370,174 @@
     transform: skewX(3deg);
   }
 }
+@keyframes ghost-bow-top {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  50% {
+    rotate: 14deg;
+  }
+}
+@keyframes ghost-bow-low {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  50% {
+    rotate: -14deg;
+  }
+}
+@keyframes ghost-sword-rattle {
+  0%,
+  100% {
+    rotate: -3deg;
+    translate: 0 0;
+  }
+  50% {
+    rotate: 3deg;
+    translate: 0 1.2px;
+  }
+}
+@keyframes ghost-sack-swing {
+  0%,
+  100% {
+    rotate: -2deg;
+    scale: 1 1;
+  }
+  50% {
+    rotate: 6deg;
+    scale: 1.04 0.95;
+  }
+}
+@keyframes ghost-quiver-rock {
+  0%,
+  100% {
+    rotate: -2deg;
+  }
+  50% {
+    rotate: 3deg;
+  }
+}
+@keyframes ghost-arrows-rattle {
+  from {
+    translate: 0 0;
+    rotate: -4deg;
+  }
+  to {
+    translate: 0 -1.6px;
+    rotate: 4deg;
+  }
+}
+/* Drifts up and back off the bow, wobbling, and pops. */
+@keyframes ghost-bubble {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+    scale: 0.4;
+  }
+  15% {
+    opacity: 1;
+    scale: 1;
+  }
+  50% {
+    translate: -4px -8px;
+    scale: 1.08 0.94;
+  }
+  85% {
+    opacity: 1;
+    translate: -6px -15px;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -6px -16px;
+    scale: 1.5;
+  }
+}
+@keyframes ghost-glint {
+  0%,
+  15% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 0deg;
+  }
+  45%,
+  60% {
+    opacity: 1;
+    scale: 1.3;
+    rotate: 45deg;
+  }
+  90%,
+  100% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 90deg;
+  }
+}
+@keyframes ghost-coin {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  10% {
+    opacity: 1;
+    translate: -2px -3px;
+  }
+  70% {
+    opacity: 1;
+    translate: -7px 12px;
+  }
+  100% {
+    opacity: 0;
+    translate: -9px 12px;
+  }
+}
+@keyframes ghost-feather {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    translate: -8px 14px;
+    rotate: 40deg;
+  }
+  100% {
+    opacity: 0;
+    translate: -4px 32px;
+    rotate: -10deg;
+  }
+}
+/* An animation, so it wins over the eyes' own fill. */
+@keyframes ghost-rogue-eye {
+  0%,
+  100% {
+    fill: oklch(0.55 0.22 27);
+    scale: 1;
+  }
+  50% {
+    fill: oklch(0.68 0.26 27);
+    scale: 1.2;
+  }
+}
+/* Nothing walks, so nothing jiggles or trails off; the flame still shows on a jump. */
 @media (prefers-reduced-motion: reduce) {
-  .ghost-tail {
+  .ghost-tail,
+  [data-walking]
+    :is(
+      .ghost-bow-top,
+      .ghost-bow-low,
+      .ghost-sword,
+      .ghost-sack,
+      .ghost-quiver,
+      .ghost-arrows,
+      .ghost-trail,
+      .ghost-rogue-eye
+    ) {
     animation: none;
   }
 }
