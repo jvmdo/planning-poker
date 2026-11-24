@@ -1,7 +1,8 @@
 import { LoaderCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RoomId } from "../shared/protocol";
 import { randomRoomId } from "../shared/room-id";
+import { cn } from "@/lib/utils";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
@@ -63,6 +64,8 @@ export function App({
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
+  /** The Table and the strip under it: where Ghosts walk. */
+  const roomArea = useRef<HTMLDivElement>(null);
 
   // The tab title names the Room, on the join screen too, so two open tabs are easy to tell apart.
   useEffect(() => {
@@ -122,6 +125,9 @@ export function App({
       />
     );
 
+  /** The strip under the Table holds your Hand, which no Ghost may cover. */
+  const showsHand = !snapshot.revealed && me.role === "voter";
+
   return (
     <div className="flex h-svh">
       <Sidebar
@@ -156,42 +162,51 @@ export function App({
           }
           pendingCommand={pendingCommand}
         />
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <RoomTable
-            snapshot={snapshot}
-            round={round}
-            myId={identity.id}
-            isFacilitator={me.isFacilitator}
-            locked={reconnecting || pendingCommand !== null}
-            pendingCommand={pendingCommand}
-            onReveal={reveal}
-            onNewRound={newRound}
-            onReact={react}
-            onThrow={throwAt}
-            onMoveGhost={moveGhost}
-          />
-          <NoticeToast notice={notice} />
-        </div>
-        {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
-        {/* Above the room area, so Ghosts pass under the Hand. */}
-        <div className="relative z-20 h-(--hand-height) shrink-0">
-          {snapshot.revealed ? (
-            <ResultBreakdown
+        {/* The room area: the Table and the strip under it, where Ghosts may walk. */}
+        <div ref={roomArea} className="flex min-h-0 flex-1 flex-col">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <RoomTable
               snapshot={snapshot}
               round={round}
               myId={identity.id}
+              roomRef={roomArea}
+              isFacilitator={me.isFacilitator}
+              locked={reconnecting || pendingCommand !== null}
+              pendingCommand={pendingCommand}
+              onReveal={reveal}
+              onNewRound={newRound}
+              onReact={react}
+              onThrow={throwAt}
+              onMoveGhost={moveGhost}
             />
-          ) : me.role === "voter" ? (
-            <CardHand
-              deck={snapshot.deck}
-              myVote={snapshot.myVote}
-              onPlay={vote}
-            />
-          ) : (
-            <p className="text-muted-foreground grid h-full place-items-center text-sm">
-              You're observing. The Room won't wait for your Vote.
-            </p>
-          )}
+            <NoticeToast notice={notice} />
+          </div>
+          {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
+          {/* Ghosts walk over the strip, but under a Voter's Hand, so they never block a vote. */}
+          <div
+            className={cn(
+              "relative h-(--hand-height) shrink-0",
+              showsHand && "z-20",
+            )}
+          >
+            {snapshot.revealed ? (
+              <ResultBreakdown
+                snapshot={snapshot}
+                round={round}
+                myId={identity.id}
+              />
+            ) : showsHand ? (
+              <CardHand
+                deck={snapshot.deck}
+                myVote={snapshot.myVote}
+                onPlay={vote}
+              />
+            ) : (
+              <p className="text-muted-foreground grid h-full place-items-center text-sm">
+                You're observing. The Room won't wait for your Vote.
+              </p>
+            )}
+          </div>
         </div>
       </main>
     </div>

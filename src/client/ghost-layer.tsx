@@ -35,8 +35,9 @@ const NOT_EMPTY_SPACE =
   "[data-seat], [data-ghost], button, a, input, select, textarea, label, [role='dialog']";
 
 /**
- * Every Observer's Ghost, drawn over the room area: above the Table, below the Hand and toasts. It
- * covers the room area but ignores the pointer, except on the Ghosts themselves. `tableBox` lays
+ * Every Observer's Ghost, drawn over the room area (the Table and the strip under it): above the
+ * Table and that strip, but below a Voter's Hand and toasts. It covers the Table section and draws
+ * Ghosts on past it, but ignores the pointer, except on the Ghosts themselves. `tableBox` lays
  * out an inner box exactly over the Table, which Ghosts are positioned on.
  *
  * Each Ghost walks to where the Room says it's heading, turned the way this screen turns the seats.
@@ -67,7 +68,7 @@ export function GhostLayer({
   turn: number;
   /** Classes that put the inner box exactly over the Table, matching the room area's padding. */
   tableBox: string;
-  /** The room area, which Ghosts stay inside and clicks in walk your own. */
+  /** The room area, the strip under the Table included, which Ghosts stay inside and clicks in walk your own. */
   roomRef: RefObject<HTMLElement | null>;
   /** The Table, whose box Ghosts are positioned on. */
   tableRef: RefObject<HTMLElement | null>;

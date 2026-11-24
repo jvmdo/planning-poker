@@ -109,11 +109,11 @@ describe("the Ghost frame", () => {
 
   it("brings a screen point that turns out of reach back within reach of the shared Table", () => {
     // A corner of the room area, turned an eighth of the way round, is further out than any edge.
-    const point = screenToTable({ x: -0.45, y: -0.45 }, -Math.PI / 4);
+    const point = screenToTable({ x: -0.95, y: -0.95 }, -Math.PI / 4);
 
-    expect(point.x).toBeGreaterThanOrEqual(-0.5);
-    expect(point.y).toBeGreaterThanOrEqual(-0.5);
-    expect(point.x).toBeLessThanOrEqual(1.5);
-    expect(point.y).toBeLessThanOrEqual(1.5);
+    expect(point.x).toBeGreaterThanOrEqual(-1);
+    expect(point.y).toBeGreaterThanOrEqual(-1);
+    expect(point.x).toBeLessThanOrEqual(2);
+    expect(point.y).toBeLessThanOrEqual(2);
   });
 });

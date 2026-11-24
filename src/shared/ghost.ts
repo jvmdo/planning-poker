@@ -72,9 +72,10 @@ export interface GhostView {
 
 /**
  * How far round the Table a Ghost may go on each axis of the shared Table. It covers the room area
- * around the Table, and under the Hand, on any screen.
+ * around the Table, and the strip under it where the Hand is, on any screen: on a short screen that
+ * strip reaches about three quarters of the Table's height below it.
  */
-export const TABLE_REACH = { min: -0.5, max: 1.5 } as const;
+export const TABLE_REACH = { min: -1, max: 2 } as const;
 
 /** Whether a number on either axis of the shared Table is within a Ghost's reach. */
 function inReach(n: number): boolean {

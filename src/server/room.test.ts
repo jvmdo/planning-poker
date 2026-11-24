@@ -2412,13 +2412,13 @@ describe("Ghosts", () => {
       );
     });
 
-    it("reaches as far as the room area around the Table, on any screen", () => {
+    it("reaches as far as the room area around the Table and under the Hand, on any screen", () => {
       const { room, moves } = walking();
 
-      expect(room.moveGhost("davi-id", { x: -0.5, y: 1.5 })).toEqual({
+      expect(room.moveGhost("davi-id", { x: -1, y: 2 })).toEqual({
         ok: true,
       });
-      expect(room.moveGhost("davi-id", { x: 1.5, y: -0.5 })).toEqual({
+      expect(room.moveGhost("davi-id", { x: 2, y: -1 })).toEqual({
         ok: true,
       });
       expect(moves).toHaveBeenCalledTimes(2);
@@ -2438,11 +2438,11 @@ describe("Ghosts", () => {
         "no-ghost",
       ],
       ["a Voter", "ana-id", { x: 0.2, y: 0.2 }, "no-ghost"],
-      ["a point past the left", "davi-id", { x: -0.51, y: 0.2 }, "not-a-point"],
+      ["a point past the left", "davi-id", { x: -1.01, y: 0.2 }, "not-a-point"],
       [
         "a point past the bottom",
         "davi-id",
-        { x: 0.2, y: 1.51 },
+        { x: 0.2, y: 2.01 },
         "not-a-point",
       ],
       [

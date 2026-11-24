@@ -11,7 +11,7 @@ import {
   type Reaction,
   type Throwable,
 } from "../shared/fun";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
@@ -42,6 +42,7 @@ export function RoomTable({
   snapshot,
   round,
   myId,
+  roomRef,
   isFacilitator,
   locked,
   pendingCommand,
@@ -54,6 +55,8 @@ export function RoomTable({
   snapshot: RoomSnapshot;
   round: RoundReading;
   myId: ParticipantId;
+  /** The room area round the Table, the strip under it included, where Ghosts walk. */
+  roomRef: RefObject<HTMLElement | null>;
   isFacilitator: boolean;
   /** Something is waiting on the server, or the connection is down: nothing can be sent. */
   locked: boolean;
@@ -93,7 +96,6 @@ export function RoomTable({
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const ghosts = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
-  const roomArea = useRef<HTMLElement>(null);
   const table = useRef<HTMLDivElement>(null);
   /** When a click outside the seats last closed a menu: that click does nothing else. */
   const closedMenuAt = useRef(-Infinity);
@@ -162,7 +164,6 @@ export function RoomTable({
 
   return (
     <section
-      ref={roomArea}
       aria-label="Table"
       className={cn("relative min-h-0 flex-1", ROOM_AROUND_TABLE)}
     >
@@ -249,7 +250,7 @@ export function RoomTable({
         myId={myId}
         turn={turn}
         tableBox={ROOM_AROUND_TABLE}
-        roomRef={roomArea}
+        roomRef={roomRef}
         tableRef={table}
         onMove={(to, event) => {
           // The click that closed a menu isn't also a walk.

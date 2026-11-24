@@ -107,7 +107,7 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
 ### Shared contract
 
 - New shared Ghost definitions next to the existing Reaction and Throw definitions: the list of fabrics and the list of disguises, each with a guard, in the same style as the Throwables. A **Skin** is a fabric plus a disguise.
-- **The shared Table:** a Ghost's position is a point relative to the Table's box, 0 to 1 on each axis, with seats in Room order and the first Voter at the bottom. This is exactly what an Observer's screen shows. Points from −0.5 to 1.5 are accepted on each axis, which covers the room area around the Table and under the Hand on any screen.
+- **The shared Table:** a Ghost's position is a point relative to the Table's box, 0 to 1 on each axis, with seats in Room order and the first Voter at the bottom. This is exactly what an Observer's screen shows. Points from −1 to 2 are accepted on each axis, which covers the room area around the Table and the strip under it on any screen.
 - **Snapshot:** each Participant gains `ghost: { skin, to } | null`, where `to` is the point the Ghost is heading for.
 - **New server-to-client event:** `ghostMoved` (which Ghost, and its new `to`), broadcast within the Room like the Reaction and Throw event, since it holds no Votes.
 - **New client-to-server commands:** `summonGhost(skin)`, `dressGhost(skin)`, `dismissGhost()`, `moveGhost(to)`.
@@ -138,7 +138,8 @@ The vocabulary below is defined in the glossary (**Ghost**, **Hand**, **Reaction
   4. clamp it to this screen's room area
 
   Converting a screen point back is the reverse. Observers, including every Ghost owner, have no turn. Walks are turned the same way, so each screen may show a walk in a different direction, but always between the same seats.
-- **Ghost layer:** an overlay across the room area, below the status bar, drawn above the Table but below the Hand and toasts. It ignores the pointer except on the Ghosts themselves.
+- **Room area:** the Table section and the strip under it, where a Voter's Hand, an Observer's note or the breakdown after the Reveal sits. Observers have no Hand, so Ghosts walk over the strip too.
+- **Ghost layer:** an overlay across the room area, below the status bar, drawn above the Table, the Observer's note and the breakdown, but below a Voter's Hand and toasts. It ignores the pointer except on the Ghosts themselves.
 - **Vents:** fixed spots on the shared Table, turned per screen like Ghosts. A Ghost that appears between two snapshots climbs out of a grate that opens and then fades; one that goes (put away, its owner becomes a Voter, leaves, or their grace period runs out) sinks into a grate under it. Someone joining late just sees the Ghosts already out. A disconnect still only fades the Ghost. Reduced motion: Ghosts simply appear and go.
 - **Walking:** each screen animates from where the Ghost is drawn to the new destination, frame by frame, at a constant speed measured on the shared Table (one Table width per 1.5 s), easing in and out. The owner's screen starts the walk on the click, before the server answers.
 - **Input:** a click on empty room space (not a seat, Card, control or the Hand) moves your own Ghost. Arrow keys hop a tenth of the Table from anywhere on the page, except while focus is somewhere that needs them (a text field, a dialog, or a control that uses arrow keys itself) or a modifier key is held.
