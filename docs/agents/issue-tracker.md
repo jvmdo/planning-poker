@@ -10,6 +10,27 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
+## Finishing a ticket
+
+When the work is done, tick every box you verified and set the status in the ticket's own feature commit:
+
+- every box ticked: `closed`;
+- a box only the human can tick still open (a check by eye, a judgement on look and feel): `needs-human-check`, with a `## Comments` note saying what to look at.
+
+A branch is finished when every ticket in its feature folder is `closed`.
+
+## Closing a ticket later
+
+When the human signs off on a `needs-human-check` ticket, fold the close into the ticket's feature commit with a fixup, wherever that commit now sits:
+
+```sh
+git log --oneline main..HEAD                  # find the ticket's feature commit
+git commit --fixup=<sha> -- <ticket file>
+GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash <sha>~1
+```
+
+Other sessions may commit to the same branch while you work, so HEAD is often someone else's commit: the fixup targets the right one by hash. Rewrite only an unpushed branch, or ask first.
+
 ## When a skill says "publish to the issue tracker"
 
 Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).

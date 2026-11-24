@@ -12,4 +12,11 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
+Two more statuses mark the end of a ticket's life. No skill names them; `issue-tracker.md` says when to set each.
+
+| Label in our tracker | Meaning                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `needs-human-check`  | Built and committed; a box only the human can tick (a check by eye) is open |
+| `closed`             | Every box ticked; nothing left to do                                        |
+
 Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
