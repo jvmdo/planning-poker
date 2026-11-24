@@ -10,6 +10,8 @@ const noFacilitator: RoomSnapshot = {
   revealed: false,
   result: null,
   deck: [1, 2, 3],
+  autoReveal: true,
+  revealCountdown: false,
 };
 
 describe("a pending claim of the Facilitator role", () => {
@@ -22,6 +24,24 @@ describe("a pending claim of the Facilitator role", () => {
   it("is answered once anyone is the Facilitator, whoever won", () => {
     expect(
       settlePendingCommand(claim, { ...noFacilitator, hasFacilitator: true }),
+    ).toBeNull();
+  });
+});
+
+describe("a pending change to Auto Reveal", () => {
+  const turnOff = {
+    command: "setAutoReveal",
+    fromRound: 3,
+    on: false,
+  } as const;
+
+  it("stays while the Room still has Auto Reveal on", () => {
+    expect(settlePendingCommand(turnOff, noFacilitator)).toEqual(turnOff);
+  });
+
+  it("is answered once the Room has Auto Reveal off", () => {
+    expect(
+      settlePendingCommand(turnOff, { ...noFacilitator, autoReveal: false }),
     ).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import type {
   RevealRejectionReason,
   RoleRejectionReason,
   RoomSnapshot,
+  SetAutoRevealRejectionReason,
   SetDeckRejectionReason,
   ThrowRejectionReason,
   VoteRejectionReason,
@@ -31,7 +32,7 @@ import {
   type Burst,
   type FunEvent,
 } from "../shared/fun.js";
-import { GRACE_PERIOD_MS } from "../shared/protocol.js";
+import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 /**
  * The most Participants a Room takes, counting those in their grace period. Each change sends every
@@ -66,6 +67,11 @@ export interface Room {
     by: ParticipantId,
     cards: readonly unknown[],
   ): CommandResult<SetDeckRejectionReason>;
+  /** Refuses the setting it already has, so every change sent gets an answer. */
+  setAutoReveal(
+    by: ParticipantId,
+    on: boolean,
+  ): CommandResult<SetAutoRevealRejectionReason>;
   handOver(
     by: ParticipantId,
     to: ParticipantId,
@@ -109,6 +115,13 @@ export interface Room {
    * listeners. Returns a function that unsubscribes.
    */
   subscribeToDeckChanges(listener: (by: ParticipantId) => void): () => void;
+  /**
+   * Calls `listener` with the Facilitator's ID and the new setting each time they turn Auto Reveal
+   * on or off, after `subscribe`'s listeners. Returns a function that unsubscribes.
+   */
+  subscribeToAutoRevealChanges(
+    listener: (by: ParticipantId, on: boolean) => void,
+  ): () => void;
 }
 
 /** Names are compared after trimming and ignoring case. */
@@ -137,13 +150,46 @@ export function createRoom(): Room {
   /** Kept when everyone leaves: only a new Room (a server start) begins with the default. */
   let deck: Deck = DEFAULT_DECK;
   const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
+  /** Kept when everyone leaves, like the Deck. */
+  let autoReveal = true;
+  /** Running while Auto Reveal counts down to the Reveal. */
+  let countdown: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
   const funListeners = new Set<(event: FunEvent) => void>();
   /** Each Participant's Reactions and Throws left; shared between the two. */
   const bursts = new Map<ParticipantId, Burst>();
   const deckListeners = new Set<(by: ParticipantId) => void>();
+  const autoRevealListeners = new Set<
+    (by: ParticipantId, on: boolean) => void
+  >();
+
+  /** Every Voter in the Room has voted, counting those away in their grace period. */
+  function everyVoterVoted() {
+    const voters = [...participants.values()].filter((p) => p.role === "voter");
+    return voters.length > 0 && voters.every((p) => votes.has(p.id));
+  }
+
+  /**
+   * Starts or stops Auto Reveal's countdown to match the Room. Runs on every change. It waits while
+   * there's no Facilitator, since nobody could start the next Round.
+   */
+  function syncCountdown() {
+    const due =
+      autoReveal && facilitatorId !== null && !revealed && everyVoterVoted();
+    if (due && countdown === null) {
+      countdown = setTimeout(() => {
+        countdown = null;
+        revealed = true;
+        notifyChanged();
+      }, AUTO_REVEAL_DELAY_MS);
+    } else if (!due && countdown !== null) {
+      clearTimeout(countdown);
+      countdown = null;
+    }
+  }
 
   function notifyChanged() {
+    syncCountdown();
     for (const listener of listeners) listener();
   }
 
@@ -273,6 +319,17 @@ export function createRoom(): Room {
       return { ok: true };
     },
 
+    setAutoReveal(by, on) {
+      if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
+      if (on === autoReveal) {
+        return { ok: false, reason: "auto-reveal-unchanged" };
+      }
+      autoReveal = on;
+      notifyChanged();
+      for (const listener of autoRevealListeners) listener(by, on);
+      return { ok: true };
+    },
+
     handOver(by, to) {
       if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
       if (to === by) return { ok: false, reason: "already-facilitator" };
@@ -363,6 +420,8 @@ export function createRoom(): Room {
         revealed,
         result: revealed ? resultOf(votes.values()) : null,
         deck,
+        autoReveal,
+        revealCountdown: countdown !== null,
       };
     },
 
@@ -383,6 +442,11 @@ export function createRoom(): Room {
     subscribeToDeckChanges(listener) {
       deckListeners.add(listener);
       return () => deckListeners.delete(listener);
+    },
+
+    subscribeToAutoRevealChanges(listener) {
+      autoRevealListeners.add(listener);
+      return () => autoRevealListeners.delete(listener);
     },
   };
 }

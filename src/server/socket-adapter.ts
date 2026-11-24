@@ -37,7 +37,7 @@ function channelOf(roomId: RoomId): string {
  * change. Holds no rules. A socket that joins is put in the Socket.IO room named after its Room ID,
  * and a Room's updates go only to that Socket.IO room, never to every socket on the server. Never
  * broadcast a snapshot to a whole Room, because what a Participant may see depends on who they
- * are. Reactions, Throws and Deck changes hold no Votes, so they are broadcast within the Room.
+ * are. Reactions, Throws, Deck changes and Auto Reveal changes hold no Votes, so they are broadcast within the Room.
  */
 export function attachRooms(io: RoomServer, rooms: Rooms): void {
   /** The sockets that have joined this Room as a Participant. */
@@ -61,6 +61,9 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     room.subscribeToFun((event) => io.to(channelOf(roomId)).emit("fun", event));
     room.subscribeToDeckChanges((by) =>
       io.to(channelOf(roomId)).emit("deckChanged", by),
+    );
+    room.subscribeToAutoRevealChanges((by, on) =>
+      io.to(channelOf(roomId)).emit("autoRevealChanged", by, on),
     );
   });
 
@@ -130,6 +133,10 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     socket.on("setDeck", (cards) => {
       if (!Array.isArray(cards)) return;
       act("setDeck", (room, id) => room.setDeck(id, cards));
+    });
+    socket.on("setAutoReveal", (on) => {
+      if (typeof on !== "boolean") return;
+      act("setAutoReveal", (room, id) => room.setAutoReveal(id, on));
     });
     socket.on("becomeVoter", () =>
       act("becomeVoter", (room, id) => room.becomeVoter(id)),

@@ -2,7 +2,7 @@
  * What this browser has sent and the server hasn't answered yet.
  *
  * A Vote or a role change affects only the person clicking, so it is shown before the server
- * confirms it. Reveal, New Round, a new Deck and claiming the Facilitator role change everyone's
+ * confirms it. Reveal, New Round, a new Deck, Auto Reveal and claiming the Facilitator role change everyone's
  * screen, so they are never shown early: they only mark their buttons busy. Each pending thing stays until a snapshot confirms it,
  * the server refuses it, or it stops making sense. A snapshot that merely predates it, such as one
  * caused by someone else's Vote, doesn't drop it, so it never flashes back.
@@ -47,6 +47,7 @@ export const PENDING_COMMANDS = [
   "reveal",
   "newRound",
   "setDeck",
+  "setAutoReveal",
   "claimFacilitator",
 ] as const;
 
@@ -56,18 +57,27 @@ export function isPendingCommand(
   return (PENDING_COMMANDS as readonly string[]).includes(command);
 }
 
-export interface PendingCommand {
-  command: (typeof PENDING_COMMANDS)[number];
-  /**
-   * The Round it was sent in. Each command is answered once that Round is over: a New Round, and a
-   * changed Deck, start the next one.
-   */
-  fromRound: number;
-}
+export type PendingCommand =
+  | {
+      command: Exclude<(typeof PENDING_COMMANDS)[number], "setAutoReveal">;
+      /**
+       * The Round it was sent in. Each command is answered once that Round is over: a New Round,
+       * and a changed Deck, start the next one.
+       */
+      fromRound: number;
+    }
+  | {
+      command: "setAutoReveal";
+      /** As above: a Round that ends first drops it, and the next snapshot shows the setting. */
+      fromRound: number;
+      /** The setting asked for. */
+      on: boolean;
+    };
 
 /**
  * Drops the pending command once the snapshot shows its effect. A claim is answered once anyone is
- * the Facilitator: if it wasn't you, the server's refusal says so.
+ * the Facilitator: if it wasn't you, the server's refusal says so. An Auto Reveal change is
+ * answered once the Room has the setting asked for.
  */
 export function settlePendingCommand(
   pending: PendingCommand | null,
@@ -76,6 +86,8 @@ export function settlePendingCommand(
   if (!pending || snapshot.round !== pending.fromRound) return null;
   if (pending.command === "reveal" && snapshot.revealed) return null;
   if (pending.command === "claimFacilitator" && snapshot.hasFacilitator)
+    return null;
+  if (pending.command === "setAutoReveal" && snapshot.autoReveal === pending.on)
     return null;
   return pending;
 }

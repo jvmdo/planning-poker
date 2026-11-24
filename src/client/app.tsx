@@ -49,6 +49,7 @@ export function App({
     reveal,
     newRound,
     setDeck,
+    setAutoReveal,
     becomeVoter,
     becomeObserver,
     handOver,
@@ -137,9 +138,9 @@ export function App({
           snapshot={snapshot}
           isFacilitator={me.isFacilitator}
           reconnecting={reconnecting}
-          onReveal={reveal}
           onNewRound={newRound}
           onSetDeck={setDeck}
+          onSetAutoReveal={setAutoReveal}
           onClaimFacilitator={claimFacilitator}
           pendingCommand={pendingCommand}
         />
@@ -148,6 +149,11 @@ export function App({
             snapshot={snapshot}
             round={round}
             myId={identity.id}
+            isFacilitator={me.isFacilitator}
+            locked={reconnecting || pendingCommand !== null}
+            pendingCommand={pendingCommand}
+            onReveal={reveal}
+            onNewRound={newRound}
             onReact={react}
             onThrow={throwAt}
           />

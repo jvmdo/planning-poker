@@ -140,6 +140,10 @@ export function useRoom(
       // The Facilitator knows: they changed it.
       if (by !== identity.id) showNotice("The Facilitator changed the Deck.");
     }
+    function onAutoRevealChanged(by: ParticipantId, on: boolean) {
+      if (by !== identity.id)
+        showNotice(`The Facilitator turned Auto Reveal ${on ? "on" : "off"}.`);
+    }
     function onRejected(rejection: Rejection) {
       if (rejection.command === "vote") setPendingVote(null);
       if (
@@ -163,6 +167,7 @@ export function useRoom(
     socket.on("snapshot", onSnapshot);
     socket.on("rejected", onRejected);
     socket.on("deckChanged", onDeckChanged);
+    socket.on("autoRevealChanged", onAutoRevealChanged);
     socket.on("left", resetToJoinScreen);
     if (roomId !== null) connectTo(roomId);
     return () => {
@@ -171,6 +176,7 @@ export function useRoom(
       socket.off("snapshot", onSnapshot);
       socket.off("rejected", onRejected);
       socket.off("deckChanged", onDeckChanged);
+      socket.off("autoRevealChanged", onAutoRevealChanged);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
@@ -202,7 +208,9 @@ export function useRoom(
   }
 
   /** Marks the command pending in this Round, or says it can't be sent. */
-  function startCommand(command: PendingCommand["command"]) {
+  function startCommand(
+    command: Exclude<PendingCommand["command"], "setAutoReveal">,
+  ) {
     if (!snapshot || !canSend()) return false;
     setPendingCommand({ command, fromRound: snapshot.round });
     return true;
@@ -218,6 +226,16 @@ export function useRoom(
 
   function setDeck(deck: Deck) {
     if (startCommand("setDeck")) socket.emit("setDeck", [...deck]);
+  }
+
+  function setAutoReveal(on: boolean) {
+    if (!snapshot || !canSend()) return;
+    setPendingCommand({
+      command: "setAutoReveal",
+      fromRound: snapshot.round,
+      on,
+    });
+    socket.emit("setAutoReveal", on);
   }
 
   function becomeVoter() {
@@ -291,7 +309,7 @@ export function useRoom(
     notice: notice?.text ?? null,
     /** Shows a notice of the page's own in the toast, for `ms` milliseconds. */
     showNotice,
-    /** Reveal, New Round or a new Deck, sent and not yet answered by the server. */
+    /** Reveal, New Round, a new Deck or Auto Reveal, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,
     name,
@@ -302,6 +320,7 @@ export function useRoom(
     reveal,
     newRound,
     setDeck,
+    setAutoReveal,
     becomeVoter,
     becomeObserver,
     handOver,

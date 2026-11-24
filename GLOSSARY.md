@@ -11,7 +11,7 @@ Anyone currently in a Room, identified by a display name they chose, unique with
 _Avoid_: User, player, member
 
 **Facilitator**:
-The one Participant who runs the Room: the only one who can Reveal, start a new Round and change the Deck.
+The one Participant who runs the Room: the only one who can Reveal, turn Auto Reveal on or off, start a new Round and change the Deck.
 _Avoid_: Moderator, host, Scrum Master, admin
 
 **Voter**:
@@ -61,8 +61,12 @@ The Card a Voter has played in the current Round, hidden from others until the R
 _Avoid_: Bid, pick
 
 **Reveal**:
-The moment the Facilitator turns every Vote face-up at once, ending voting for the Round.
+The moment every Vote turns face-up at once, ending voting for the Round. The Facilitator Reveals, or Auto Reveal does it for them.
 _Avoid_: Flip, show
+
+**Auto Reveal**:
+A Room setting under which the Round Reveals itself a few seconds after every Voter has voted, counting Voters who are away but still in the Room. A Voter joining in those seconds stops it, and it waits while the Room has no Facilitator. Rooms start with it on.
+_Avoid_: Automatic reveal, instant reveal
 
 **Result**:
 The mean of the Votes cast in a Round, revealed with them. Voters who did not vote do not count.

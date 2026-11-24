@@ -2,7 +2,7 @@ import { Copy, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
 import type { RoomId, RoomSnapshot } from "../shared/protocol";
 import { shortRoomId } from "./lib/page-room";
-import { DeckDialog } from "./deck-dialog";
+import { RoomSettings } from "./room-settings";
 import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,8 @@ const ROOM_ID_SHOWN = 16;
 
 /**
  * The Room ID with a button that copies its Share link, where the Round stands, who we're waiting
- * on, and the Facilitator's controls: Reveal, New Round and the Deck. While the Room has no
+ * on, the Room settings for everyone, and the Facilitator's New Round while voting (the Table has
+ * Reveal, and New Round after the Reveal). While the Room has no
  * Facilitator it says so, and offers everyone "Become Facilitator" where those controls would be:
  * the first click wins. While the connection is down it says so instead, and the buttons wait for
  * the Room's snapshot after rejoining, since nothing they send would arrive.
@@ -25,9 +26,9 @@ export function RoundPanel({
   snapshot,
   isFacilitator,
   reconnecting,
-  onReveal,
   onNewRound,
   onSetDeck,
+  onSetAutoReveal,
   onClaimFacilitator,
   pendingCommand,
 }: {
@@ -39,15 +40,14 @@ export function RoundPanel({
   reconnecting: boolean;
   /** Sent and not yet answered by the server: every button waits until it is. */
   pendingCommand: PendingCommand["command"] | null;
-  onReveal: () => void;
   onNewRound: () => void;
   onSetDeck: (deck: Deck) => void;
+  onSetAutoReveal: (on: boolean) => void;
   onClaimFacilitator: () => void;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
   const waiting = voters.filter((p) => !p.hasVoted);
-  const anyVotes = played > 0;
   const progress = voters.length ? (played / voters.length) * 100 : 0;
   const locked = reconnecting || pendingCommand !== null;
   const status = reconnecting
@@ -100,29 +100,18 @@ export function RoundPanel({
             {status}
           </p>
         </div>
-        {!snapshot.hasFacilitator && (
-          <Button
-            className="ml-auto"
-            onClick={onClaimFacilitator}
-            disabled={locked}
-            aria-busy={pendingCommand === "claimFacilitator"}
-          >
-            {pendingCommand === "claimFacilitator" && <Waiting />}
-            Become Facilitator
-          </Button>
-        )}
-        {isFacilitator && (
-          <div className="ml-auto flex gap-2">
-            {!snapshot.revealed && (
-              <Button
-                onClick={onReveal}
-                disabled={!anyVotes || locked}
-                aria-busy={pendingCommand === "reveal"}
-              >
-                {pendingCommand === "reveal" && <Waiting />}
-                Reveal
-              </Button>
-            )}
+        <div className="ml-auto flex items-center gap-2">
+          {!snapshot.hasFacilitator && (
+            <Button
+              onClick={onClaimFacilitator}
+              disabled={locked}
+              aria-busy={pendingCommand === "claimFacilitator"}
+            >
+              {pendingCommand === "claimFacilitator" && <Waiting />}
+              Become Facilitator
+            </Button>
+          )}
+          {isFacilitator && !snapshot.revealed && (
             <Button
               variant="outline"
               onClick={onNewRound}
@@ -132,15 +121,16 @@ export function RoundPanel({
               {pendingCommand === "newRound" && <Waiting />}
               New Round
             </Button>
-            <DeckDialog
-              deck={snapshot.deck}
-              votesCast={snapshot.participants.filter((p) => p.hasVoted).length}
-              disabled={locked}
-              busy={pendingCommand === "setDeck"}
-              onApply={onSetDeck}
-            />
-          </div>
-        )}
+          )}
+          <RoomSettings
+            snapshot={snapshot}
+            isFacilitator={isFacilitator}
+            locked={locked}
+            pendingCommand={pendingCommand}
+            onSetAutoReveal={onSetAutoReveal}
+            onSetDeck={onSetDeck}
+          />
+        </div>
       </div>
       <div
         role="progressbar"

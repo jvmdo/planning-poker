@@ -673,6 +673,7 @@ describe("disconnects and the grace period", () => {
     const room = createRoom();
     room.join("ana-id", "Ana");
     room.join("bruno-id", "Bruno");
+    room.setAutoReveal("ana-id", false);
     room.vote("ana-id", 2);
     room.vote("bruno-id", 8);
     room.disconnect("bruno-id");
@@ -697,6 +698,7 @@ describe("disconnects and the grace period", () => {
       const room = createRoom();
       room.join("ana-id", "Ana");
       room.join("bruno-id", "Bruno");
+      room.setAutoReveal("ana-id", false);
       room.vote("ana-id", 2);
       room.vote("bruno-id", 8);
       room.disconnect("bruno-id");
@@ -1568,5 +1570,207 @@ describe("an empty Room", () => {
 
     vi.advanceTimersByTime(1);
     expect(room.isEmpty()).toBe(true);
+  });
+});
+
+describe("Auto Reveal", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is on in a new Room, and Reveals the Round 3 seconds after every Voter has voted", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    expect(room.snapshotFor("bruno-id").autoReveal).toBe(true);
+
+    room.vote("ana-id", 8);
+    room.vote("bruno-id", 16);
+    vi.advanceTimersByTime(2_999);
+    expect(room.snapshotFor("bruno-id").revealed).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      revealed: true,
+      result: 12,
+    });
+  });
+
+  it("is turned off and on by the Facilitator alone, for everyone, telling everyone who did it", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    const onAutoReveal = vi.fn();
+    room.subscribeToAutoRevealChanges(onAutoReveal);
+
+    expect(room.setAutoReveal("bruno-id", false)).toEqual({
+      ok: false,
+      reason: "not-facilitator",
+    });
+    expect(room.setAutoReveal("ana-id", false)).toEqual({ ok: true });
+    expect(room.snapshotFor("bruno-id").autoReveal).toBe(false);
+    expect(room.setAutoReveal("ana-id", false)).toEqual({
+      ok: false,
+      reason: "auto-reveal-unchanged",
+    });
+    expect(room.setAutoReveal("ana-id", true)).toEqual({ ok: true });
+    expect(room.snapshotFor("bruno-id").autoReveal).toBe(true);
+
+    expect(onAutoReveal.mock.calls).toEqual([
+      ["ana-id", false],
+      ["ana-id", true],
+    ]);
+  });
+
+  it("while off, leaves the Round unrevealed after every Voter has voted", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setAutoReveal("ana-id", false);
+
+    room.vote("ana-id", 8);
+    vi.advanceTimersByTime(60_000);
+
+    expect(room.snapshotFor("ana-id").revealed).toBe(false);
+  });
+
+  it("shows everyone the countdown, which a Voter joining stops", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.vote("ana-id", 8);
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+
+    room.vote("bruno-id", 16);
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    vi.advanceTimersByTime(2_000);
+    room.join("carla-id", "Carla");
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+    vi.advanceTimersByTime(60_000);
+    expect(room.snapshotFor("bruno-id").revealed).toBe(false);
+
+    room.vote("carla-id", 4);
+    vi.advanceTimersByTime(3_000);
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      revealed: true,
+      revealCountdown: false,
+    });
+  });
+
+  it("waits while the Room has no Facilitator, and counts down once someone takes the role", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.disconnect("ana-id");
+    vi.advanceTimersByTime(30_000);
+
+    room.vote("bruno-id", 8);
+    room.vote("carla-id", 16);
+    vi.advanceTimersByTime(60_000);
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      revealed: false,
+      revealCountdown: false,
+    });
+
+    room.claimFacilitator("carla-id");
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    vi.advanceTimersByTime(3_000);
+    expect(room.snapshotFor("bruno-id").revealed).toBe(true);
+  });
+
+  it("waits for a Voter who is away until their grace period runs out", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("carla-id", "Carla");
+    room.disconnect("carla-id");
+    room.vote("ana-id", 8);
+    room.vote("bruno-id", 16);
+
+    vi.advanceTimersByTime(29_999);
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    vi.advanceTimersByTime(3_000);
+    expect(room.snapshotFor("bruno-id")).toMatchObject({
+      revealed: true,
+      result: 12,
+    });
+  });
+
+  it("starts counting down when turned on after every Voter has voted, and stops when turned off", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setAutoReveal("ana-id", false);
+    room.vote("ana-id", 8);
+
+    room.setAutoReveal("ana-id", true);
+    expect(room.snapshotFor("ana-id").revealCountdown).toBe(true);
+    vi.advanceTimersByTime(2_000);
+    room.setAutoReveal("ana-id", false);
+    expect(room.snapshotFor("ana-id").revealCountdown).toBe(false);
+
+    vi.advanceTimersByTime(60_000);
+    expect(room.snapshotFor("ana-id").revealed).toBe(false);
+  });
+
+  it("keeps counting down when a Voter changes their Vote, and Reveals the new one", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+
+    vi.advanceTimersByTime(2_000);
+    room.vote("ana-id", 16);
+    vi.advanceTimersByTime(1_000);
+
+    expect(room.snapshotFor("ana-id")).toMatchObject({
+      revealed: true,
+      result: 16,
+    });
+  });
+
+  it("is cut short by the Facilitator's Reveal, which happens once", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+
+    expect(room.reveal("ana-id")).toEqual({ ok: true });
+    expect(room.snapshotFor("ana-id")).toMatchObject({
+      revealed: true,
+      revealCountdown: false,
+    });
+    vi.advanceTimersByTime(60_000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("is stopped by a New Round, which then waits for the new Votes", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.vote("ana-id", 8);
+
+    room.newRound("ana-id");
+    vi.advanceTimersByTime(60_000);
+
+    expect(room.snapshotFor("ana-id")).toMatchObject({
+      revealed: false,
+      revealCountdown: false,
+    });
+  });
+
+  it("stays as the Facilitator set it when everyone leaves", () => {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.setAutoReveal("ana-id", false);
+    room.leave("ana-id");
+
+    room.join("bruno-id", "Bruno");
+
+    expect(room.snapshotFor("bruno-id").autoReveal).toBe(false);
   });
 });

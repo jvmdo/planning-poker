@@ -1,7 +1,8 @@
-import type {
-  ParticipantId,
-  ParticipantView,
-  RoomSnapshot,
+import {
+  AUTO_REVEAL_DELAY_MS,
+  type ParticipantId,
+  type ParticipantView,
+  type RoomSnapshot,
 } from "../shared/protocol";
 import {
   REACTIONS,
@@ -15,22 +16,37 @@ import { floatReaction, flyThrow } from "./lib/fun-animations";
 import type { RoundReading } from "./lib/vote-marks";
 import { TableSeat, type DeckItem } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
+import type { PendingCommand } from "./pending";
+import { Waiting as Spinner } from "./waiting";
+import { Button } from "@/components/ui/button";
 
 /**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
- * bottom nearest your hand. Its centre shows who we're waiting on, then the Result. Your own Card
+ * bottom nearest your hand. Its centre shows who we're waiting on and Auto Reveal's countdown, then
+ * the Result; the Facilitator gets Reveal there while voting, and New Round after. Your own Card
  * opens a deck of Reactions; anyone else's, a deck of things to Throw at them.
  */
 export function RoomTable({
   snapshot,
   round,
   myId,
+  isFacilitator,
+  locked,
+  pendingCommand,
+  onReveal,
+  onNewRound,
   onReact,
   onThrow,
 }: {
   snapshot: RoomSnapshot;
   round: RoundReading;
   myId: ParticipantId;
+  isFacilitator: boolean;
+  /** Something is waiting on the server, or the connection is down: nothing can be sent. */
+  locked: boolean;
+  pendingCommand: PendingCommand["command"] | null;
+  onReveal: () => void;
+  onNewRound: () => void;
   /** Both say false when nothing was sent, because the burst is used up. True plays it at once. */
   onReact: (reaction: Reaction) => boolean;
   onThrow: (to: ParticipantId, item: Throwable) => boolean;
@@ -106,9 +122,36 @@ export function RoomTable({
       <div className="border-ink relative h-full rounded-[50%] border-4 bg-[color-mix(in_oklch,var(--pop-3)_22%,var(--background))] shadow-[8px_8px_0_var(--ink)]">
         <div className="absolute inset-[12%_14%] grid place-items-center">
           {snapshot.revealed ? (
-            <Result result={snapshot.result} />
+            <div className="flex flex-col items-center gap-3">
+              <Result result={snapshot.result} />
+              {isFacilitator && (
+                <Button
+                  onClick={onNewRound}
+                  disabled={locked}
+                  aria-busy={pendingCommand === "newRound"}
+                >
+                  {pendingCommand === "newRound" && <Spinner />}
+                  New Round
+                </Button>
+              )}
+            </div>
           ) : (
-            <Waiting voters={voters} />
+            <div className="flex flex-col items-center gap-3">
+              <Waiting
+                voters={voters}
+                countingDown={snapshot.revealCountdown}
+              />
+              {isFacilitator && (
+                <Button
+                  onClick={onReveal}
+                  disabled={locked || !voters.some((p) => p.hasVoted)}
+                  aria-busy={pendingCommand === "reveal"}
+                >
+                  {pendingCommand === "reveal" && <Spinner />}
+                  Reveal
+                </Button>
+              )}
+            </div>
           )}
         </div>
         <ul aria-label="Voters">
@@ -170,9 +213,38 @@ export function RoomTable({
   );
 }
 
-function Waiting({ voters }: { voters: ParticipantView[] }) {
+/**
+ * The seconds left in Auto Reveal's countdown, counted by this browser from when it saw the
+ * countdown start, so clocks needn't agree. Null while there's no countdown.
+ */
+function useSecondsLeft(countingDown: boolean): number | null {
+  const full = AUTO_REVEAL_DELAY_MS / 1000;
+  const [secondsLeft, setSecondsLeft] = useState(full);
+  useEffect(() => {
+    if (!countingDown) return;
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const left = AUTO_REVEAL_DELAY_MS - (Date.now() - start);
+      setSecondsLeft(Math.max(1, Math.ceil(left / 1000)));
+    }, 200);
+    return () => {
+      clearInterval(timer);
+      setSecondsLeft(full);
+    };
+  }, [countingDown, full]);
+  return countingDown ? secondsLeft : null;
+}
+
+function Waiting({
+  voters,
+  countingDown,
+}: {
+  voters: ParticipantView[];
+  countingDown: boolean;
+}) {
   const played = voters.filter((p) => p.hasVoted).length;
   const waiting = voters.filter((p) => !p.hasVoted);
+  const secondsLeft = useSecondsLeft(countingDown);
   return (
     <div className="text-center">
       <p className="font-display text-[clamp(2.5rem,5vw,5rem)] leading-none font-semibold tabular-nums">
@@ -183,9 +255,11 @@ function Waiting({ voters }: { voters: ParticipantView[] }) {
       <p className="text-muted-foreground mt-2 text-sm">
         {voters.length === 0
           ? "No Voters at the table yet."
-          : waiting.length === 0
-            ? "Everyone has played. Ready to Reveal."
-            : `Waiting on ${waiting.map((p) => p.name).join(", ")}`}
+          : secondsLeft !== null
+            ? `Everyone has played. Revealing in ${secondsLeft}…`
+            : waiting.length === 0
+              ? "Everyone has played. Ready to Reveal."
+              : `Waiting on ${waiting.map((p) => p.name).join(", ")}`}
       </p>
     </div>
   );
