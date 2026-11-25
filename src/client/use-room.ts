@@ -48,8 +48,8 @@ import {
 /** How long a notice stays on screen, unless it asks for longer. */
 const NOTICE_MS = 4000;
 
-/** A notice in the toast, and how long it stays. */
-type Notice = { text: string; ms: number };
+/** A notice in the toast, how long it stays, and what screen readers hear of it (null: nothing). */
+type Notice = { text: string; ms: number; spoken: string | null };
 
 /**
  * Commands the UI offers can still be refused when the Room changed a moment earlier. These are
@@ -121,8 +121,24 @@ export function useRoom(
   /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
   const joinedFromJoinScreen = useRef(false);
 
-  const showNotice = useCallback((text: string | null, ms = NOTICE_MS) => {
-    setNotice(text === null ? null : { text, ms });
+  const showNotice = useCallback(
+    (
+      text: string | null,
+      { ms = NOTICE_MS, quiet = false }: { ms?: number; quiet?: boolean } = {},
+    ) => {
+      setNotice(
+        text === null ? null : { text, ms, spoken: quiet ? null : text },
+      );
+    },
+    [],
+  );
+
+  const speakNotice = useCallback((text: string) => {
+    setNotice((shown) =>
+      shown?.text === text && shown.spoken === null
+        ? { ...shown, spoken: text }
+        : shown,
+    );
   }, []);
 
   /**
@@ -469,8 +485,16 @@ export function useRoom(
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
     notice: notice?.text ?? null,
-    /** Shows a notice of the page's own in the toast, for `ms` milliseconds. */
+    /** What screen readers hear of the notice: the same text, unless it's still quiet. */
+    spokenNotice: notice?.spoken ?? null,
+    /**
+     * Shows a notice of the page's own in the toast, for `ms` milliseconds. Screen readers hear it
+     * at once, unless it's `quiet`: one that will change in place, to be read out with speakNotice
+     * once it settles.
+     */
     showNotice,
+    /** Reads out the quiet notice in the toast, if it still says `text`, and keeps it up a while. */
+    speakNotice,
     /** Reveal, New Round, a new Deck or Auto Reveal, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,

@@ -154,7 +154,8 @@ html.nudged {
   overflow: clip;
 }
 html.nudged #root {
-  animation: nudge-shake 500ms linear;
+  /* How far, how fast and how often are set by the page for each Nudge's level. */
+  animation: nudge-shake var(--nudge-cycle) linear var(--nudge-cycles);
 }
 @keyframes nudge-shake {
   0%,
@@ -162,25 +163,25 @@ html.nudged #root {
     translate: 0 0;
   }
   12% {
-    translate: -5px 2px;
+    translate: calc(var(--nudge-px) * -1) calc(var(--nudge-px) * 0.4);
   }
   25% {
-    translate: 5px -2px;
+    translate: var(--nudge-px) calc(var(--nudge-px) * -0.4);
   }
   37% {
-    translate: -4px -1px;
+    translate: calc(var(--nudge-px) * -0.8) calc(var(--nudge-px) * -0.2);
   }
   50% {
-    translate: 4px 2px;
+    translate: calc(var(--nudge-px) * 0.8) calc(var(--nudge-px) * 0.4);
   }
   62% {
-    translate: -3px 1px;
+    translate: calc(var(--nudge-px) * -0.6) calc(var(--nudge-px) * 0.2);
   }
   75% {
-    translate: 3px -1px;
+    translate: calc(var(--nudge-px) * 0.6) calc(var(--nudge-px) * -0.2);
   }
   87% {
-    translate: -1px 0;
+    translate: calc(var(--nudge-px) * -0.2) 0;
   }
 }
 

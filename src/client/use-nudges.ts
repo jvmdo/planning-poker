@@ -1,63 +1,88 @@
-import { useEffect } from "react";
-import type { FunEvent } from "../shared/fun";
+import { useEffect, useRef } from "react";
 import type { ParticipantId, RoomSnapshot } from "../shared/protocol";
+import {
+  addNudge,
+  burstNotice,
+  SHAKE_CYCLE_MS,
+  shakeOf,
+  type NudgeBurst,
+  type Shake,
+} from "./lib/nudge-burst";
 import { useFunEvents } from "./use-fun-events";
 
 /** The class on the page's root element that shakes the whole page (see index.css). */
 const SHAKING = "nudged";
-/** How long the shake lasts, as the animation in index.css. */
-const SHAKE_MS = 500;
 
 /**
  * Every Nudge in the Room: a toast for everyone saying who Nudged whom, and, when you're the
- * Holdout, your whole page shakes for a moment. The shake stops at once when your Vote lands or
- * the Round is Revealed. Input keeps working throughout, since only the page's look moves.
+ * Holdout, your whole page shakes, harder at higher levels. A Nudge that arrives while one is still
+ * playing joins it as one burst: the shake restarts at the burst's level, and the toast changes in
+ * place and is read out once, when the burst is over. A new Round starts a new burst. The shake stops at once when your Vote lands
+ * or the Round is Revealed. Input keeps working throughout, since only the page's look moves.
  */
 export function useNudges(
   snapshot: RoomSnapshot | null,
   myId: ParticipantId,
-  showNotice: (text: string) => void,
+  showNotice: (text: string, options: { quiet: true }) => void,
+  speakNotice: (text: string) => void,
 ) {
   const doneWaiting =
     snapshot === null || snapshot.revealed || snapshot.myVote !== null;
+  /** The burst playing in this browser, until its shake would end. */
+  const burst = useRef<NudgeBurst | null>(null);
+  const burstTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** The Round the burst is in. */
+  const burstRound = useRef<number | null>(null);
 
   useFunEvents((event) => {
     if (event.kind !== "nudge" || !snapshot) return;
-    const nameOf = (id: ParticipantId) =>
-      snapshot.participants.find((p) => p.id === id)?.name ?? "Someone";
-    showNotice(nudgeNotice(event, myId, nameOf));
-    if (event.to === myId && !doneWaiting) shake();
+    const sameRound = burstRound.current === snapshot.round;
+    const next = addNudge(sameRound ? burst.current : null, event);
+    burstRound.current = snapshot.round;
+    burst.current = next;
+    const text = burstNotice(
+      next,
+      myId,
+      (id) => snapshot.participants.find((p) => p.id === id)?.name ?? "Someone",
+    );
+    const shake = shakeOf(next.level);
+    showNotice(text, { quiet: true });
+    clearTimeout(burstTimer.current);
+    burstTimer.current = setTimeout(() => {
+      burst.current = null;
+      speakNotice(text);
+    }, shake.ms);
+    if (event.to === myId && !doneWaiting) startShaking(shake);
   });
 
   useEffect(() => {
     if (doneWaiting) stopShaking();
   }, [doneWaiting]);
 
-  // A page left while shaking stops.
-  useEffect(() => stopShaking, []);
-}
-
-function nudgeNotice(
-  event: Extract<FunEvent, { kind: "nudge" }>,
-  myId: ParticipantId,
-  nameOf: (id: ParticipantId) => string,
-): string {
-  if (event.to === myId) return `${nameOf(event.from)} sent you a Nudge!`;
-  if (event.from === myId) return `You Nudged ${nameOf(event.to)}`;
-  return `${nameOf(event.from)} Nudged ${nameOf(event.to)}`;
+  // A page left while a burst plays stops it.
+  useEffect(
+    () => () => {
+      clearTimeout(burstTimer.current);
+      stopShaking();
+    },
+    [],
+  );
 }
 
 let shakeTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Shakes the page from the start, even if it was already shaking. */
-function shake() {
+function startShaking({ ms, px }: Shake) {
   const root = document.documentElement;
   root.classList.remove(SHAKING);
+  root.style.setProperty("--nudge-px", `${px}px`);
+  root.style.setProperty("--nudge-cycle", `${SHAKE_CYCLE_MS}ms`);
+  root.style.setProperty("--nudge-cycles", String(ms / SHAKE_CYCLE_MS));
   // Reading the layout between the two restarts the animation.
   void root.offsetWidth;
   root.classList.add(SHAKING);
   clearTimeout(shakeTimer);
-  shakeTimer = setTimeout(stopShaking, SHAKE_MS);
+  shakeTimer = setTimeout(stopShaking, ms);
 }
 
 function stopShaking() {
