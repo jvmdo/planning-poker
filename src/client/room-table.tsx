@@ -57,6 +57,14 @@ export function RoomTable({
     ...voters.filter((p) => p.id !== myId),
   ];
   const observers = snapshot.participants.filter((p) => p.role === "observer");
+  const everyVoterVoted = voters.length > 0 && voters.every((p) => p.hasVoted);
+  /**
+   * Your own last Vote shows before the server's answer, and so does the countdown it starts, so
+   * "Ready to Reveal" never flashes in between.
+   */
+  const countingDown =
+    snapshot.countingDown ||
+    (snapshot.autoReveal && snapshot.hasFacilitator && everyVoterVoted);
   const [openSeat, setOpenSeat] = useState<ParticipantId | null>(null);
   const cards = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
@@ -137,7 +145,7 @@ export function RoomTable({
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <Waiting voters={voters} countingDown={snapshot.countingDown} />
+              <Waiting voters={voters} countingDown={countingDown} />
               {isFacilitator && (
                 <Button
                   onClick={onReveal}
