@@ -9,6 +9,7 @@ import type {
   LeaveRejectionReason,
   MoveGhostRejectionReason,
   NewRoundRejectionReason,
+  NudgeRejectionReason,
   ParticipantId,
   ParticipantRole,
   ReactRejectionReason,
@@ -32,6 +33,8 @@ import {
 import {
   isReaction,
   isThrowable,
+  NUDGE_COOLDOWN_MS,
+  NUDGE_TOP_LEVEL,
   spendBurst,
   type Burst,
   type FunEvent,
@@ -46,6 +49,7 @@ import {
   type GhostMove,
   type GhostView,
 } from "../shared/ghost.js";
+import { holdoutOf } from "../shared/holdout.js";
 import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
 
 /**
@@ -123,6 +127,15 @@ export interface Room {
     item: string,
   ): CommandResult<ThrowRejectionReason>;
   /**
+   * Nudges the Holdout `to`. Anyone else in the Room can, Observers too, but not at a Holdout who
+   * is away, and each sender only once every NUDGE_COOLDOWN_MS. It doesn't spend the Reactions and
+   * Throws burst.
+   */
+  nudge(
+    by: ParticipantId,
+    to: ParticipantId,
+  ): CommandResult<NudgeRejectionReason>;
+  /**
    * Brings out an Observer's Ghost at a free vent, picked by `roll`. Takes any value as the Skin and
    * the roll, since callers pass untrusted input; only listed fabrics and disguises are accepted,
    * and without a roll of the dice, 0 up to 1, the Room rolls its own.
@@ -156,8 +169,8 @@ export interface Room {
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
   /**
-   * Calls `listener` with every accepted Reaction and Throw. They change nothing in the Room, so
-   * they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
+   * Calls `listener` with every accepted Reaction, Throw and Nudge. They change nothing in the
+   * Room, so they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
    */
   subscribeToFun(listener: (event: FunEvent) => void): () => void;
   /**
@@ -215,6 +228,10 @@ export function createRoom(): Room {
   const funListeners = new Set<(event: FunEvent) => void>();
   /** Each Participant's Reactions and Throws left; shared between the two. */
   const bursts = new Map<ParticipantId, Burst>();
+  /** When each Participant last Nudged, for their cooldown. */
+  const lastNudges = new Map<ParticipantId, number>();
+  /** Everyone who has Nudged each Voter this Round, kept while the Holdout changes hands. */
+  const nudgers = new Map<ParticipantId, Set<ParticipantId>>();
   const deckListeners = new Set<(by: ParticipantId) => void>();
   const autoRevealListeners = new Set<
     (by: ParticipantId, on: boolean) => void
@@ -258,6 +275,7 @@ export function createRoom(): Room {
     setAside.clear();
     revealed = false;
     round += 1;
+    nudgers.clear();
   }
 
   function setRole(
@@ -285,8 +303,24 @@ export function createRoom(): Room {
     const burst = spendBurst(bursts.get(id), Date.now());
     if (!burst) return { ok: false, reason: "burst-used-up" };
     bursts.set(id, burst);
-    for (const listener of funListeners) listener(event);
+    emitFun(event);
     return { ok: true };
+  }
+
+  function emitFun(event: FunEvent) {
+    for (const listener of funListeners) listener(event);
+  }
+
+  /** The Holdout, if there is one, counting Voters away in their grace period. */
+  function holdout() {
+    return holdoutOf(
+      [...participants.values()].map((p) => ({
+        id: p.id,
+        role: p.role,
+        hasVoted: votes.has(p.id),
+      })),
+      revealed,
+    );
   }
 
   /** `keepVote` sets their Vote aside for the rest of the Round, in case they come back. */
@@ -295,6 +329,7 @@ export function createRoom(): Room {
     graceTimers.delete(id);
     participants.delete(id);
     bursts.delete(id);
+    lastNudges.delete(id);
     moveBursts.delete(id);
     const vote = votes.get(id);
     if (keepVote && vote !== undefined) setAside.set(id, vote);
@@ -470,6 +505,26 @@ export function createRoom(): Room {
       }
       if (!isThrowable(item)) return { ok: false, reason: "not-throwable" };
       return sendFun(by, { kind: "throw", from: by, to, item });
+    },
+
+    nudge(by, to) {
+      if (!participants.has(by)) return { ok: false, reason: "not-in-room" };
+      if (to === by) return { ok: false, reason: "cannot-nudge-yourself" };
+      if (to !== holdout()) return { ok: false, reason: "not-the-holdout" };
+      if (participants.get(to)?.connections === 0) {
+        return { ok: false, reason: "holdout-away" };
+      }
+      const now = Date.now();
+      const last = lastNudges.get(by);
+      if (last !== undefined && now - last < NUDGE_COOLDOWN_MS) {
+        return { ok: false, reason: "nudge-cooling-down" };
+      }
+      lastNudges.set(by, now);
+      const senders = nudgers.get(to) ?? new Set<ParticipantId>();
+      nudgers.set(to, senders.add(by));
+      const level = Math.min(senders.size, NUDGE_TOP_LEVEL);
+      emitFun({ kind: "nudge", from: by, to, level });
+      return { ok: true };
     },
 
     summonGhost(id, skin, roll) {

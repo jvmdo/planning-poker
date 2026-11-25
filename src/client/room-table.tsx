@@ -122,6 +122,8 @@ export function RoomTable({
 
   /** Animates a Reaction or Throw. One whose sender or target has left the table is skipped. */
   function play(event: FunEvent) {
+    // A Nudge only shakes the Holdout's own screen, for now.
+    if (event.kind === "nudge") return;
     const from = placeOf(event.from);
     if (!from) return;
     if (event.kind === "reaction") {

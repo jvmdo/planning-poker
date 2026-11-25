@@ -79,6 +79,12 @@ export type ThrowRejectionReason =
   | "cannot-throw-at-observer"
   | "not-throwable"
   | "burst-used-up";
+export type NudgeRejectionReason =
+  | "not-in-room"
+  | "cannot-nudge-yourself"
+  | "not-the-holdout"
+  | "holdout-away"
+  | "nudge-cooling-down";
 export type SummonGhostRejectionReason =
   | "not-in-room"
   | "voter-cannot-have-ghost"
@@ -108,6 +114,7 @@ export type Rejection =
   | { command: "claimFacilitator"; reason: ClaimFacilitatorRejectionReason }
   | { command: "react"; reason: ReactRejectionReason }
   | { command: "throwAt"; reason: ThrowRejectionReason }
+  | { command: "nudge"; reason: NudgeRejectionReason }
   | { command: "summonGhost"; reason: SummonGhostRejectionReason }
   | { command: "dressGhost"; reason: DressGhostRejectionReason }
   | { command: "dismissGhost"; reason: DismissGhostRejectionReason }
@@ -131,6 +138,8 @@ export interface ClientToServerEvents {
   leave: () => void;
   react: (reaction: string) => void;
   throwAt: (to: ParticipantId, item: string) => void;
+  /** Nudges the Holdout `to`. */
+  nudge: (to: ParticipantId) => void;
   /**
    * The Skin and the roll that picks the Ghost's vent are untrusted input, checked by the Room. With
    * no roll, or one that isn't, the Room rolls its own.
@@ -148,7 +157,7 @@ export interface ServerToClientEvents {
   rejected: (rejection: Rejection) => void;
   /** This browser's Participant left the Room, from this tab or another one. */
   left: () => void;
-  /** A Reaction or Throw, sent to everyone. It holds no Votes, so it's broadcast. */
+  /** A Reaction, Throw or Nudge, sent to everyone. It holds no Votes, so it's broadcast. */
   fun: (event: FunEvent) => void;
   /** The Facilitator (`by`) changed the Deck, It holds no Votes, so it's broadcast. */
   deckChanged: (by: ParticipantId) => void;

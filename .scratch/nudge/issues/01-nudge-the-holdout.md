@@ -11,15 +11,21 @@ See the spec in this folder: user stories 1–9, 11–13 and 16–17, and the Sh
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
-- [ ] Shared: the Holdout rule as a pure function in `src/shared/`, with unit tests (nobody while two or more Voters haven't voted; nobody after everyone voted or the Reveal; Observers never count; an away Voter still counts).
-- [ ] Shared: the `nudge` fun event (with `level`), the `nudge(to)` command, its rejection reasons, and the cooldown and top-level constants in `src/shared/fun.ts`.
-- [ ] Room: `nudge(by, to)` with every rejection in the spec, a 5 s cooldown per sender, and no spending of the Reaction and Throw burst. The level is computed and sent from the start (distinct senders this Round, capped at 5), cleared in `discardRound`.
-- [ ] Room scenario tests with fake timers: each rejection, the cooldown boundary, independent cooldowns, Observers can Nudge, distinct-sender levels and the cap, the build-up surviving a Holdout change, and the reset on a new Round.
-- [ ] Socket adapter maps `nudge`, and rejections go to the sender only.
-- [ ] Nudge button on the waiting line, shown only when the Holdout rule names someone else who is connected, and greyed out for 5 s after use.
-- [ ] The Holdout's page shakes (a fixed small shake for now). Input keeps working, and the shake stops at once when their Vote lands or the Round is Revealed.
-- [ ] Toasts for the Holdout, the sender and everyone else, read out to screen readers.
-- [ ] The scenario script can leave one bot Voter as Holdout.
-- [ ] Checked in a browser with several Participants, including an Observer Nudging and a phone width.
+- [x] Shared: the Holdout rule as a pure function in `src/shared/`, with unit tests (nobody while two or more Voters haven't voted; nobody after everyone voted or the Reveal; Observers never count; an away Voter still counts).
+- [x] Shared: the `nudge` fun event (with `level`), the `nudge(to)` command, its rejection reasons, and the cooldown and top-level constants in `src/shared/fun.ts`.
+- [x] Room: `nudge(by, to)` with every rejection in the spec, a 5 s cooldown per sender, and no spending of the Reaction and Throw burst. The level is computed and sent from the start (distinct senders this Round, capped at 5), cleared in `discardRound`.
+- [x] Room scenario tests with fake timers: each rejection, the cooldown boundary, independent cooldowns, Observers can Nudge, distinct-sender levels and the cap, the build-up surviving a Holdout change, and the reset on a new Round.
+- [x] Socket adapter maps `nudge`, and rejections go to the sender only.
+- [x] Nudge button on the waiting line, shown only when the Holdout rule names someone else who is connected, and greyed out for 5 s after use.
+- [x] The Holdout's page shakes (a fixed small shake for now). Input keeps working, and the shake stops at once when their Vote lands or the Round is Revealed.
+- [x] Toasts for the Holdout, the sender and everyone else, read out to screen readers.
+- [x] The scenario script can leave one bot Voter as Holdout.
+- [x] Checked in a browser with several Participants, including an Observer Nudging and a phone width.
+
+## Comments
+
+- The "waiting on …" line now stays on one line, cut short with a tooltip if it must, so the Nudge button stays in the status bar. At phone width the bar was already crowded: the line wrapped out of it, and the button ended up under the Table where it couldn't be clicked.
+- A Nudge is refused with `cannot-nudge-yourself` when the sender is the target. A Holdout Nudging anyone else gets `not-the-holdout`, since that target isn't the Holdout.
+- The browser's cooldown restarts when the Room sends your Nudge back, so it never ends before the Room's own.

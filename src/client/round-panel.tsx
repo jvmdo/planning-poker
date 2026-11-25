@@ -1,7 +1,8 @@
 import { Copy, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
 import type { Skin } from "../shared/ghost";
-import type { RoomId, RoomSnapshot } from "../shared/protocol";
+import { holdoutOf } from "../shared/holdout";
+import type { ParticipantId, RoomId, RoomSnapshot } from "../shared/protocol";
 import { shortRoomId } from "./lib/page-room";
 import { GhostPicker } from "./ghost-picker";
 import { RoomSettings } from "./room-settings";
@@ -19,16 +20,20 @@ const ROOM_ID_SHOWN = 16;
  * on, the Room settings for everyone, and the Facilitator's New Round while voting (the Table has
  * Reveal, and New Round after the Reveal). While the Room has no Facilitator it says so, and offers
  * everyone "Become Facilitator" where those controls would be: the first click wins. An Observer
- * also gets a Ghost button, first among the Round's actions, which opens the Skin picker. While the
- * connection is down it says so instead, and the buttons wait for the Room's snapshot after
- * rejoining, since nothing they send would arrive.
+ * also gets a Ghost button, first among the Round's actions, which opens the Skin picker. When
+ * someone else is the Holdout and isn't away, the waiting line ends with a button to Nudge them,
+ * greyed out for a moment after you do. While the connection is down it says so instead, and the
+ * buttons wait for the Room's snapshot after rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
   roomId,
   onCopyLink,
   snapshot,
+  myId,
   isFacilitator,
   reconnecting,
+  onNudge,
+  nudgeCoolingDown,
   onNewRound,
   onSetDeck,
   onSetAutoReveal,
@@ -39,7 +44,11 @@ export function RoundPanel({
   roomId: RoomId;
   onCopyLink: () => void;
   snapshot: RoomSnapshot;
+  myId: ParticipantId;
   isFacilitator: boolean;
+  onNudge: (to: ParticipantId) => void;
+  /** You Nudged too recently to Nudge again. */
+  nudgeCoolingDown: boolean;
   /** Lost the connection, and not back in the Room yet. */
   reconnecting: boolean;
   /** Sent and not yet answered by the server: every button waits until it is. */
@@ -62,6 +71,15 @@ export function RoundPanel({
   const showClaim = !snapshot.hasFacilitator;
   const showNewRound = isFacilitator && !snapshot.revealed;
   const waiting = voters.filter((p) => !p.hasVoted);
+  const holdoutId = holdoutOf(snapshot.participants, snapshot.revealed);
+  const nudgeable = voters.find(
+    (p) => p.id === holdoutId && p.id !== myId && p.connected,
+  );
+  const progressLine =
+    `${played} of ${voters.length} Voters played` +
+    (!snapshot.revealed && waiting.length > 0
+      ? ` · waiting on ${waiting.map((p) => p.name).join(", ")}`
+      : "");
   const progress = voters.length ? (played / voters.length) * 100 : 0;
   const locked = reconnecting || pendingCommand !== null;
   const status = reconnecting
@@ -102,12 +120,25 @@ export function RoundPanel({
               {status}
             </p>
           ) : (
-            <p className="text-muted-foreground text-sm">
-              {played} of {voters.length} Voters played
-              {!snapshot.revealed && waiting.length > 0 && (
-                <> · waiting on {waiting.map((p) => p.name).join(", ")}</>
+            // The line stays on one line, cut short if it must, so the Nudge button stays in the bar.
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <p className="truncate" title={progressLine}>
+                {progressLine}
+              </p>
+              {nudgeable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNudge(nudgeable.id)}
+                  disabled={nudgeCoolingDown}
+                  aria-label={`Nudge ${nudgeable.name}`}
+                  title={`Nudge ${nudgeable.name}`}
+                  className="text-foreground h-6 shrink-0 px-2.5 text-xs shadow-none"
+                >
+                  Nudge
+                </Button>
               )}
-            </p>
+            </div>
           )}
           {/* Always mounted, so screen readers hear the message when it fills. */}
           <p role="status" className="sr-only">

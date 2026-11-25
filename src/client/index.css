@@ -146,6 +146,44 @@
   }
 }
 
+/*
+ * The Holdout's whole page shakes for a moment when they're Nudged. The page clips while it
+ * shakes, so no scrollbar flickers in at its edges.
+ */
+html.nudged {
+  overflow: clip;
+}
+html.nudged #root {
+  animation: nudge-shake 500ms linear;
+}
+@keyframes nudge-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  12% {
+    translate: -5px 2px;
+  }
+  25% {
+    translate: 5px -2px;
+  }
+  37% {
+    translate: -4px -1px;
+  }
+  50% {
+    translate: 4px 2px;
+  }
+  62% {
+    translate: -3px 1px;
+  }
+  75% {
+    translate: 3px -1px;
+  }
+  87% {
+    translate: -1px 0;
+  }
+}
+
 /* For things that should show only if a wait lasts: start at opacity 0 and add a delay. */
 @keyframes appear {
   to {

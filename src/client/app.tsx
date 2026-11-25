@@ -13,6 +13,7 @@ import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
 import { Sidebar } from "./sidebar";
+import { useNudges } from "./use-nudges";
 import { useRoom } from "./use-room";
 
 /** Longer Room IDs are cut short in the tab title. */
@@ -58,12 +59,15 @@ export function App({
     leave,
     react,
     throwAt,
+    nudge,
+    nudgeCoolingDown,
     wearSkin,
     dismissGhost,
     moveGhost,
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
+  useNudges(snapshot, identity.id, showNotice);
   /** The Table and the strip under it: where Ghosts walk. */
   const roomArea = useRef<HTMLDivElement>(null);
 
@@ -145,8 +149,11 @@ export function App({
           roomId={roomId}
           onCopyLink={() => void copyShareLink(roomId)}
           snapshot={snapshot}
+          myId={identity.id}
           isFacilitator={me.isFacilitator}
           reconnecting={reconnecting}
+          onNudge={nudge}
+          nudgeCoolingDown={nudgeCoolingDown}
           onNewRound={newRound}
           onSetDeck={setDeck}
           onSetAutoReveal={setAutoReveal}

@@ -9,8 +9,10 @@ import type {
 } from "../shared/protocol";
 import type { Card, Deck } from "../shared/deck";
 import {
+  NUDGE_COOLDOWN_MS,
   spendBurst,
   type Burst,
+  type FunEvent,
   type Reaction,
   type Throwable,
 } from "../shared/fun";
@@ -106,6 +108,12 @@ export function useRoom(
   const [pendingMove, setPendingMove] = useState<TablePoint | null>(null);
   /** This browser's count of the Reactions and Throws left; the server keeps the real one. */
   const burst = useRef<Burst | undefined>(undefined);
+  /**
+   * Set while you can't Nudge again, as this browser counts it, and bumped each time the wait
+   * restarts. It restarts when the Room sends your Nudge back, after the Room started its own
+   * wait, so this one never ends first.
+   */
+  const [nudgeWait, setNudgeWait] = useState<number | null>(null);
   /** This browser's count of Ghost moves left, on a budget of their own. */
   const moveBurst = useRef<Burst | undefined>(undefined);
   /** The remembered Ghost has been summoned since you last became an Observer here, joined or rejoined. */
@@ -193,12 +201,18 @@ export function useRoom(
           pending && pending.x === to.x && pending.y === to.y ? null : pending,
         );
     }
+    function onFun(event: FunEvent) {
+      if (event.kind === "nudge" && event.from === identity.id)
+        setNudgeWait((wait) => (wait === null ? null : wait + 1));
+    }
     function onRejected(rejection: Rejection) {
       // A refused move is no news to anyone: your Ghost just walks back to where the Room has it.
       if (rejection.command === "moveGhost") {
         setPendingMove(null);
         return;
       }
+      // A refused Nudge needs no notice: its button is already greyed out, or gone.
+      if (rejection.command === "nudge") return;
       if (rejection.command === "vote") setPendingVote(null);
       if (
         rejection.command === "summonGhost" ||
@@ -229,6 +243,7 @@ export function useRoom(
     socket.on("deckChanged", onDeckChanged);
     socket.on("autoRevealChanged", onAutoRevealChanged);
     socket.on("ghostMoved", onGhostMoved);
+    socket.on("fun", onFun);
     socket.on("left", resetToJoinScreen);
     if (roomId !== null) connectTo(roomId);
     return () => {
@@ -239,6 +254,7 @@ export function useRoom(
       socket.off("deckChanged", onDeckChanged);
       socket.off("autoRevealChanged", onAutoRevealChanged);
       socket.off("ghostMoved", onGhostMoved);
+      socket.off("fun", onFun);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
@@ -261,6 +277,12 @@ export function useRoom(
     socket.emit("summonGhost", summon, roll);
     setPendingGhost({ skin: summon, roll });
   }, [snapshot, rejoined, pendingGhost, identity.id]);
+
+  useEffect(() => {
+    if (nudgeWait === null) return;
+    const timer = setTimeout(() => setNudgeWait(null), NUDGE_COOLDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [nudgeWait]);
 
   useEffect(() => {
     if (notice === null) return;
@@ -377,6 +399,13 @@ export function useRoom(
     return true;
   }
 
+  /** Nudges the Holdout `to`, unless you Nudged too recently: the server would refuse it. */
+  function nudge(to: ParticipantId) {
+    if (!canSend() || nudgeWait !== null) return;
+    socket.emit("nudge", to);
+    setNudgeWait(0);
+  }
+
   /**
    * Brings out your Ghost in `skin`, as an Observer, or re-dresses it if it's out. Either shows at
    * once, before the server answers. This browser remembers it, in every Room, until it's put away.
@@ -461,6 +490,9 @@ export function useRoom(
     leave,
     react,
     throwAt,
+    nudge,
+    /** You Nudged too recently to Nudge again. */
+    nudgeCoolingDown: nudgeWait !== null,
     wearSkin,
     dismissGhost,
     moveGhost,

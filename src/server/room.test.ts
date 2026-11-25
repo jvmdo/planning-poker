@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_DECK } from "../shared/deck.js";
 import type { ParticipantView, RoomSnapshot } from "../shared/protocol.js";
 import { TABLE_REACH, VENTS } from "../shared/ghost.js";
-import { createRoom } from "./room.js";
+import { createRoom, type Room } from "./room.js";
 
 /** How a Participant appears in anyone's snapshot, unless the test says otherwise. */
 function participant(
@@ -1601,6 +1601,254 @@ describe("Reactions and Throws", () => {
     expect(fun).not.toHaveBeenCalled();
   });
 });
+describe("Nudges", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * Ana, Bruno and Caio are Voters, and Olga an Observer. Ana and Caio have voted, so Bruno is the
+   * Holdout. Everyone's snapshots so far, to compare.
+   */
+  function waitingOnBruno() {
+    const room = createRoom();
+    room.join("ana-id", "Ana");
+    room.join("bruno-id", "Bruno");
+    room.join("caio-id", "Caio");
+    room.join("olga-id", "Olga", "observer");
+    room.vote("ana-id", 8);
+    room.vote("caio-id", 8);
+    const fun = vi.fn();
+    room.subscribeToFun(fun);
+    const onChange = vi.fn();
+    room.subscribe(onChange);
+    const before = () =>
+      ["ana-id", "bruno-id", "caio-id", "olga-id"].map((id) =>
+        room.snapshotFor(id),
+      );
+    return { room, fun, onChange, snapshots: before(), before };
+  }
+
+  const nudge = (from: string, level: number) => [
+    { kind: "nudge", from, to: "bruno-id", level },
+  ];
+
+  it("sends a Nudge at the Holdout to everyone once, changing nothing in the Room", () => {
+    const { room, fun, onChange, snapshots, before } = waitingOnBruno();
+
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({ ok: true });
+
+    expect(fun.mock.calls).toEqual([nudge("ana-id", 1)]);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(before()).toEqual(snapshots);
+  });
+
+  it.each([
+    [
+      "from someone who isn't in the Room",
+      "stranger-id",
+      "bruno-id",
+      "not-in-room",
+    ],
+    [
+      "from the Holdout at themselves",
+      "bruno-id",
+      "bruno-id",
+      "cannot-nudge-yourself",
+    ],
+    ["at a Voter who has voted", "ana-id", "caio-id", "not-the-holdout"],
+    [
+      "from the Holdout at someone else",
+      "bruno-id",
+      "ana-id",
+      "not-the-holdout",
+    ],
+    ["at an Observer", "ana-id", "olga-id", "not-the-holdout"],
+    [
+      "at someone who isn't in the Room",
+      "ana-id",
+      "stranger-id",
+      "not-the-holdout",
+    ],
+  ] as const)(
+    "rejects a Nudge %s, sending nothing and leaving the Room unchanged",
+    (_, by, to, reason) => {
+      const { room, fun, onChange, snapshots, before } = waitingOnBruno();
+
+      expect(room.nudge(by, to)).toEqual({ ok: false, reason });
+
+      expect(fun).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(before()).toEqual(snapshots);
+    },
+  );
+
+  it("rejects a Nudge while two or more Voters haven't voted", () => {
+    const { room, fun } = waitingOnBruno();
+    room.join("dora-id", "Dora");
+
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "not-the-holdout",
+    });
+    expect(fun).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Nudge after the Reveal", () => {
+    const { room, fun } = waitingOnBruno();
+    room.reveal("ana-id");
+
+    expect(room.nudge("caio-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "not-the-holdout",
+    });
+    expect(fun).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Nudge at a Holdout who is away, until they're back", () => {
+    const { room, fun } = waitingOnBruno();
+    room.disconnect("bruno-id");
+
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "holdout-away",
+    });
+    expect(fun).not.toHaveBeenCalled();
+
+    room.join("bruno-id", "Bruno");
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({ ok: true });
+  });
+
+  it("makes the sender wait 5 s before Nudging again", () => {
+    const { room, fun } = waitingOnBruno();
+    room.nudge("ana-id", "bruno-id");
+
+    vi.advanceTimersByTime(4_900);
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "nudge-cooling-down",
+    });
+    vi.advanceTimersByTime(100);
+    expect(room.nudge("ana-id", "bruno-id")).toEqual({ ok: true });
+
+    expect(fun).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps each sender's wait their own", () => {
+    const { room } = waitingOnBruno();
+    room.nudge("ana-id", "bruno-id");
+
+    expect(room.nudge("caio-id", "bruno-id")).toEqual({ ok: true });
+    expect(room.nudge("olga-id", "bruno-id")).toEqual({ ok: true });
+  });
+
+  it("lets an Observer Nudge, with or without a Ghost", () => {
+    const { room, fun } = waitingOnBruno();
+    room.join("pia-id", "Pia", "observer");
+    room.summonGhost("pia-id", { fabric: "coral-stripes", disguise: "none" });
+
+    expect(room.nudge("olga-id", "bruno-id")).toEqual({ ok: true });
+    expect(room.nudge("pia-id", "bruno-id")).toEqual({ ok: true });
+    expect(fun.mock.calls).toEqual([nudge("olga-id", 1), nudge("pia-id", 2)]);
+  });
+
+  it("doesn't spend the Reactions and Throws burst, nor does it need any left", () => {
+    const { room } = waitingOnBruno();
+    room.nudge("ana-id", "bruno-id");
+
+    for (let i = 0; i < 3; i++)
+      expect(room.react("ana-id", "🔥")).toEqual({ ok: true });
+    expect(room.react("ana-id", "🔥")).toEqual({
+      ok: false,
+      reason: "burst-used-up",
+    });
+    expect(room.nudge("caio-id", "bruno-id")).toEqual({ ok: true });
+    for (let i = 0; i < 3; i++)
+      expect(room.throwAt("caio-id", "ana-id", "rock")).toEqual({ ok: true });
+  });
+
+  it("grows a level with each distinct sender, while a repeat Nudge stays at the current level", () => {
+    const { room, fun } = waitingOnBruno();
+
+    room.nudge("ana-id", "bruno-id");
+    room.nudge("caio-id", "bruno-id");
+    vi.advanceTimersByTime(5_000);
+    room.nudge("ana-id", "bruno-id");
+    room.nudge("olga-id", "bruno-id");
+
+    expect(fun.mock.calls).toEqual([
+      nudge("ana-id", 1),
+      nudge("caio-id", 2),
+      nudge("ana-id", 2),
+      nudge("olga-id", 3),
+    ]);
+  });
+
+  it("stops growing at level 5", () => {
+    const { room, fun } = waitingOnBruno();
+    for (const name of ["Pia", "Rui", "Sara", "Tom"])
+      room.join(`${name.toLowerCase()}-id`, name, "observer");
+
+    for (const by of [
+      "ana-id",
+      "caio-id",
+      "olga-id",
+      "pia-id",
+      "rui-id",
+      "sara-id",
+      "tom-id",
+    ])
+      room.nudge(by, "bruno-id");
+
+    expect(fun.mock.calls.map(([event]) => event.level)).toEqual([
+      1, 2, 3, 4, 5, 5, 5,
+    ]);
+  });
+
+  it("picks the build-up back up when the same Voter is the Holdout again in the Round", () => {
+    const { room, fun } = waitingOnBruno();
+    room.nudge("ana-id", "bruno-id");
+    room.join("dora-id", "Dora");
+    expect(room.nudge("caio-id", "bruno-id")).toEqual({
+      ok: false,
+      reason: "not-the-holdout",
+    });
+
+    room.vote("dora-id", 4);
+    room.nudge("caio-id", "bruno-id");
+
+    expect(fun.mock.calls).toEqual([nudge("ana-id", 1), nudge("caio-id", 2)]);
+  });
+
+  it.each([
+    ["a New Round", (room: Room) => room.newRound("ana-id")],
+    ["a Deck change", (room: Room) => room.setDeck("ana-id", [1, 2, 3, 5, 8])],
+  ])("starts the build-up again after %s", (_, discard) => {
+    const { room, fun } = waitingOnBruno();
+    room.nudge("caio-id", "bruno-id");
+
+    discard(room);
+    room.vote("ana-id", 8);
+    room.vote("caio-id", 8);
+    vi.advanceTimersByTime(5_000);
+    room.nudge("caio-id", "bruno-id");
+
+    expect(fun.mock.calls).toEqual([nudge("caio-id", 1), nudge("caio-id", 1)]);
+  });
+
+  it("forgets the sender's wait when they leave", () => {
+    const { room } = waitingOnBruno();
+    room.nudge("olga-id", "bruno-id");
+
+    room.leave("olga-id");
+    room.join("olga-id", "Olga", "observer");
+
+    expect(room.nudge("olga-id", "bruno-id")).toEqual({ ok: true });
+  });
+});
 
 describe("the Deck", () => {
   it("starts as the default hours Deck, the same for everyone", () => {
@@ -2127,7 +2375,7 @@ describe("Ghosts", () => {
     const points = room
       .snapshotFor(ids[0] ?? "")
       .participants.map((p) => p.ghost?.to ?? { x: NaN, y: NaN });
-    // Every vent is used before any Ghost is nudged aside.
+    // Every vent is used before any Ghost is shifted aside.
     for (const vent of VENTS) expect(points).toContainEqual(vent);
     for (const [i, a] of points.entries()) {
       for (const b of points.slice(i + 1)) {

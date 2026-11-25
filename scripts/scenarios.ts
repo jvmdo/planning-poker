@@ -11,6 +11,9 @@
  * Card (it says whose), so you can check it sits on that Card in every Voter's browser. Each comes
  * out in a random Skin and changes it now and then. `--ghosts 0` leaves them out; the default is 1.
  *
+ * `--holdout` leaves the last bot Voter of each scenario without a Vote, as the Holdout, so you can
+ * Nudge them. The Round then waits for your Reveal, which leaves their Card out.
+ *
  * Ctrl+C makes every bot Leave the Room. Set SERVER_URL to use another server than :8000.
  */
 import { randomUUID } from "node:crypto";
@@ -87,6 +90,7 @@ const fromIndex = args.indexOf("--from");
 let current = fromIndex >= 0 ? Number(args[fromIndex + 1]) - 1 : 0;
 const ghostsIndex = args.indexOf("--ghosts");
 const ghostCount = ghostsIndex >= 0 ? Number(args[ghostsIndex + 1]) : 1;
+const leaveHoldout = args.includes("--holdout");
 if (
   !roomId ||
   !(current >= 0 && current < SCENARIOS.length) ||
@@ -94,7 +98,7 @@ if (
   ghostCount > GHOST_NAMES.length
 ) {
   console.error(
-    `Usage: npx tsx scripts/scenarios.ts <room> [--from 1-${SCENARIOS.length}] [--ghosts 0-${GHOST_NAMES.length}]`,
+    `Usage: npx tsx scripts/scenarios.ts <room> [--from 1-${SCENARIOS.length}] [--ghosts 0-${GHOST_NAMES.length}] [--holdout]`,
   );
   process.exit(1);
 }
@@ -165,12 +169,14 @@ function playScenario(index: number) {
       `\n  Expect: ${scenario.expected}` +
       `\n  Click Reveal, then New Round for the next scenario.`,
   );
+  const holdout = leaveHoldout ? bots[scenario.votes.length - 1] : undefined;
+  if (holdout) console.log(`  ${holdout.name} is the Holdout: Nudge them!`);
   bots.forEach((bot, seat) => {
     const card = scenario.votes[seat];
     if (card === undefined) bot.socket.emit("becomeObserver");
     else {
       bot.socket.emit("becomeVoter");
-      bot.socket.emit("vote", card);
+      if (bot !== holdout) bot.socket.emit("vote", card);
     }
   });
 }

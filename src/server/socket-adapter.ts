@@ -37,8 +37,8 @@ function channelOf(roomId: RoomId): string {
  * change. Holds no rules. A socket that joins is put in the Socket.IO room named after its Room ID,
  * and a Room's updates go only to that Socket.IO room, never to every socket on the server. Never
  * broadcast a snapshot to a whole Room, because what a Participant may see depends on who they
- * are. Reactions, Throws, Deck changes, Auto Reveal changes and Ghost moves hold no Votes, so they
- * are broadcast within the Room.
+ * are. Reactions, Throws, Nudges, Deck changes, Auto Reveal changes and Ghost moves hold no
+ * Votes, so they are broadcast within the Room.
  */
 export function attachRooms(io: RoomServer, rooms: Rooms): void {
   /** The sockets that have joined this Room as a Participant. */
@@ -162,6 +162,10 @@ export function attachRooms(io: RoomServer, rooms: Rooms): void {
     socket.on("throwAt", (to, item) => {
       if (typeof to !== "string" || typeof item !== "string") return;
       act("throwAt", (room, id) => room.throwAt(id, to, item));
+    });
+    socket.on("nudge", (to) => {
+      if (typeof to !== "string") return;
+      act("nudge", (room, id) => room.nudge(id, to));
     });
     socket.on("summonGhost", (skin, roll) =>
       act("summonGhost", (room, id) => room.summonGhost(id, skin, roll)),

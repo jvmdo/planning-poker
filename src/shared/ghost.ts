@@ -118,10 +118,10 @@ export const VENTS: readonly TablePoint[] = Array.from(
   },
 );
 
-/** How far apart, sideways on the shared Table, Ghosts are nudged: enough for their name tags. */
-const GHOST_NUDGE = 0.1;
-/** How far apart, up and down, Ghosts are nudged: enough for a Ghost and its name tag. */
-const GHOST_NUDGE_DOWN = 0.15;
+/** How far apart, sideways on the shared Table, Ghosts are shifted: enough for their name tags. */
+const GHOST_SHIFT = 0.1;
+/** How far apart, up and down, Ghosts are shifted: enough for a Ghost and its name tag. */
+const GHOST_SHIFT_DOWN = 0.15;
 
 /**
  * A summon's roll of the dice, 0 up to 1, which picks the order its Ghost tries the vents in. The
@@ -143,10 +143,10 @@ export function isVentRoll(value: unknown): value is number {
 }
 
 /**
- * The places round a vent a Ghost is nudged to when every vent is taken, nearest first and
+ * The places round a vent a Ghost is shifted aside to when every vent is taken, nearest first and
  * sideways before up or down, as far as the Ghost may go.
  */
-function* nudgesAround(vent: TablePoint): Generator<TablePoint> {
+function* shiftsAround(vent: TablePoint): Generator<TablePoint> {
   for (let ring = 1; ; ring++) {
     const places: [number, number][] = [];
     for (let dy = -ring; dy <= ring; dy++) {
@@ -165,8 +165,8 @@ function* nudgesAround(vent: TablePoint): Generator<TablePoint> {
     let anyInReach = false;
     for (const [dx, dy] of places) {
       const place = {
-        x: vent.x + dx * GHOST_NUDGE,
-        y: vent.y + dy * GHOST_NUDGE_DOWN,
+        x: vent.x + dx * GHOST_SHIFT,
+        y: vent.y + dy * GHOST_SHIFT_DOWN,
       };
       if (!inReach(place.x) || !inReach(place.y)) continue;
       anyInReach = true;
@@ -179,21 +179,21 @@ function* nudgesAround(vent: TablePoint): Generator<TablePoint> {
 /**
  * Where a new Ghost comes out: the vent its summon's roll picks among those no Ghost out is
  * standing on. When every vent is taken it comes out of the vent the roll picks among them all,
- * nudged aside to the nearest free place. The Room decides; the owner's browser uses the same rule,
- * and the same roll, to show their new Ghost before the Room answers.
+ * shifted aside to the nearest free place. The Room decides; the owner's browser uses the same
+ * rule, and the same roll, to show their new Ghost before the Room answers.
  */
 export function ventFor(roll: number, taken: TablePoint[]): TablePoint {
   const isFree = (place: TablePoint) =>
     taken.every(
       (point) =>
-        Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_NUDGE / 2,
+        Math.hypot(point.x - place.x, point.y - place.y) >= GHOST_SHIFT / 2,
     );
   const pick = (vents: readonly TablePoint[]) =>
     vents[Math.floor(roll * vents.length)] as TablePoint;
   const free = VENTS.filter(isFree);
   if (free.length > 0) return pick(free);
   const vent = pick(VENTS);
-  for (const place of nudgesAround(vent)) if (isFree(place)) return place;
+  for (const place of shiftsAround(vent)) if (isFree(place)) return place;
   // Only if the whole room area is full of Ghosts, far more than a Room holds.
   return vent;
 }
