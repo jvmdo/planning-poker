@@ -43,7 +43,7 @@ export interface RoomSnapshot {
   /** Whether the Room Reveals itself once every Voter has voted. */
   autoReveal: boolean;
   /** Auto Reveal is counting down to the Reveal (AUTO_REVEAL_DELAY_MS from when this turned true). */
-  revealCountdown: boolean;
+  countingDown: boolean;
 }
 
 export type JoinRejectionReason =

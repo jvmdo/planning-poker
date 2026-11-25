@@ -30,7 +30,7 @@ const revealed: RoomSnapshot = {
   result: 14.4,
   deck: [1, 2, 4, 6, 8, 10, 12, 16, 24, 32, 64],
   autoReveal: true,
-  revealCountdown: false,
+  countingDown: false,
 };
 
 describe("the reading of a Round", () => {

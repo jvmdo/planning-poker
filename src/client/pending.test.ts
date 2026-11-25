@@ -11,7 +11,7 @@ const noFacilitator: RoomSnapshot = {
   result: null,
   deck: [1, 2, 3],
   autoReveal: true,
-  revealCountdown: false,
+  countingDown: false,
 };
 
 describe("a pending claim of the Facilitator role", () => {

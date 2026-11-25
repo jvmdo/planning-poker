@@ -137,10 +137,7 @@ export function RoomTable({
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3">
-              <Waiting
-                voters={voters}
-                countingDown={snapshot.revealCountdown}
-              />
+              <Waiting voters={voters} countingDown={snapshot.countingDown} />
               {isFacilitator && (
                 <Button
                   onClick={onReveal}

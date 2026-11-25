@@ -421,7 +421,7 @@ export function createRoom(): Room {
         result: revealed ? resultOf(votes.values()) : null,
         deck,
         autoReveal,
-        revealCountdown: countdown !== null,
+        countingDown: countdown !== null,
       };
     },
 

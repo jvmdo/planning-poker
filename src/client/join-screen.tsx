@@ -84,7 +84,10 @@ function AboutPanel() {
         <Step n={1} title="Everyone picks a Card in secret">
           <div className="border-ink shadow-hard-sm flex h-16 w-12 items-center justify-center rounded-lg border-[3px] bg-[repeating-linear-gradient(45deg,var(--pop-2)_0_5px,var(--secondary)_5px_7px)]" />
         </Step>
-        <Step n={2} title="They flip all at once, when everyone's played">
+        <Step
+          n={2}
+          title="Every Vote is revealed at once, when everyone's played"
+        >
           <div className="font-display border-ink bg-card shadow-hard-sm flex h-16 w-12 rotate-6 items-center justify-center rounded-lg border-[3px] text-2xl font-semibold">
             8
           </div>

@@ -1641,13 +1641,13 @@ describe("Auto Reveal", () => {
     room.join("ana-id", "Ana");
     room.join("bruno-id", "Bruno");
     room.vote("ana-id", 8);
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(false);
 
     room.vote("bruno-id", 16);
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(true);
     vi.advanceTimersByTime(2_000);
     room.join("carla-id", "Carla");
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(false);
     vi.advanceTimersByTime(60_000);
     expect(room.snapshotFor("bruno-id").revealed).toBe(false);
 
@@ -1655,7 +1655,7 @@ describe("Auto Reveal", () => {
     vi.advanceTimersByTime(3_000);
     expect(room.snapshotFor("bruno-id")).toMatchObject({
       revealed: true,
-      revealCountdown: false,
+      countingDown: false,
     });
   });
 
@@ -1672,11 +1672,11 @@ describe("Auto Reveal", () => {
     vi.advanceTimersByTime(60_000);
     expect(room.snapshotFor("bruno-id")).toMatchObject({
       revealed: false,
-      revealCountdown: false,
+      countingDown: false,
     });
 
     room.claimFacilitator("carla-id");
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(true);
     vi.advanceTimersByTime(3_000);
     expect(room.snapshotFor("bruno-id").revealed).toBe(true);
   });
@@ -1691,10 +1691,10 @@ describe("Auto Reveal", () => {
     room.vote("bruno-id", 16);
 
     vi.advanceTimersByTime(29_999);
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(false);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(false);
 
     vi.advanceTimersByTime(1);
-    expect(room.snapshotFor("bruno-id").revealCountdown).toBe(true);
+    expect(room.snapshotFor("bruno-id").countingDown).toBe(true);
     vi.advanceTimersByTime(3_000);
     expect(room.snapshotFor("bruno-id")).toMatchObject({
       revealed: true,
@@ -1709,10 +1709,10 @@ describe("Auto Reveal", () => {
     room.vote("ana-id", 8);
 
     room.setAutoReveal("ana-id", true);
-    expect(room.snapshotFor("ana-id").revealCountdown).toBe(true);
+    expect(room.snapshotFor("ana-id").countingDown).toBe(true);
     vi.advanceTimersByTime(2_000);
     room.setAutoReveal("ana-id", false);
-    expect(room.snapshotFor("ana-id").revealCountdown).toBe(false);
+    expect(room.snapshotFor("ana-id").countingDown).toBe(false);
 
     vi.advanceTimersByTime(60_000);
     expect(room.snapshotFor("ana-id").revealed).toBe(false);
@@ -1743,7 +1743,7 @@ describe("Auto Reveal", () => {
     expect(room.reveal("ana-id")).toEqual({ ok: true });
     expect(room.snapshotFor("ana-id")).toMatchObject({
       revealed: true,
-      revealCountdown: false,
+      countingDown: false,
     });
     vi.advanceTimersByTime(60_000);
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -1759,7 +1759,7 @@ describe("Auto Reveal", () => {
 
     expect(room.snapshotFor("ana-id")).toMatchObject({
       revealed: false,
-      revealCountdown: false,
+      countingDown: false,
     });
   });
 
