@@ -47,6 +47,8 @@ export function RoundPanel({
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
+  const showClaim = !snapshot.hasFacilitator;
+  const showNewRound = isFacilitator && !snapshot.revealed;
   const waiting = voters.filter((p) => !p.hasVoted);
   const progress = voters.length ? (played / voters.length) * 100 : 0;
   const locked = reconnecting || pendingCommand !== null;
@@ -100,27 +102,32 @@ export function RoundPanel({
             {status}
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {!snapshot.hasFacilitator && (
-            <Button
-              onClick={onClaimFacilitator}
-              disabled={locked}
-              aria-busy={pendingCommand === "claimFacilitator"}
-            >
-              {pendingCommand === "claimFacilitator" && <Waiting />}
-              Become Facilitator
-            </Button>
-          )}
-          {isFacilitator && !snapshot.revealed && (
-            <Button
-              variant="outline"
-              onClick={onNewRound}
-              disabled={locked}
-              aria-busy={pendingCommand === "newRound"}
-            >
-              {pendingCommand === "newRound" && <Waiting />}
-              New Round
-            </Button>
+        {/* The Round's actions sit together; the gear stands apart from them. */}
+        <div className="ml-auto flex items-center gap-4">
+          {(showClaim || showNewRound) && (
+            <div className="flex items-center gap-2">
+              {showClaim && (
+                <Button
+                  onClick={onClaimFacilitator}
+                  disabled={locked}
+                  aria-busy={pendingCommand === "claimFacilitator"}
+                >
+                  {pendingCommand === "claimFacilitator" && <Waiting />}
+                  Become Facilitator
+                </Button>
+              )}
+              {showNewRound && (
+                <Button
+                  variant="outline"
+                  onClick={onNewRound}
+                  disabled={locked}
+                  aria-busy={pendingCommand === "newRound"}
+                >
+                  {pendingCommand === "newRound" && <Waiting />}
+                  New Round
+                </Button>
+              )}
+            </div>
           )}
           <RoomSettings
             snapshot={snapshot}

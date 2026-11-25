@@ -1,11 +1,11 @@
-import { useId, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Check, Settings, X } from "lucide-react";
+import { useId, useRef } from "react";
 import type { RoomSnapshot } from "../shared/protocol";
 import { DeckDialog, READ_ONLY_NOTE } from "./deck-dialog";
 import type { PendingCommand } from "./pending";
 import { Waiting } from "./waiting";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 /**
  * The gear button and the Room's settings it opens: Auto Reveal and the Deck. Everyone can open
@@ -41,7 +41,8 @@ export function RoomSettings({
         title="Room settings"
         aria-haspopup="dialog"
         onClick={() => dialog.current?.showModal()}
-        className="size-9 px-0"
+        /* cancel the ghost padding so the icon lines up with the panel's padding */
+        className="size-9 px-0 -mr-2"
       >
         <Settings aria-hidden className="size-5" />
       </Button>
