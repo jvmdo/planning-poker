@@ -49,7 +49,7 @@ describe("a pending change to Auto Reveal", () => {
   it("is answered once the Room has Auto Reveal off", () => {
     expect(
       settlePendingCommand(turnOff, { ...noFacilitator, autoReveal: false }),
-      ).toBeNull();
+    ).toBeNull();
   });
 });
 

@@ -33,6 +33,13 @@ const ROOM_AROUND_TABLE =
 const CLICK_AFTER_PRESS_MS = 1000;
 
 /**
+ * Lifts the Table's Reveal and New Round above the Ghost layer: Ghosts walk under them, as under
+ * the Hand, so a parked Ghost never blocks the Round. The Result and the waiting line stay under
+ * Ghosts, which are see-through enough to read them.
+ */
+const ABOVE_GHOSTS = "relative z-20";
+
+/**
  * The table in the middle of the Room: every Voter's Card at a seat round its edge, you at the
  * bottom nearest your hand. Its centre shows who we're waiting on and Auto Reveal's countdown, then
  * the Result; the Facilitator gets Reveal there while voting, and New Round after. Your own Card or
@@ -177,6 +184,7 @@ export function RoomTable({
               <Result result={snapshot.result} />
               {isFacilitator && (
                 <Button
+                  className={ABOVE_GHOSTS}
                   onClick={onNewRound}
                   disabled={locked}
                   aria-busy={pendingCommand === "newRound"}
@@ -191,6 +199,7 @@ export function RoomTable({
               <Waiting voters={voters} countingDown={countingDown} />
               {isFacilitator && (
                 <Button
+                  className={ABOVE_GHOSTS}
                   onClick={onReveal}
                   disabled={locked || !voters.some((p) => p.hasVoted)}
                   aria-busy={pendingCommand === "reveal"}
