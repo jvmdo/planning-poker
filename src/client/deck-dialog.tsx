@@ -9,6 +9,7 @@ import {
   sameDeck,
   type Deck,
 } from "../shared/deck";
+import { Eye, Pencil } from "lucide-react";
 import { CardHand } from "./card-hand";
 import { Waiting } from "./waiting";
 import { Button } from "@/components/ui/button";
@@ -29,10 +30,11 @@ function asText(deck: Deck) {
 }
 
 /**
- * The "Deck" button and the dialog it opens: presets, the Cards as text, and a preview of the hand.
- * Applying a different Deck starts a new Round for everyone. The dialog stays open, locked, until
- * the Room's snapshot carries the new Deck, then closes; if the server refuses it or the connection
- * drops, it says so and can be tried again. Anyone but the Facilitator sees it read-only.
+ * The "Change" button ("View" for anyone but the Facilitator) and the dialog it opens: presets,
+ * the Cards as text, and a preview of the hand. Applying a different Deck starts a new Round for
+ * everyone. The dialog stays open, locked, until the Room's snapshot carries the new Deck, then
+ * closes; if the server refuses it or the connection drops, it says so and can be tried again.
+ * Anyone but the Facilitator sees it read-only.
  */
 export function DeckDialog({
   deck,
@@ -95,8 +97,14 @@ export function DeckDialog({
         onClick={open}
         disabled={disabled}
         aria-haspopup="dialog"
+        aria-label={readOnly ? "View the Deck" : "Change the Deck"}
       >
-        Deck
+        {readOnly ? (
+          <Eye aria-hidden className="size-3.5" />
+        ) : (
+          <Pencil aria-hidden className="size-3.5" />
+        )}
+        {readOnly ? "View" : "Change"}
       </Button>
       <dialog
         ref={dialog}

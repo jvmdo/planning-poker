@@ -1,5 +1,5 @@
 import { useId, useRef } from "react";
-import { Settings } from "lucide-react";
+import { Check, Settings, X } from "lucide-react";
 import type { RoomSnapshot } from "../shared/protocol";
 import { DeckDialog, READ_ONLY_NOTE } from "./deck-dialog";
 import type { PendingCommand } from "./pending";
@@ -54,72 +54,89 @@ export function RoomSettings({
         className="bg-card text-card-foreground border-ink shadow-hard-lg backdrop:bg-ink/50 m-auto w-[min(420px,calc(100vw-2rem))] rounded-xl border-[3px]"
       >
         <div className="flex flex-col gap-5 p-6">
-          <h2 id={ids.title} className="font-display text-xl font-semibold">
-            Room settings
-          </h2>
-
-          <div className="flex items-start gap-4">
-            <div className="min-w-0 flex-1">
-              <label htmlFor={ids.autoReveal} className="font-bold">
-                Auto Reveal
-              </label>
-              <p id={ids.hint} className="text-muted-foreground text-sm">
-                Reveal the Votes a few seconds after every Voter has played.
-              </p>
-            </div>
-            <button
-              id={ids.autoReveal}
-              type="button"
-              role="switch"
-              aria-checked={snapshot.autoReveal}
-              aria-describedby={ids.hint}
-              aria-busy={busy}
-              disabled={readOnly || locked}
-              onClick={() => onSetAutoReveal(!snapshot.autoReveal)}
-              className={cn(
-                "border-ink relative mt-1 inline-flex h-7 w-12 shrink-0 items-center rounded-full border-2 transition-colors disabled:cursor-not-allowed",
-                "focus-visible:ring-ring/50 outline-none focus-visible:ring-[3px]",
-                snapshot.autoReveal ? "bg-pop-1" : "bg-muted",
-                readOnly && "opacity-60",
-              )}
+          <div className="flex items-center justify-between gap-4">
+            <h2 id={ids.title} className="font-display text-xl font-semibold">
+              Room settings
+            </h2>
+            {/* The same size as the gear that opened it. */}
+            <Button
+              variant="outline"
+              aria-label="Close"
+              title="Close"
+              onClick={() => dialog.current?.close()}
+              className="size-9 px-0"
             >
-              <span
-                aria-hidden
-                className={cn(
-                  "bg-card border-ink grid size-5 place-items-center rounded-full border-2 transition-transform",
-                  snapshot.autoReveal ? "translate-x-5.5" : "translate-x-0.5",
-                )}
-              >
-                {busy && <Waiting />}
-              </span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="font-bold">Deck</p>
-              <p className="text-muted-foreground truncate text-sm tabular-nums">
-                {snapshot.deck.join(" ")}
-              </p>
-            </div>
-            <DeckDialog
-              deck={snapshot.deck}
-              votesCast={snapshot.participants.filter((p) => p.hasVoted).length}
-              disabled={!readOnly && locked}
-              busy={pendingCommand === "setDeck"}
-              readOnly={readOnly}
-              onApply={onSetDeck}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <p className="text-muted-foreground mr-auto text-sm">
-              {readOnly && READ_ONLY_NOTE}
-            </p>
-            <Button variant="outline" onClick={() => dialog.current?.close()}>
-              Close
+              <X aria-hidden className="size-4" />
             </Button>
           </div>
+
+          <div className="divide-ink/15 flex flex-col divide-y-2">
+            <div className="flex items-center gap-4 pb-4">
+              <div className="min-w-0 flex-1">
+                <label htmlFor={ids.autoReveal} className="font-bold">
+                  Auto Reveal
+                </label>
+                <p id={ids.hint} className="text-muted-foreground text-sm">
+                  Reveal the Votes a few seconds after every Voter has played.
+                </p>
+              </div>
+              <button
+                id={ids.autoReveal}
+                type="button"
+                role="switch"
+                aria-checked={snapshot.autoReveal}
+                aria-describedby={ids.hint}
+                aria-busy={busy}
+                disabled={readOnly || locked}
+                onClick={() => onSetAutoReveal(!snapshot.autoReveal)}
+                // A Button's height, border, hard shadow and press, so it matches the Deck's button.
+                className={cn(
+                  "border-ink shadow-hard-sm relative inline-flex h-9 w-16 shrink-0 items-center rounded-full border-2 transition-all outline-none",
+                  "focus-visible:ring-ring/50 focus-visible:ring-[3px] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:pointer-events-none disabled:opacity-50",
+                  snapshot.autoReveal ? "bg-pop-1" : "bg-background",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "bg-card border-ink text-ink grid size-6 place-items-center rounded-full border-2 transition-transform",
+                    snapshot.autoReveal ? "translate-x-8" : "translate-x-1",
+                  )}
+                >
+                  {busy ? (
+                    <Waiting />
+                  ) : (
+                    snapshot.autoReveal && (
+                      <Check className="size-3.5" strokeWidth={3} />
+                    )
+                  )}
+                </span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4 pt-4">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Deck</p>
+                <p className="text-muted-foreground truncate text-sm tabular-nums">
+                  {snapshot.deck.join(" ")}
+                </p>
+              </div>
+              <DeckDialog
+                deck={snapshot.deck}
+                votesCast={
+                  snapshot.participants.filter((p) => p.hasVoted).length
+                }
+                disabled={!readOnly && locked}
+                busy={pendingCommand === "setDeck"}
+                readOnly={readOnly}
+                onApply={onSetDeck}
+              />
+            </div>
+          </div>
+
+          {readOnly && (
+            <p className="text-muted-foreground text-sm">{READ_ONLY_NOTE}</p>
+          )}
         </div>
       </dialog>
     </>

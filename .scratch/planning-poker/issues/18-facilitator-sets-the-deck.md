@@ -55,3 +55,5 @@
 - **Spec wording:** the preview is described as using the same sizing as Voters' hands, as wide as the dialog allows, rather than "exactly as Voters will see it".
 - **Browsers:** `sibling-index()` checked in Firefox by the user. Safari not yet checked.
 - **Tests:** 101 in all. The Deck block has 12 tests, one of which runs 11 rejected Decks, plus 4 for `parseDeck`. (The earlier count of "20 for the Room" is out of date.)
+
+**Follow-up (2026-11-25).** The Room settings dialog's controls now look like one family. The Deck's opener says what it does: "✎ Change", or "👁 View" for anyone but the Facilitator, instead of repeating "Deck". The Auto Reveal switch is as tall as a Button, with its border, hard shadow and press, and shows a ✓ when on. Close is a round ✕ in the header, the gear's size, so the footer is gone and the read-only note stands alone. Chosen from a UI prototype of four variants (current, these row controls, an Off/On pill with a whole-row Deck button and a "Done", and pressable tiles); the variants are kept on the branch `prototype/settings-controls` (commit 6a0e0f2), never to be merged.
