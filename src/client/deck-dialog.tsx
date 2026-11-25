@@ -9,7 +9,7 @@ import {
   sameDeck,
   type Deck,
 } from "../shared/deck";
-import { Eye, Pencil } from "lucide-react";
+import { FlaskConical, Pencil } from "lucide-react";
 import { CardHand } from "./card-hand";
 import { Waiting } from "./waiting";
 import { Button } from "@/components/ui/button";
@@ -30,23 +30,23 @@ function asText(deck: Deck) {
 }
 
 /**
- * The "Change" button ("View" for anyone but the Facilitator) and the dialog it opens: presets,
+ * The "Change" button ("Try" for anyone but the Facilitator) and the dialog it opens: presets,
  * the Cards as text, and a preview of the hand. Applying a different Deck starts a new Round for
  * everyone. The dialog stays open, locked, until the Room's snapshot carries the new Deck, then
  * closes; if the server refuses it or the connection drops, it says so and can be tried again.
- * Anyone but the Facilitator sees it read-only.
+ * Anyone but the Facilitator can try Decks in it, presets and Cards alike, but can't apply one.
  */
 export function DeckDialog({
   deck,
   votesCast,
   disabled,
   busy,
-  readOnly,
+  canApply,
   onApply,
 }: {
   deck: Deck;
-  /** Shows the Deck without letting it change: for anyone but the Facilitator. */
-  readOnly: boolean;
+  /** Only the Facilitator can: anyone else can try Decks but not apply one. */
+  canApply: boolean;
   /** Votes the new Deck would clear. */
   votesCast: number;
   disabled: boolean;
@@ -58,7 +58,7 @@ export function DeckDialog({
   const [text, setText] = useState(asText(deck));
   const parsed = parseDeck(text);
   const changed = parsed.ok && !sameDeck(parsed.deck, deck);
-  const ids = { title: useId(), field: useId(), hint: useId() };
+  const ids = { title: useId(), field: useId(), hint: useId(), why: useId() };
   /** The Deck this dialog sent, until it's opened again. */
   const [sent, setSent] = useState<Deck | null>(null);
   const applied = sent !== null && sameDeck(sent, deck);
@@ -85,7 +85,7 @@ export function DeckDialog({
   }
 
   function apply() {
-    if (!parsed.ok || busy || readOnly) return;
+    if (!parsed.ok || busy || !canApply) return;
     setSent(parsed.deck);
     onApply(parsed.deck);
   }
@@ -97,14 +97,14 @@ export function DeckDialog({
         onClick={open}
         disabled={disabled}
         aria-haspopup="dialog"
-        aria-label={readOnly ? "View the Deck" : "Change the Deck"}
+        aria-label={canApply ? "Change the Deck" : "Try a Deck"}
       >
-        {readOnly ? (
-          <Eye aria-hidden className="size-3.5" />
-        ) : (
+        {canApply ? (
           <Pencil aria-hidden className="size-3.5" />
+        ) : (
+          <FlaskConical aria-hidden className="size-3.5" />
         )}
-        {readOnly ? "View" : "Change"}
+        {canApply ? "Change" : "Try"}
       </Button>
       <dialog
         ref={dialog}
@@ -123,14 +123,13 @@ export function DeckDialog({
           className="flex flex-col gap-5 p-6"
         >
           <h2 id={ids.title} className="font-display text-xl font-semibold">
-            {readOnly ? "The Deck" : "Choose the Deck"}
+            {canApply ? "Choose the Deck" : "Try a Deck"}
           </h2>
 
           <div
             role="group"
             aria-label="Presets"
             className="flex flex-wrap gap-2"
-            hidden={readOnly}
           >
             {PRESETS.map((preset) => {
               const picked = parsed.ok && sameDeck(parsed.deck, preset.deck);
@@ -157,8 +156,7 @@ export function DeckDialog({
             })}
           </div>
 
-          {/* Read-only, the preview shows the Cards: a field would look editable. */}
-          <div className="flex flex-col gap-1.5" hidden={readOnly}>
+          <div className="flex flex-col gap-1.5">
             <label htmlFor={ids.field} className="text-sm font-bold">
               Cards, in hours
             </label>
@@ -210,9 +208,9 @@ export function DeckDialog({
           </div>
 
           <div className="flex items-center gap-2">
-            {readOnly ? (
-              <p className="text-muted-foreground mr-auto text-sm">
-                {READ_ONLY_NOTE}
+            {!canApply ? (
+              <p id={ids.why} className="text-muted-foreground mr-auto text-sm">
+                Only the Facilitator can apply a Deck.
               </p>
             ) : failed ? (
               <p role="alert" className="text-destructive mr-auto text-sm">
@@ -233,18 +231,17 @@ export function DeckDialog({
               onClick={close}
               disabled={busy}
             >
-              {readOnly ? "Close" : "Cancel"}
+              {canApply ? "Cancel" : "Close"}
             </Button>
-            {!readOnly && (
-              <Button
-                type="submit"
-                disabled={!changed || busy}
-                aria-busy={busy}
-              >
-                {busy && <Waiting />}
-                Apply
-              </Button>
-            )}
+            <Button
+              type="submit"
+              disabled={!canApply || !changed || busy}
+              aria-busy={busy}
+              aria-describedby={canApply ? undefined : ids.why}
+            >
+              {busy && <Waiting />}
+              Apply
+            </Button>
           </div>
         </form>
       </dialog>

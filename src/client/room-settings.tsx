@@ -128,7 +128,7 @@ export function RoomSettings({
                 }
                 disabled={!readOnly && locked}
                 busy={pendingCommand === "setDeck"}
-                readOnly={readOnly}
+                canApply={!readOnly}
                 onApply={onSetDeck}
               />
             </div>
