@@ -3,8 +3,14 @@ import type { FunEvent } from "./fun.js";
 
 export type ParticipantId = string;
 
+/** The name of a Room, as it appears in its URL. */
+export type RoomId = string;
+
 /** How long a Participant whose connection dropped keeps their place before being removed. */
 export const GRACE_PERIOD_MS = 30_000;
+
+/** How long Auto Reveal waits, once every Voter has voted, before it Reveals the Round. */
+export const AUTO_REVEAL_DELAY_MS = 3_000;
 
 export type ParticipantRole = "voter" | "observer";
 
@@ -34,9 +40,14 @@ export interface RoomSnapshot {
   result: number | null;
   /** The Cards Voters choose from, set by the Facilitator. */
   deck: Deck;
+  /** Whether the Room Reveals itself once every Voter has voted. */
+  autoReveal: boolean;
+  /** Auto Reveal is counting down to the Reveal (AUTO_REVEAL_DELAY_MS from when this turned true). */
+  countingDown: boolean;
 }
 
-export type JoinRejectionReason = "name-empty" | "name-taken";
+export type JoinRejectionReason =
+  "name-empty" | "name-taken" | "room-full" | "server-full";
 export type VoteRejectionReason =
   | "not-in-room"
   | "observer-cannot-vote"
@@ -47,6 +58,8 @@ export type RevealRejectionReason =
 export type NewRoundRejectionReason = "not-facilitator";
 export type SetDeckRejectionReason =
   "not-facilitator" | "deck-unchanged" | InvalidDeckReason;
+export type SetAutoRevealRejectionReason =
+  "not-facilitator" | "auto-reveal-unchanged";
 export type RoleRejectionReason = "not-in-room";
 export type DisconnectRejectionReason = "not-in-room";
 export type LeaveRejectionReason = "not-in-room";
@@ -75,6 +88,7 @@ export type Rejection =
   | { command: "reveal"; reason: RevealRejectionReason }
   | { command: "newRound"; reason: NewRoundRejectionReason }
   | { command: "setDeck"; reason: SetDeckRejectionReason }
+  | { command: "setAutoReveal"; reason: SetAutoRevealRejectionReason }
   | { command: "becomeVoter"; reason: RoleRejectionReason }
   | { command: "becomeObserver"; reason: RoleRejectionReason }
   | { command: "handOver"; reason: HandOverRejectionReason }
@@ -88,6 +102,7 @@ export interface ClientToServerEvents {
   reveal: () => void;
   newRound: () => void;
   setDeck: (cards: number[]) => void;
+  setAutoReveal: (on: boolean) => void;
   becomeVoter: () => void;
   becomeObserver: () => void;
   handOver: (to: ParticipantId) => void;
@@ -106,4 +121,6 @@ export interface ServerToClientEvents {
   fun: (event: FunEvent) => void;
   /** The Facilitator (`by`) changed the Deck, It holds no Votes, so it's broadcast. */
   deckChanged: (by: ParticipantId) => void;
+  /** The Facilitator (`by`) turned Auto Reveal on or off. It holds no Votes, so it's broadcast. */
+  autoRevealChanged: (by: ParticipantId, on: boolean) => void;
 }

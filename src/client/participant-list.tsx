@@ -5,6 +5,7 @@ import {
 } from "../shared/protocol";
 import { Crown, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { VoteMark } from "./lib/vote-marks";
 import { VoteCard } from "./vote-card";
 
 /**
@@ -15,11 +16,13 @@ export function ParticipantList({
   participants,
   myId,
   revealed,
+  markOf,
   onHandOver,
 }: {
   participants: ParticipantView[];
   myId: ParticipantId;
   revealed: boolean;
+  markOf: (id: ParticipantId) => VoteMark | null;
   /** Only given to the Facilitator, who can hand the role to anyone else. */
   onHandOver?: (to: ParticipantId) => void;
 }) {
@@ -84,7 +87,12 @@ export function ParticipantList({
               </button>
             )}
             <span className="ml-auto flex shrink-0 items-center">
-              <VoteCard participant={p} revealed={revealed} size="small" />
+              <VoteCard
+                participant={p}
+                revealed={revealed}
+                size="small"
+                mark={markOf(p.id)}
+              />
             </span>
           </li>
         ))}

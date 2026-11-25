@@ -1,13 +1,18 @@
-import type { ParticipantId } from "../../shared/protocol";
+import type { ParticipantId, RoomId } from "../../shared/protocol";
+import { parseRoomId } from "../../shared/room-id";
 
 const STORAGE_KEY = "planning-poker:identity";
 
-/** Who this browser is in the Room. Kept in browser storage so a reload rejoins as the same Participant. */
+/**
+ * Who this browser is, the same in every Room. Kept in browser storage so a reload rejoins as the
+ * same Participant.
+ */
 export interface Identity {
   id: ParticipantId;
+  /** The name last joined with, filled in on the join screen. */
   name: string;
-  /** False after they left the Room: the name is kept for the join form, but not rejoined with. */
-  inRoom: boolean;
+  /** The last Room joined, which `/` goes back to. Null after leaving it, or before joining one. */
+  lastRoom: RoomId | null;
 }
 
 export function loadIdentity(): Identity {
@@ -15,16 +20,15 @@ export function loadIdentity(): Identity {
     const stored: unknown = JSON.parse(
       localStorage.getItem(STORAGE_KEY) ?? "null",
     );
-    if (isIdentity(stored)) {
-      // Stored before leaving existed: having a name meant being in the Room.
-      const inRoom =
-        typeof stored.inRoom === "boolean" ? stored.inRoom : stored.name !== "";
-      return { id: stored.id, name: stored.name, inRoom };
+    if (isStoredIdentity(stored)) {
+      // Stored before Rooms had IDs (with `inRoom`), it names no Room: the join screen shows once.
+      const lastRoom = parseRoomId(stored.lastRoom);
+      return { id: stored.id, name: stored.name, lastRoom };
     }
   } catch {
     // Unreadable storage: start over with a fresh identity.
   }
-  const identity = { id: newParticipantId(), name: "", inRoom: false };
+  const identity = { id: newParticipantId(), name: "", lastRoom: null };
   saveIdentity(identity);
   return identity;
 }
@@ -37,9 +41,14 @@ export function saveIdentity(identity: Identity): void {
   }
 }
 
-function isIdentity(
+/** Changes what's stored, keeping the rest as another tab may have left it. */
+export function updateIdentity(change: (stored: Identity) => Identity): void {
+  saveIdentity(change(loadIdentity()));
+}
+
+function isStoredIdentity(
   value: unknown,
-): value is Partial<Identity> & Omit<Identity, "inRoom"> {
+): value is Pick<Identity, "id" | "name"> & { lastRoom?: unknown } {
   return (
     typeof value === "object" &&
     value !== null &&

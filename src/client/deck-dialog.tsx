@@ -9,6 +9,7 @@ import {
   sameDeck,
   type Deck,
 } from "../shared/deck";
+import { FlaskConical, Pencil } from "lucide-react";
 import { CardHand } from "./card-hand";
 import { Waiting } from "./waiting";
 import { Button } from "@/components/ui/button";
@@ -21,24 +22,31 @@ const PRESETS: { name: string; deck: Deck }[] = [
   { name: "Powers of two", deck: [1, 2, 4, 8, 16, 32, 64] },
 ];
 
+/** Shown wherever someone who isn't the Facilitator sees a setting they can't change. */
+export const READ_ONLY_NOTE = "Read only. Ask the Facilitator for changes.";
+
 function asText(deck: Deck) {
   return deck.join(", ");
 }
 
 /**
- * The Facilitator's "Deck" button and the dialog it opens: presets, the Cards as text, and a
- * preview of the hand. Applying a different Deck starts a new Round for everyone. The dialog stays
- * open, locked, until the Room's snapshot carries the new Deck, then closes; if the server refuses
- * it or the connection drops, it says so and can be tried again.
+ * The "Change" button ("Try" for anyone but the Facilitator) and the dialog it opens: presets,
+ * the Cards as text, and a preview of the hand. Applying a different Deck starts a new Round for
+ * everyone. The dialog stays open, locked, until the Room's snapshot carries the new Deck, then
+ * closes; if the server refuses it or the connection drops, it says so and can be tried again.
+ * Anyone but the Facilitator can try Decks in it, presets and Cards alike, but can't apply one.
  */
 export function DeckDialog({
   deck,
   votesCast,
   disabled,
   busy,
+  canApply,
   onApply,
 }: {
   deck: Deck;
+  /** Only the Facilitator can: anyone else can try Decks but not apply one. */
+  canApply: boolean;
   /** Votes the new Deck would clear. */
   votesCast: number;
   disabled: boolean;
@@ -50,7 +58,7 @@ export function DeckDialog({
   const [text, setText] = useState(asText(deck));
   const parsed = parseDeck(text);
   const changed = parsed.ok && !sameDeck(parsed.deck, deck);
-  const ids = { title: useId(), field: useId(), hint: useId() };
+  const ids = { title: useId(), field: useId(), hint: useId(), why: useId() };
   /** The Deck this dialog sent, until it's opened again. */
   const [sent, setSent] = useState<Deck | null>(null);
   const applied = sent !== null && sameDeck(sent, deck);
@@ -77,7 +85,7 @@ export function DeckDialog({
   }
 
   function apply() {
-    if (!parsed.ok || busy) return;
+    if (!parsed.ok || busy || !canApply) return;
     setSent(parsed.deck);
     onApply(parsed.deck);
   }
@@ -89,8 +97,14 @@ export function DeckDialog({
         onClick={open}
         disabled={disabled}
         aria-haspopup="dialog"
+        aria-label={canApply ? "Change the Deck" : "Try a Deck"}
       >
-        Deck
+        {canApply ? (
+          <Pencil aria-hidden className="size-3.5" />
+        ) : (
+          <FlaskConical aria-hidden className="size-3.5" />
+        )}
+        {canApply ? "Change" : "Try"}
       </Button>
       <dialog
         ref={dialog}
@@ -109,7 +123,7 @@ export function DeckDialog({
           className="flex flex-col gap-5 p-6"
         >
           <h2 id={ids.title} className="font-display text-xl font-semibold">
-            Choose the Deck
+            {canApply ? "Choose the Deck" : "Try a Deck"}
           </h2>
 
           <div
@@ -194,7 +208,11 @@ export function DeckDialog({
           </div>
 
           <div className="flex items-center gap-2">
-            {failed ? (
+            {!canApply ? (
+              <p id={ids.why} className="text-muted-foreground mr-auto text-sm">
+                Only the Facilitator can apply a Deck.
+              </p>
+            ) : failed ? (
               <p role="alert" className="text-destructive mr-auto text-sm">
                 The Deck wasn't changed. Try again.
               </p>
@@ -213,9 +231,14 @@ export function DeckDialog({
               onClick={close}
               disabled={busy}
             >
-              Cancel
+              {canApply ? "Cancel" : "Close"}
             </Button>
-            <Button type="submit" disabled={!changed || busy} aria-busy={busy}>
+            <Button
+              type="submit"
+              disabled={!canApply || !changed || busy}
+              aria-busy={busy}
+              aria-describedby={canApply ? undefined : ids.why}
+            >
               {busy && <Waiting />}
               Apply
             </Button>

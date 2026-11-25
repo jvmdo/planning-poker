@@ -4,6 +4,7 @@ import type {
   ParticipantRole,
   JoinRejectionReason,
   Rejection,
+  RoomId,
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card, Deck } from "../shared/deck";
@@ -13,8 +14,8 @@ import {
   type Reaction,
   type Throwable,
 } from "../shared/fun";
-import { loadIdentity, saveIdentity, type Identity } from "./lib/identity";
-import { socket } from "./lib/socket";
+import { loadIdentity, updateIdentity, type Identity } from "./lib/identity";
+import { connectTo, socket } from "./lib/socket";
 import {
   findParticipant,
   isPendingCommand,
@@ -26,8 +27,11 @@ import {
   type PendingVote,
 } from "./pending";
 
-/** How long a notice about a refused command stays on screen. */
+/** How long a notice stays on screen, unless it asks for longer. */
 const NOTICE_MS = 4000;
+
+/** A notice in the toast, and how long it stays. */
+type Notice = { text: string; ms: number };
 
 /**
  * Commands the UI offers can still be refused when the Room changed a moment earlier. These are
@@ -52,18 +56,23 @@ function keyOf(rejection: Rejection): RejectionKey {
 }
 
 /**
- * Connects to the Room and keeps the latest snapshot. Rejoins automatically on every (re)connect
- * once this browser has a name to join with.
+ * Connects to the Room `roomId` and keeps the latest snapshot. Rejoins automatically on every
+ * (re)connect once this tab has joined, or from the start when `rejoin` is set. Doesn't connect
+ * while `roomId` is null.
  */
-export function useRoom(identity: Identity) {
+export function useRoom(
+  identity: Identity,
+  roomId: RoomId | null,
+  rejoin: boolean,
+) {
   const [connected, setConnected] = useState(false);
   /** The snapshot came after the latest (re)connect, so it isn't stale. */
   const [rejoined, setRejoined] = useState(false);
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
-  const [wantsToJoin, setWantsToJoin] = useState(identity.inRoom);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [wantsToJoin, setWantsToJoin] = useState(rejoin);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
@@ -71,21 +80,31 @@ export function useRoom(identity: Identity) {
   );
   /** This browser's count of the Reactions and Throws left; the server keeps the real one. */
   const burst = useRef<Burst | undefined>(undefined);
+  /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
+  const joinedFromJoinScreen = useRef(false);
+
+  const showNotice = useCallback((text: string | null, ms = NOTICE_MS) => {
+    setNotice(text === null ? null : { text, ms });
+  }, []);
 
   /**
    * Back to the join form, with the name kept to rejoin with. Read from storage, since this also
-   * runs as a socket listener that outlives the render it was made in.
+   * runs as a socket listener that outlives the render it was made in. `/` stops going back to
+   * this Room, unless another tab has joined another Room since.
    */
   const resetToJoinScreen = useCallback(() => {
     const saved = loadIdentity().name;
     setName((current) => saved || current);
+    joinedFromJoinScreen.current = false;
     setWantsToJoin(false);
     setSnapshot(null);
     setPendingVote(null);
     setPendingRole(null);
     setPendingCommand(null);
-    saveIdentity({ id: identity.id, name: saved, inRoom: false });
-  }, [identity.id]);
+    updateIdentity((stored) =>
+      stored.lastRoom === roomId ? { ...stored, lastRoom: null } : stored,
+    );
+  }, [roomId]);
 
   useEffect(() => {
     function onConnect() {
@@ -108,11 +127,22 @@ export function useRoom(identity: Identity) {
       );
       setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
-      if (me) saveIdentity({ id: identity.id, name: me.name, inRoom: true });
+      if (me && joinedFromJoinScreen.current) {
+        joinedFromJoinScreen.current = false;
+        updateIdentity((stored) => ({
+          ...stored,
+          name: me.name,
+          lastRoom: roomId,
+        }));
+      }
     }
     function onDeckChanged(by: ParticipantId) {
       // The Facilitator knows: they changed it.
-      if (by !== identity.id) setNotice("The Facilitator changed the Deck.");
+      if (by !== identity.id) showNotice("The Facilitator changed the Deck.");
+    }
+    function onAutoRevealChanged(by: ParticipantId, on: boolean) {
+      if (by !== identity.id)
+        showNotice(`The Facilitator turned Auto Reveal ${on ? "on" : "off"}.`);
     }
     function onRejected(rejection: Rejection) {
       if (rejection.command === "vote") setPendingVote(null);
@@ -123,9 +153,10 @@ export function useRoom(identity: Identity) {
         setPendingRole(null);
       if (isPendingCommand(rejection.command)) setPendingCommand(null);
       if (rejection.command !== "join") {
-        setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
+        showNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
         return;
       }
+      joinedFromJoinScreen.current = false;
       setWantsToJoin(false);
       setSnapshot(null);
       setRejection(rejection.reason);
@@ -136,22 +167,24 @@ export function useRoom(identity: Identity) {
     socket.on("snapshot", onSnapshot);
     socket.on("rejected", onRejected);
     socket.on("deckChanged", onDeckChanged);
+    socket.on("autoRevealChanged", onAutoRevealChanged);
     socket.on("left", resetToJoinScreen);
-    socket.connect();
+    if (roomId !== null) connectTo(roomId);
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("snapshot", onSnapshot);
       socket.off("rejected", onRejected);
       socket.off("deckChanged", onDeckChanged);
+      socket.off("autoRevealChanged", onAutoRevealChanged);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
-  }, [identity.id, resetToJoinScreen]);
+  }, [identity.id, roomId, resetToJoinScreen, showNotice]);
 
   useEffect(() => {
     if (notice === null) return;
-    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    const timer = setTimeout(() => setNotice(null), notice.ms);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -161,6 +194,7 @@ export function useRoom(identity: Identity) {
 
   function join(nameToJoinWith: string) {
     setRejection(null);
+    joinedFromJoinScreen.current = true;
     setName(nameToJoinWith);
     setWantsToJoin(true);
   }
@@ -174,7 +208,9 @@ export function useRoom(identity: Identity) {
   }
 
   /** Marks the command pending in this Round, or says it can't be sent. */
-  function startCommand(command: PendingCommand["command"]) {
+  function startCommand(
+    command: Exclude<PendingCommand["command"], "setAutoReveal">,
+  ) {
     if (!snapshot || !canSend()) return false;
     setPendingCommand({ command, fromRound: snapshot.round });
     return true;
@@ -190,6 +226,16 @@ export function useRoom(identity: Identity) {
 
   function setDeck(deck: Deck) {
     if (startCommand("setDeck")) socket.emit("setDeck", [...deck]);
+  }
+
+  function setAutoReveal(on: boolean) {
+    if (!snapshot || !canSend()) return;
+    setPendingCommand({
+      command: "setAutoReveal",
+      fromRound: snapshot.round,
+      on,
+    });
+    socket.emit("setAutoReveal", on);
   }
 
   function becomeVoter() {
@@ -260,8 +306,10 @@ export function useRoom(identity: Identity) {
     reconnecting: displayed !== null && !rejoined,
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
-    notice,
-    /** Reveal, New Round or a new Deck, sent and not yet answered by the server. */
+    notice: notice?.text ?? null,
+    /** Shows a notice of the page's own in the toast, for `ms` milliseconds. */
+    showNotice,
+    /** Reveal, New Round, a new Deck or Auto Reveal, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,
     name,
@@ -272,6 +320,7 @@ export function useRoom(identity: Identity) {
     reveal,
     newRound,
     setDeck,
+    setAutoReveal,
     becomeVoter,
     becomeObserver,
     handOver,
