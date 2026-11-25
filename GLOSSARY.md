@@ -73,6 +73,10 @@ _Avoid_: Flip, show
 A Room setting under which the Round Reveals itself a few seconds after every Voter has voted, counting Voters who are away but still in the Room. A Voter joining in those seconds stops it, and it waits while the Room has no Facilitator. Rooms start with it on.
 _Avoid_: Automatic reveal, instant reveal
 
+**Holdout**:
+The only Voter who hasn't voted yet in a Round that hasn't been Revealed. A Voter who is away can still be the Holdout.
+_Avoid_: Blocker, straggler, last voter
+
 **Result**:
 The mean of the Votes cast in a Round, revealed with them. Voters who did not vote do not count.
 _Avoid_: Final estimate, average, score
@@ -103,11 +107,15 @@ _Avoid_: Points, story points, effort
 
 **Reaction**:
 An emoji a Voter sends up from their own Card, or an Observer from their Ghost, seen by everyone for a moment. It changes nothing in the Round.
-_Avoid_: Emote, sticker
+_Avoid_: Emote, sticker; and "shake" for a Nudge
 
 **Throw**:
 Something silly a Participant tosses at another Voter's Card or at someone else's Ghost (a paper ball, a tomato, flowers), seen by everyone for a moment. It changes nothing in the Round.
 _Avoid_: Mock, attack, poke
+
+**Nudge**:
+Shaking the Holdout's whole screen for a moment to hurry them up, which any other Participant can do. The more people Nudge the same Holdout, the harder it shakes. Everyone sees it happen at the Holdout's seat. It changes nothing in the Round, and a Holdout who is away can't be Nudged.
+_Avoid_: Shake, buzz, poke
 
 **Ghost**:
 A small character an Observer can choose to have and walk around the Table, seen by everyone. Clicking it shows its owner's name. It is where that Observer is on the Table: their Reactions and Throws come from it, and others can Throw at it. It changes nothing in the Round. Having a Ghost is not a role: its owner is still an Observer, and only Observers have Ghosts.
