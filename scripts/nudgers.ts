@@ -3,10 +3,10 @@
  * people. Dev only; never shipped.
  *
  *   1. `npm run dev`, then open http://localhost:5173/<room> and join as a Voter.
- *   2. `npx tsx scripts/nudgers.ts <room>` (add `--count 5` for up to 5 bots; the default is 3).
+ *   2. `npx tsx scripts/nudgers.ts <room>` (add `--count 2` for fewer bots; the default is 5).
  *   3. Don't play a Card: you're the only Voter who hasn't, so you're the Holdout. Every few
- *      seconds the bots Nudge you together, one after another, so each burst builds up: with 3
- *      bots it reaches level 3. Play a Card and they stop.
+ *      seconds the bots Nudge you together, one after another, so each burst builds up: with 5
+ *      bots it reaches level 5, the top. Play a Card and they stop.
  *
  * They Nudge whoever is the Holdout, bots included: run `scripts/scenarios.ts <room> --holdout`
  * alongside, as an Observer, to watch a bot Holdout's seat take the earthquake. Play a Card or
@@ -30,7 +30,8 @@ const STAGGER_MS = 250;
 const args = process.argv.slice(2);
 const roomId = args.find((a) => !a.startsWith("--"));
 const countIndex = args.indexOf("--count");
-const count = countIndex >= 0 ? Number(args[countIndex + 1]) : 3;
+// One bot per level, so a burst reaches the top level.
+const count = countIndex >= 0 ? Number(args[countIndex + 1]) : NUDGE_TOP_LEVEL;
 if (
   !roomId ||
   !(Number.isInteger(count) && count >= 1 && count <= NUDGE_TOP_LEVEL)
