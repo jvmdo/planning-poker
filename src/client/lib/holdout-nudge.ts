@@ -6,7 +6,18 @@
  * with the Web Animations API; cleans up after itself.
  */
 import { reducedMotion } from "./fun-animations";
-import { nudgeStrength, shakeOf, shoutOf, type ShoutWord } from "./nudge-burst";
+import {
+  HOP_MS,
+  HOP_STAGGER_MS,
+  HOP_TOP,
+  hopWavesOf,
+  nudgeStrength,
+  POP_IN_MS,
+  PUNCH_MS,
+  punchesOf,
+  shoutOf,
+  type ShoutWord,
+} from "./nudge-burst";
 
 /** Where the Holdout's Nudge plays: the strip holding their Hand, and the Table's area. */
 export interface HoldoutPlaces {
@@ -25,17 +36,17 @@ export function nudgeHoldout(level: number, places: HoldoutPlaces): () => void {
   return () => stops.forEach((stop) => stop());
 }
 
-/** How long one Card's hop takes, and how far behind its left neighbour it starts. */
-const HOP_MS = 360;
-const HOP_STAGGER_MS = 45;
+/** The Cards in the Holdout's strip: it holds only their Hand, so its buttons are its Cards. */
+export function handCardsOf(hand: HTMLElement | null): HTMLElement[] {
+  return hand ? [...hand.querySelectorAll("button")] : [];
+}
 
 /** The Hand's Cards hop up one after another, "pick one!": higher and more waves with the level. */
 function hop(level: number, hand: HTMLElement | null) {
   if (!hand) return () => {};
   const strength = nudgeStrength(level);
   const lift = 14 + strength * 40;
-  // The Holdout's strip holds only their Hand, so its buttons are its Cards.
-  const cards = [...hand.querySelectorAll("button")];
+  const cards = handCardsOf(hand);
   // On `transform`, so it adds to the Cards' own `translate` and `rotate` in the fan.
   const animations = cards.map((card, i) =>
     card.animate(
@@ -43,7 +54,7 @@ function hop(level: number, hand: HTMLElement | null) {
         { transform: "none" },
         {
           transform: `translateY(${-lift}px) rotate(${i % 2 ? 4 : -4}deg)`,
-          offset: 0.4,
+          offset: HOP_TOP,
         },
         { transform: "none" },
       ],
@@ -52,16 +63,13 @@ function hop(level: number, hand: HTMLElement | null) {
         delay: i * HOP_STAGGER_MS,
         // Every Card waits for the whole wave before hopping again.
         endDelay: (cards.length - 1 - i) * HOP_STAGGER_MS,
-        iterations: 1 + Math.round(strength * 3),
+        iterations: hopWavesOf(level),
         easing: "cubic-bezier(0.3, 0, 0.4, 1)",
       },
     ),
   );
   return () => animations.forEach((animation) => animation.cancel());
 }
-
-/** How long one punch of the page takes. */
-const PUNCH_MS = 420;
 
 /**
  * The whole page punches towards you from your Hand and springs back: bigger with the level, and
@@ -87,7 +95,7 @@ function punch(level: number, hand: HTMLElement | null) {
     ],
     {
       duration: PUNCH_MS,
-      iterations: Math.max(1, Math.floor(shakeOf(level).ms / PUNCH_MS)),
+      iterations: punchesOf(level),
       easing: "ease-out",
     },
   );
@@ -99,16 +107,8 @@ function punch(level: number, hand: HTMLElement | null) {
   return stop;
 }
 
-/** How far apart the words of a shout pop out. */
-const SHOUT_STEP_MS = 180;
-/** How long a word takes to pop in, and to pop away. */
-const POP_IN_MS = 300;
+/** How long a word takes to pop away. */
 const POP_OUT_MS = 180;
-/** How long a word that isn't the last stays out between the two. */
-const WORD_STAYS_MS = 170;
-/** The last word stays until a little after the shake, and never less than this. */
-const LAST_WORD_LINGERS_MS = 400;
-const LAST_WORD_STAYS_MS = 500;
 
 /**
  * The words of the level's shout pop out one after another over the Table, at random places, and
@@ -130,16 +130,9 @@ function shout(level: number, table: HTMLElement | null) {
       area.left + area.width * x,
       area.top + area.height * y,
     );
-    const delay = i * SHOUT_STEP_MS;
-    const stays = last
-      ? Math.max(
-          LAST_WORD_STAYS_MS,
-          shakeOf(level).ms + LAST_WORD_LINGERS_MS - delay,
-        )
-      : WORD_STAYS_MS;
-    bubble.animate(popKeyframes(-12 + Math.random() * 24, stays), {
-      duration: POP_IN_MS + stays + POP_OUT_MS,
-      delay,
+    bubble.animate(popKeyframes(-12 + Math.random() * 24, word.staysMs), {
+      duration: POP_IN_MS + word.staysMs + POP_OUT_MS,
+      delay: word.delayMs,
       easing: "ease-out",
       fill: "both",
     }).onfinish = () => bubble.remove();

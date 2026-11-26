@@ -9,7 +9,7 @@ A Round often ends with everyone staring at one name on the "waiting on …" lin
 ## Solution
 
 When exactly one Voter hasn't voted yet, they are the **Holdout**. Anyone else in the Room can **Nudge** them, in the spirit of MSN Messenger's old nudge:
-- The Holdout's whole screen shakes and an original buzz plays on their device.
+- The Holdout's whole screen shakes and an original alarm plays on their device.
 - Everyone else sees an earthquake at the Holdout's seat, with their Card rumbling and cracks spreading across the Table.
 - Everyone gets a toast saying who Nudged whom.
 
@@ -36,7 +36,7 @@ The vocabulary is defined in the glossary (**Holdout**, **Nudge**, **Voter**, **
 ### Being Nudged
 
 9. As the Holdout, I want my whole screen to shake for a moment when I'm Nudged, so that I can't miss it.
-10. As the Holdout, I want a short buzz to play on my device, so that I notice even if I'm looking at another window.
+10. As the Holdout, I want a short alarm to play on my device, following what my screen does, so that I notice even if I'm looking at another window.
 11. As the Holdout, I want a toast saying "Ana sent you a Nudge!", so that I know who is hurrying me.
 12. As the Holdout, I want to still be able to play a Card while my screen shakes, so that a Nudge never gets in the way of voting.
 13. As the Holdout, I want the shake to stop the moment I vote, so that voting feels like the answer.
@@ -53,10 +53,10 @@ The vocabulary is defined in the glossary (**Holdout**, **Nudge**, **Voter**, **
 18. As a team, I want each extra person who Nudges the same Holdout to make it stronger, so that "the whole team is waiting on you" is felt.
 19. As a Participant, I want only distinct people to count, so that one impatient person can't max it out alone. Their repeat Nudges still shake at the current strength.
 20. As a Participant, I want it to stop growing after 5 people, so that the Holdout's screen stays usable in a big team.
-21. As a Participant, I want the shake's strength and length, the Holdout's hop, punch and shout, the size of the cracks and the buzz's volume to grow together, so that the build-up reads the same everywhere.
+21. As a Participant, I want the shake's strength and length, the Holdout's hop, punch and shout, the size of the cracks and the alarm's volume to grow together, so that the build-up reads the same everywhere.
 22. As a Holdout who stops being the Holdout and becomes it again in the same Round, I want the build-up to pick up where it was, so that a teammate joining doesn't reset it.
 23. As a Participant, I want the build-up to reset when a new Round starts, so that each Round starts fresh.
-24. As a Holdout Nudged by several people at once, I want one stronger shake, one buzz and one toast ("Ana, Caio and 3 others sent you a Nudge!"), not a queue of them, so that a burst stays funny instead of endless.
+24. As a Holdout Nudged by several people at once, I want one stronger shake, one alarm and one toast ("Ana, Caio and 3 others sent you a Nudge!"), not a queue of them, so that a burst stays funny instead of endless.
 25. As a Participant, I want everyone's toast for that burst to update in place the same way, so that toasts and screen-reader alerts don't pile up.
 
 ### More than a shake
@@ -98,7 +98,12 @@ The vocabulary is defined in the glossary (**Holdout**, **Nudge**, **Voter**, **
   - **Hop:** the Hand's Cards hop up one after another, higher and in more waves at higher levels.
   - **Punch:** the whole page punches towards the Holdout from their Hand and springs back, harder and more often at higher levels, fitting as many punches as the shake's length allows, so the page is back to its size when the shake ends.
   - **Shout:** comic words pop out over the Table's area (beside the sidebar, open or closed), one more word per level: "psst", "hey", "Hey!", "HEY!!", "VOTE!!!". Each is sized for its own level. All but the last pop out at random places and pop away; the last lands in the Table's middle and stays until a little after the shake.
-- **Buzz:** synthesised with the Web Audio API, so there's no sound file and nothing copied from MSN. Only the Holdout hears it. It's louder at higher levels and plays once per burst. If the browser refuses to play audio, the Nudge goes ahead silently.
+- **Alarm** ([nudge-sound.ts](../../src/client/lib/nudge-sound.ts)), chosen with the prototype on the `prototype/nudge-sound` branch (ticket 07); it replaced a plain buzz. Only the Holdout hears it. It follows the hop, punch and shout beat for beat, sounding like a warning, and a bit annoying:
+  - **Shout:** an air horn blast for each word, on one pitch, each louder and harsher; only "VOTE!!!" slides into tune.
+  - **Hop:** a smoke alarm's chirp at the top of each Card's hop.
+  - **Shake and punch:** mains hum with a crackle for the shake, and a wrong-answer buzzer on each punch.
+
+  It's synthesised with the Web Audio API, so there's no sound file and nothing copied from MSN. It's louder at higher levels, restarts with the animation when a burst grows, and stops with it. If the browser refuses to play audio, the Nudge goes ahead silently.
 - **Earthquake at the seat:** on every other screen, the Holdout's seat Card rumbles (a fast side-to-side shudder, distinct from a Throw's wobble), and a few jagged cracks spread across the Table from that seat and fade. Cracks get longer and more numerous with the level. The cracks are our own simple drawing in the app's ink colour.
 - **Toasts:** the existing notice toast.
   - The Holdout sees "Ana sent you a Nudge!".
@@ -106,7 +111,7 @@ The vocabulary is defined in the glossary (**Holdout**, **Nudge**, **Voter**, **
   - Everyone else sees "Ana Nudged Bruno".
   - A burst becomes "Ana, Caio and 3 others …", listing the first two names.
   - Each burst updates one notice in place.
-- **Reduced motion:** the Holdout gets a brief red flash around the page's edge instead of the shake, hop, punch and shout, plus `navigator.vibrate` where the browser supports it. Everyone else gets the Card's earthquake replaced by a static highlight and no cracks. The buzz and toasts are unchanged.
+- **Reduced motion:** the Holdout gets a brief red flash around the page's edge instead of the shake, hop, punch and shout, plus `navigator.vibrate` where the browser supports it. Everyone else gets the Card's earthquake replaced by a static highlight and no cracks. The alarm and toasts are unchanged.
 
 ## Testing Decisions
 
@@ -126,7 +131,7 @@ The vocabulary is defined in the glossary (**Holdout**, **Nudge**, **Voter**, **
 
   Prior art: the existing Reaction, Throw and burst-limit tests in `src/server/room.test.ts`.
 - **The merging of a burst** (names and level for the toast) as a small pure client module, unit-tested like `vote-marks`.
-- **No socket adapter or UI tests**, as for the rest of the app. The shake, buzz, earthquake, toasts and reduced motion are checked in a browser with several Participants (the `browser-check` skill), plus bot Voters in the scenario script who leave one Voter as Holdout.
+- **No socket adapter or UI tests**, as for the rest of the app. The shake, alarm, earthquake, toasts and reduced motion are checked in a browser with several Participants (the `browser-check` skill), plus bot Voters in the scenario script who leave one Voter as Holdout.
 
 ## Out of Scope
 

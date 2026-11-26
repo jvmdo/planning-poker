@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   addNudge,
   burstNotice,
+  hopWavesOf,
+  nudgeBeats,
   nudgeStrength,
+  punchesOf,
   shakeOf,
   shoutOf,
   type NudgeBurst,
@@ -176,5 +179,54 @@ describe("the Holdout's shout", () => {
 
   it("says no more past the top level", () => {
     expect(shoutOf(9)).toEqual(shoutOf(5));
+  });
+
+  it("pops its words out 180 ms apart", () => {
+    expect(shoutOf(5).map((w) => w.delayMs)).toEqual([0, 180, 360, 540, 720]);
+  });
+
+  it("keeps the last word out until a little after the shake, other words briefly", () => {
+    const words = shoutOf(5);
+    expect(words.slice(0, -1).every((w) => w.staysMs === 170)).toBe(true);
+    // It pops out at 720 ms and stays out until 400 ms past the 1.5 s shake.
+    expect(words.at(-1)?.staysMs).toBe(1500 + 400 - 720);
+    expect(shoutOf(1)[0]?.staysMs).toBe(500 + 400);
+  });
+});
+
+describe("the Holdout's hop and punch", () => {
+  it("hops once at level 1, up to 4 times at the top level", () => {
+    expect([1, 2, 3, 4, 5].map(hopWavesOf)).toEqual([1, 2, 3, 3, 4]);
+  });
+
+  it("fits as many punches as the shake allows, at least one", () => {
+    expect([1, 2, 3, 4, 5].map(punchesOf)).toEqual([1, 1, 2, 2, 3]);
+  });
+});
+
+describe("the beats the alarm follows", () => {
+  it("hits each word as it pops in", () => {
+    expect(nudgeBeats(3, 0).words).toEqual([
+      { atMs: 0, index: 0 },
+      { atMs: 180, index: 1 },
+      { atMs: 360, index: 2 },
+    ]);
+  });
+
+  it("hits the top of every Card's every hop, in order", () => {
+    const { hopsMs } = nudgeBeats(2, 3);
+    // 2 waves of 3 Cards: each Card 45 ms behind the last, each wave 360 ms after the last.
+    expect(hopsMs).toEqual([144, 189, 234, 504, 549, 594]);
+  });
+
+  it("hits the start of each punch, and lasts as long as the shake", () => {
+    expect(nudgeBeats(5, 0)).toMatchObject({
+      punchesMs: [0, 420, 840],
+      shakeMs: 1500,
+    });
+  });
+
+  it("has no hops without a Hand", () => {
+    expect(nudgeBeats(5, 0).hopsMs).toEqual([]);
   });
 });
