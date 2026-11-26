@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] A left sidebar lists every Participant with their state (voted, not voted yet, observing), Away and Facilitator markers, and their Vote after the Reveal. The Facilitator's hand-over control lives on each row. Your name and role switch sit at the bottom.
 - [x] A status bar shows whether the Round is voting or revealed, how many Voters have played, who we're waiting on, a progress bar, and the Facilitator's Reveal and New Round buttons.
@@ -22,3 +22,4 @@
 - **Desktop only:** the sidebar is a fixed 300px column at every width, so the Room no longer fits a phone. The join screen still works on phones.
 - **Removed:** the shadcn `Badge`, which nothing used any more.
 - **Checked:** a browser run on a production build with four Participants: voting, the Observer view, Reveal, hand-over, then New Round.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

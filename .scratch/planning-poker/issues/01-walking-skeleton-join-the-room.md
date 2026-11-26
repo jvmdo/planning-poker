@@ -13,7 +13,7 @@ This ticket lays down the whole stack that later tickets build on. See the spec 
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] One command starts the app locally with hot reload for the client and server.
 - [x] Joining with a display name adds the Participant to the Room, and every connected browser sees the updated list without refreshing.
@@ -36,3 +36,4 @@ This ticket lays down the whole stack that later tickets build on. See the spec 
 - **06:** the client already shows "Connecting…/Reconnecting…" and rejoins automatically on every reconnect (`src/client/use-room.ts`).
 - **04/06:** `join` from a Participant ID that's already present currently resets the role to Voter and takes the new name. Once Observers exist, a rejoin should keep the existing role.
 - **Extra rule:** the Room rejects a blank name (`name-empty`).
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

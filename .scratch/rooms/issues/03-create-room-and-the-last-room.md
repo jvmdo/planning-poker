@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (A Room per URL)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Browser storage keeps the Participant ID, the name and the last Room joined (one Room). Old data with `inRoom` but no Room counts as no Room, so those browsers see the join screen once, with their name filled in.
 - [x] At `/` with a last Room, the browser goes to `/<last room>` (replacing the history entry) and rejoins without the join screen.
@@ -14,3 +14,7 @@
 - [x] Leave clears the last Room if it is this tab's Room, and shows the join screen for the same Room.
 - [x] A reload of a tab in a Room that is no longer the last Room (another tab joined another Room since) shows the join screen with the name filled in. This is expected.
 - [x] The planning-poker spec's user story 1, Solution and Client sections describe `/`, Create Room and the last Room.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

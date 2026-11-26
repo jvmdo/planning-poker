@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Reveal, Result and New Round), 06 (Survive disconnects (grace period))
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] When the Facilitator's grace period expires, they're removed, the current Round is discarded, and every snapshot shows no Facilitator.
 - [x] While there's no Facilitator, every Participant sees a "Become Facilitator" button, and nobody can Reveal or start a New Round.
@@ -20,3 +20,4 @@
 - **Coming back late:** a Facilitator who returns after expiry rejoins as an ordinary Participant and has to claim like everyone else. If the Room emptied completely, the first Participant back becomes Facilitator (story 43).
 - **Extra rule:** a claim from someone who isn't in the Room is rejected (`not-in-room`).
 - **Client:** the losing claimer sees "Someone else became the Facilitator first." Claims are processed one at a time on the single Node process, so two simultaneous claims always leave exactly one Facilitator. A browser run confirmed this with two clicks fired at once.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

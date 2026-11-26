@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Walking skeleton: join the Room and see who's here)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] The Deck is defined once in the shared area and rendered as a hand of Cards that wraps into a tappable grid on narrow screens.
 - [x] Playing a Card records the Voter's Vote. Playing another replaces it. The player's own Card is highlighted.
@@ -23,3 +23,4 @@
 - **Client:** it ignores Vote rejections, because the Card hand only offers Deck Cards. If ticket 03/04 add rejections a user can trigger (a Vote after the Reveal, an Observer's Vote), show them.
 - **03:** playing the Card you already hold still sends a change notification. That's harmless.
 - **Tests:** the snapshot assertions repeat the full participant object. A small helper would help once more fields arrive (03, 06).
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

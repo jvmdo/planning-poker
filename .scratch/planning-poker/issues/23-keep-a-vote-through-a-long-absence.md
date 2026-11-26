@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 ## Acceptance criteria
 
@@ -27,3 +27,4 @@
 **Implemented (2026-11-19).** All criteria are met. When the grace timer removes a Voter, `remove(id, { keepVote: true })` moves their Vote into the Room's `setAside` map instead of discarding it; `join` gives it back when that ID joins again as a new Participant; `discardRound` clears it, so a New Round, a new Deck or a lost Facilitator ends it. Leave and the Facilitator-loss path still discard. Tested in `room.test.ts` ("a Voter who comes back after their grace period ran out"): back before and after the Reveal, counted in the Result only once back, and not back after a New Round, a new Deck, a lost Facilitator or Leave, nor given to anyone else. If everyone is gone, the empty Room is dropped after 60 seconds as before, set-aside Votes with it.
 
 **Reading again when a Vote comes back (2026-11-19).** The user asked for this branch to be based on `outliers`, and for the frozen reading of issue 22 to take in a Vote that comes back after the Reveal. `keepReading` now keeps the Votes it read (with names); when a revealed Vote appears that it hasn't read, it adds it to them and reads again, still keeping the Votes of anyone who left. Checked in the browser on a separate server: Davi voted 64h and closed his page; after 30 seconds the Facilitator revealed "Everyone agrees", 8.0h; Davi reopened the page and everyone saw "Ask Davi why", 22.0h, his Card marked, and Davi saw "You're an Outlier, tell the team why 🙋".
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

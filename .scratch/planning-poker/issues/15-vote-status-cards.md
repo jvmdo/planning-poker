@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] A Voter who has played shows a small face-down Card, tilted, with the striped back used on the join screen; it pops in when they play.
 - [x] A Voter who hasn't played yet shows an empty dashed Card-shaped slot.
@@ -21,3 +21,4 @@
 
 - **Files:** only `participant-list.tsx` changed. `VoteStatus` draws the Card at the end of each row; the tick and clock before the name are gone, and the yellow Vote badge after the Reveal became the face-up Card.
 - **Checked** in a browser on a production build, light and dark, with two Voters who played, one who hadn't and an Observer: the heading read "2/3 played", the rows showed two face-down Cards, an empty slot and the eye, and after the Reveal the Cards showed 8, 16 and "–". Screen readers get "Voted", "Not voted yet", "Observer", "Voted 8 hours" and "No Vote".
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

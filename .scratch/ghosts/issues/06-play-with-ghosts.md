@@ -11,7 +11,7 @@ See the spec in this folder (user stories 49–62).
 
 **Blocked by:** 03
 
-**Status:** ready-for-human
+**Status:** closed
 
 - [x] Room: an Observer with a Ghost may react; without one, the existing refusal stands.
 - [x] Room: a Throw at an Observer with a Ghost is accepted; without one, the existing refusal stands. A Throw at yourself is still refused. The Reaction and Throw event is unchanged.
@@ -21,3 +21,7 @@ See the spec in this folder (user stories 49–62).
 - [x] Through ticket 01's Participant-place lookup, a Ghost is where its owner's Reactions and Throws start and where Throws at them land. Observers without a Ghost still throw from the Watching line.
 - [x] The Throw animation is frame-driven and re-reads the target's on-screen position every frame, so a walking Ghost is always hit. Throws at Cards look as before.
 - [x] A hit Ghost wobbles and settles where it was.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-human`), without re-checking each box here.

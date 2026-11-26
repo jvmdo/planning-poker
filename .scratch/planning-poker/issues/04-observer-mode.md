@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Vote in secret)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Each Participant has a Voter/Observer toggle that takes effect for everyone immediately. The Participant list shows each Participant's role.
 - [x] Observers have no Card hand, and the Room rejects a Vote from an Observer.
@@ -21,3 +21,4 @@
 - **Rule interpretation:** becoming an Observer discards the Vote only **before** the Reveal. After the Reveal the Vote is locked (story 15, Round rules), so the revealed Card and Result stay put. That Participant then shows as Observer, Voted, plus their Card. The spec's Role rule ("Becoming an Observer discards your current Vote") omits that qualifier. Ticket 04's summary and story 33 include it.
 - **Carried over from 01:** `join` from an ID that's already present now keeps that Participant's role. A reload no longer turns an Observer back into a Voter. Ticket 06's "restores … Voter/Observer role" builds on this.
 - **Extra rule:** a role switch from someone who isn't in the Room is rejected (`not-in-room`). A switch to the role you already have succeeds without notifying anyone.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

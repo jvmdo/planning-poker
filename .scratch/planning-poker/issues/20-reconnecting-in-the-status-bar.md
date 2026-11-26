@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] While disconnected, the status bar's second line (normally "N of M Voters played · waiting on …") shows a spinner and "Reconnecting… you'll rejoin automatically." instead. The first line ("Voting" or "Votes revealed") stays.
 - [x] While disconnected, the Facilitator's Reveal, New Round and Deck buttons are disabled. They come back as they were once the snapshot after rejoining arrives.
@@ -13,3 +13,7 @@
 - [x] The "Connecting…" message on the join screen, before joining, is unchanged.
 - [x] The "Become Facilitator" banner stays in the strip for now (ticket 21).
 - [x] Checked in a browser on a production build by stopping and restarting the server: the message appears in the status bar, the Facilitator's buttons are disabled, everything returns after rejoining, and the table's box doesn't change at 1024×720 or 1920×1080.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

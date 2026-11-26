@@ -4,9 +4,13 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-human
+**Status:** closed
 
 - [ ] `render.yaml` sets `region: virginia`.
 - [ ] A new service is created from the Blueprint in Virginia, and the Oregon service is deleted. Render can't move an existing service, so the URL changes.
 - [ ] The README and ticket 08 point at the new URL, and the team has it.
 - [ ] A measured round trip from Brazil is shorter than before.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-human`), without re-checking each box here.

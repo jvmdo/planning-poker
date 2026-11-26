@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] A `rooms` branch exists with a draft PR to `main`, and Render builds a pull request preview for it.
 - [x] A Rooms registry module on the server (no sockets) creates a Room on its first join and returns the same Room after that. It is created when a Participant joins, not when a socket connects.
@@ -15,3 +15,7 @@
 - [x] All existing Room tests pass unchanged.
 - [x] Checked in a browser on an isolated server: joining, voting, Reveal, Reactions, Deck change, Leave and a reload work as before.
 - [x] The planning-poker spec's Socket adapter section says updates go to the Room's sockets, not every socket.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

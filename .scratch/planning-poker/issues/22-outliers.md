@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 ## The rule
 
@@ -72,3 +72,4 @@
 **Follow-up (2026-11-19).** The user kept the extras (bar colours, filled marks) and asked for the outcome to freeze at the Reveal. `keepReading` (in `vote-marks.ts`, tested in `vote-marks.test.ts`) takes the reading, including the Outliers' names, when the Votes are revealed and keeps it until the Round number changes; `useRoundReading` holds it in `App`. Only the message and highlights are frozen: the Result and the bars still come from the server and change if a Voter leaves. A page opened after the Reveal reads the Votes still there. Checked in the browser: after Eva, an Outlier, left, the Facilitator still saw "Ask Davi and Eva why" with Davi marked.
 
 **Scenarios in the browser (2026-11-19).** `scripts/scenarios.ts` plays the scenarios table in a real Room with bot Voters (dev only, outside the build). Open a Room, switch to Observer, run `npx tsx scripts/scenarios.ts <room>`, then Reveal and New Round through all 14. Checked on a separate server: every scenario showed its expected message, and Ctrl+C removed the bots.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

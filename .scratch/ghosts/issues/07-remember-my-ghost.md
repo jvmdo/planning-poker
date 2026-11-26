@@ -13,7 +13,7 @@ See the spec in this folder (user stories 12–15, 68).
 
 **Blocked by:** 04
 
-**Status:** ready-for-human
+**Status:** closed
 
 - [x] The identity the browser already stores (Participant ID, name, Last Room) also stores the wanted Skin, or none. Unreadable storage behaves as "no Ghost wanted".
 - [x] Picking a Skin in the picker stores it, and "Vent" (putting the Ghost away) clears it.
@@ -31,3 +31,4 @@ One gap for a human to decide. After the grace period runs out or the server res
 A tab that's an Observer without a Ghost in another Room also brings its Ghost out once a Skin is picked in any tab ("in every Room"). That is intended by this ticket.
 
 **2026-11-23, agent:** Decided: the browser remembers the Observer role for the Room it was an Observer in only, not in every Room. That is ticket 09 (`09-remember-observer-role.md`).
+- 2026-11-26: closed by the human (was `ready-for-human`), without re-checking each box here.

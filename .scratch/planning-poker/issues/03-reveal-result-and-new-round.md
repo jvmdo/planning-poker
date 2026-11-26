@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Vote in secret)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Only the Facilitator sees enabled Reveal and New Round controls. The Room rejects both commands from anyone else.
 - [x] Reveal is disabled in the UI, and rejected by the Room, while zero Votes have been cast. It's allowed when only some Voters have voted.
@@ -23,3 +23,4 @@
 - **04/06:** Votes are stored separately from Participants. Becoming an Observer (04) and removal after the grace period (06) must delete the Vote too.
 - **Client:** Reveal is hidden, not disabled, after the Reveal. The rule that disables Reveal while there are zero Votes is copied onto the client (`round-panel.tsx`), as the spec asks.
 - **Harmless:** `newRound` with no Votes and no Reveal still sends a change notification.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

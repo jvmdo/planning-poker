@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Left: the logo and title, the three steps (pick in secret, reveal at once, the Result is the mean), and at the bottom a note: "Hosted on the Render free plan", linking to Render's free-plan page, explaining the sleep and possible downtime.
 - [x] Right: the name form as a big tilted Card ("Take a seat"), level with the left content, with the connecting banner and notices above it and the name-taken message inside it.
@@ -22,3 +22,4 @@
 - **Files:** `join-screen.tsx` is the whole page (about panel, name Card, warm-up Deck). `playing-card.tsx` is the Card button, now shared by the Room's hand and the warm-up Deck; `showUnit={false}` drops "hours". `lib/use-card-flair.ts` holds the random colour and flick on each play, in its own file so fast refresh keeps working.
 - **Joining:** the old screen hid the form while rejoining; now the form stays, with the button disabled and reading "Joining…".
 - **Checked** in a browser on a production build, light and dark: the link opens Render's free-plan docs in a new tab; a warm-up Card can be played; joining lands in the Room, where the hand still plays with its "hours" label; a taken name shows the refusal inside the form Card, and another name then joins.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

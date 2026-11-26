@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Updates stay in their Room)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Room IDs (1–40 characters of `a–z`, `0–9`, `-`, uppercase converted to lowercase) are parsed and checked by one shared function, tested directly.
 - [x] `/Team-Alpha` and `/team-alpha` are the same Room. The address bar shows the lowercase form.
@@ -17,3 +17,7 @@
 - [x] Tests with fake timers: an empty Room is still there at 59 s and gone at 60 s; a join at 59 s keeps it, with its Deck; a Participant's grace period delays the removal.
 - [x] Checked in a browser on an isolated server with two Rooms in two windows: nothing from one Room shows in the other.
 - [x] The planning-poker spec's Socket adapter, HTTP entry and Names sections say Rooms are per URL, and names are unique within a Room.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.
