@@ -157,6 +157,42 @@ html.nudged #root {
   /* How far, how fast and how often are set by the page for each Nudge's level. */
   animation: nudge-shake var(--nudge-cycle) linear var(--nudge-cycles);
 }
+/*
+ * With reduced motion the page stays still: its edge flashes red instead, thicker at higher
+ * levels, for as long as the shake would last.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html.nudged #root {
+    animation: none;
+  }
+  html.nudged body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    /* Over everything on the page, the Hand, dialogs and Throws included. */
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 calc(var(--nudge-px) * 1.25) var(--destructive);
+    animation: nudge-flash var(--nudge-ms) ease-out both;
+  }
+}
+/* With reduced motion, the Holdout's seat Card on everyone else's screen, instead of cracks. */
+.nudge-highlight {
+  outline: 4px solid var(--destructive);
+  outline-offset: 3px;
+}
+@keyframes nudge-flash {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  60% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 @keyframes nudge-shake {
   0%,
   100% {

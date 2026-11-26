@@ -2,6 +2,7 @@
  * The earthquake everyone but the Holdout sees when they're Nudged: their seat Card rumbles, and
  * jagged cracks spread across the Table from it and fade. Both grow with the Nudge's level, on the
  * same scale as the Holdout's shake. Drawn with the Web Animations API; cleans up after itself.
+ * With reduced motion the Card is only ringed in red, for as long as the earthquake would last.
  */
 import { reducedMotion } from "./fun-animations";
 import { nudgeStrength, shakeOf, type Shake } from "./nudge-burst";
@@ -20,9 +21,8 @@ export function earthquake(
   table: HTMLElement,
   level: number,
 ): () => void {
-  // With reduced motion, nothing moves.
-  if (reducedMotion()) return () => {};
   const shake = shakeOf(level);
+  if (reducedMotion()) return highlight(card, shake);
   const strength = nudgeStrength(level);
   const stopRumble = rumble(card, shake, strength);
   const stopCracks = crack(card, table, shake, strength);
@@ -50,6 +50,23 @@ function rumble(card: HTMLElement, { ms }: Shake, strength: number) {
   });
   const animation = card.animate(keyframes, { duration: ms });
   return () => animation.cancel();
+}
+
+/** The class that rings a Card in red (see index.css). */
+const HIGHLIGHTED = "nudge-highlight";
+
+/**
+ * With reduced motion, the Card is ringed in red instead, without moving, for as long as its
+ * cracks would stay and fade.
+ */
+function highlight(card: HTMLElement, { ms }: Shake) {
+  card.classList.add(HIGHLIGHTED);
+  const stop = () => {
+    clearTimeout(timer);
+    card.classList.remove(HIGHLIGHTED);
+  };
+  const timer = setTimeout(stop, Math.max(ms, SPREAD_MS) + FADE_MS);
+  return stop;
 }
 
 interface Point {

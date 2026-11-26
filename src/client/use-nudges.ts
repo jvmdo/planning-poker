@@ -9,6 +9,7 @@ import {
   type Shake,
 } from "./lib/nudge-burst";
 import { buzz, readyBuzz } from "./lib/buzz";
+import { reducedMotion } from "./lib/fun-animations";
 import { useFunEvents } from "./use-fun-events";
 
 /**
@@ -120,22 +121,46 @@ export function useNudges(
 }
 
 let shakeTimer: ReturnType<typeof setTimeout> | undefined;
+/** A phone is vibrating for the Nudge, so stopping the shake stops it too. */
+let vibrating = false;
+/** With reduced motion, a phone vibrates this many times over the length of the shake. */
+const VIBRATIONS = 3;
 
-/** Shakes the page from the start, even if it was already shaking. */
+/**
+ * Shakes the page from the start, even if it was already shaking. With reduced motion its edge
+ * flashes red instead (see index.css), and a phone vibrates.
+ */
 function startShaking({ ms, px }: Shake) {
   const root = document.documentElement;
   root.classList.remove(SHAKING);
+  root.style.setProperty("--nudge-ms", `${ms}ms`);
   root.style.setProperty("--nudge-px", `${px}px`);
   root.style.setProperty("--nudge-cycle", `${SHAKE_CYCLE_MS}ms`);
   root.style.setProperty("--nudge-cycles", String(ms / SHAKE_CYCLE_MS));
   // Reading the layout between the two restarts the animation.
   void root.offsetWidth;
   root.classList.add(SHAKING);
+  if (reducedMotion()) {
+    // Buzz, pause, buzz…: one more buzz than pauses, all the same length.
+    const step = Math.round(ms / (VIBRATIONS * 2 - 1));
+    vibrating = vibrate(Array(VIBRATIONS * 2 - 1).fill(step));
+  }
   clearTimeout(shakeTimer);
   shakeTimer = setTimeout(stopShaking, ms);
 }
 
+/** Vibrates a phone, or 0 stops it. False where unsupported, or refused before a tap. */
+function vibrate(pattern: number | number[]): boolean {
+  try {
+    return navigator.vibrate?.(pattern) ?? false;
+  } catch {
+    return false;
+  }
+}
+
 function stopShaking() {
   clearTimeout(shakeTimer);
+  if (vibrating) vibrate(0);
+  vibrating = false;
   document.documentElement.classList.remove(SHAKING);
 }
