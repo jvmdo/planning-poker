@@ -69,7 +69,12 @@ export function App({
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
-  useNudges(snapshot, identity.id, showNotice, speakNotice);
+  const playingNudge = useNudges(
+    snapshot,
+    identity.id,
+    showNotice,
+    speakNotice,
+  );
   /** The Table and the strip under it: where Ghosts walk. */
   const roomArea = useRef<HTMLDivElement>(null);
 
@@ -183,6 +188,7 @@ export function App({
           <div className="relative flex min-h-0 flex-1 flex-col">
             <RoomTable
               snapshot={snapshot}
+              nudge={playingNudge}
               round={round}
               myId={identity.id}
               roomRef={roomArea}

@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { TablePoint } from "../shared/ghost";
 import { cn } from "@/lib/utils";
+import { earthquake } from "./lib/earthquake";
 import { floatReaction, flyThrow } from "./lib/fun-animations";
 import { seatLayout } from "./lib/seat-layout";
 import type { RoundReading } from "./lib/vote-marks";
@@ -21,6 +22,7 @@ import { GhostLayer } from "./ghost-layer";
 import type { FunItem } from "./fun-menu";
 import { TableSeat } from "./table-seat";
 import { useFunEvents } from "./use-fun-events";
+import type { PlayingNudge } from "./use-nudges";
 import type { PendingCommand } from "./pending";
 import { Waiting as Spinner } from "./waiting";
 import { Button } from "@/components/ui/button";
@@ -47,6 +49,7 @@ const ABOVE_GHOSTS = "relative z-20";
  */
 export function RoomTable({
   snapshot,
+  nudge,
   round,
   myId,
   roomRef,
@@ -60,6 +63,8 @@ export function RoomTable({
   onMoveGhost,
 }: {
   snapshot: RoomSnapshot;
+  /** The burst of Nudges playing, if any: an earthquake at the Holdout's seat. */
+  nudge: PlayingNudge | null;
   round: RoundReading;
   myId: ParticipantId;
   /** The room area round the Table, the strip under it included, where Ghosts walk. */
@@ -104,6 +109,8 @@ export function RoomTable({
   const ghosts = useRef(new Map<ParticipantId, HTMLElement>());
   const watching = useRef<HTMLParagraphElement>(null);
   const table = useRef<HTMLDivElement>(null);
+  /** Stops the earthquake playing at a Holdout's seat, if one is. */
+  const stopEarthquake = useRef<(() => void) | null>(null);
   /** When a click outside the seats last closed a menu: that click does nothing else. */
   const closedMenuAt = useRef(-Infinity);
 
@@ -122,7 +129,7 @@ export function RoomTable({
 
   /** Animates a Reaction or Throw. One whose sender or target has left the table is skipped. */
   function play(event: FunEvent) {
-    // A Nudge only shakes the Holdout's own screen, for now.
+    // A Nudge plays as a burst (see below).
     if (event.kind === "nudge") return;
     const from = placeOf(event.from);
     if (!from) return;
@@ -138,6 +145,26 @@ export function RoomTable({
   useFunEvents((event) => {
     if (event.from !== myId) play(event);
   });
+
+  // A burst of Nudges is an earthquake at the Holdout's seat, except on their own screen, which
+  // shakes instead. Each time the burst grows, it starts again at the burst's level, never stacked.
+  useEffect(() => {
+    if (!nudge || nudge.to === myId) return;
+    const card = cards.current.get(nudge.to);
+    if (!card || !table.current) return;
+    stopEarthquake.current?.();
+    stopEarthquake.current = earthquake(card, table.current, nudge.level);
+  }, [nudge, myId]);
+
+  // It stops at once when the Holdout's Vote lands or the Round is Revealed, as their shake does,
+  // and when the Table goes.
+  const holdoutAnswered =
+    snapshot.revealed ||
+    !!snapshot.participants.find((p) => p.id === nudge?.to)?.hasVoted;
+  useEffect(() => {
+    if (holdoutAnswered) stopEarthquake.current?.();
+  }, [holdoutAnswered]);
+  useEffect(() => () => stopEarthquake.current?.(), []);
 
   // A menu opened by a click closes on a click anywhere outside a seat or Ghost.
   useEffect(() => {

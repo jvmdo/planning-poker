@@ -3,7 +3,7 @@
  * use fixed-position elements and the Web Animations API, and clean up after themselves.
  */
 
-function reducedMotion() {
+export function reducedMotion() {
   return matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
