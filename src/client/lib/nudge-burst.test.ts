@@ -4,6 +4,7 @@ import {
   burstNotice,
   nudgeStrength,
   shakeOf,
+  shoutOf,
   type NudgeBurst,
 } from "./nudge-burst.js";
 
@@ -152,5 +153,28 @@ describe("the Holdout's shake", () => {
 
   it("shakes no harder past the top level", () => {
     expect(shakeOf(9)).toEqual(shakeOf(5));
+  });
+});
+
+describe("the Holdout's shout", () => {
+  it("says one more word at each level, louder each time", () => {
+    expect(shoutOf(1).map((w) => w.text)).toEqual(["psst"]);
+    expect(shoutOf(3).map((w) => w.text)).toEqual(["psst", "hey", "Hey!"]);
+    expect(shoutOf(5).map((w) => w.text)).toEqual([
+      "psst",
+      "hey",
+      "Hey!",
+      "HEY!!",
+      "VOTE!!!",
+    ]);
+  });
+
+  it("sizes each word for its own level, from 3 rem to 8 rem", () => {
+    expect(shoutOf(5).map((w) => w.rem)).toEqual([3, 4.25, 5.5, 6.75, 8]);
+    expect(shoutOf(2).map((w) => w.rem)).toEqual([3, 4.25]);
+  });
+
+  it("says no more past the top level", () => {
+    expect(shoutOf(9)).toEqual(shoutOf(5));
   });
 });

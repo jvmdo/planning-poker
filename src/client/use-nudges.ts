@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { ParticipantId, RoomSnapshot } from "../shared/protocol";
 import {
   addNudge,
@@ -9,6 +9,7 @@ import {
   type Shake,
 } from "./lib/nudge-burst";
 import { buzz, readyBuzz } from "./lib/buzz";
+import { nudgeHoldout, type HoldoutPlaces } from "./lib/holdout-nudge";
 import { reducedMotion } from "./lib/fun-animations";
 import { useFunEvents } from "./use-fun-events";
 
@@ -34,10 +35,11 @@ const SHAKING = "nudged";
 
 /**
  * Every Nudge in the Room: a toast for everyone saying who Nudged whom, and, when you're the
- * Holdout, your whole page shakes, harder at higher levels, and a buzz plays once per burst. A
- * Nudge that arrives while one is still playing joins it as one burst: the shake restarts at the
+ * Holdout, your whole page shakes, your Hand hops, the page punches towards you and comic words
+ * pop out (see holdout-nudge.ts), all harder at higher levels, and a buzz plays once per burst. A
+ * Nudge that arrives while one is still playing joins it as one burst: it all restarts at the
  * burst's level, and the toast changes in place and is read out once, when the burst is over. A
- * new Round starts a new burst. The shake stops at once when your Vote lands or the Round is
+ * new Round starts a new burst. It all stops at once when your Vote lands or the Round is
  * Revealed. Input keeps working throughout, since only the page's look moves. Returns the burst
  * for everyone else's screen to play as an earthquake at the Holdout's seat (see RoomTable).
  */
@@ -46,6 +48,8 @@ export function useNudges(
   myId: ParticipantId,
   showNotice: (text: string, options: { quiet: true }) => void,
   speakNotice: (text: string) => void,
+  /** Where the Holdout's Nudge plays round the shake: your Hand's strip and the Table's area. */
+  places: { [Place in keyof HoldoutPlaces]: RefObject<HoldoutPlaces[Place]> },
 ): PlayingNudge | null {
   const doneWaiting =
     snapshot === null || snapshot.revealed || snapshot.myVote !== null;
@@ -58,6 +62,8 @@ export function useNudges(
   /** The Round the burst is in. */
   const burstRound = useRef<number | null>(null);
   const [playing, setPlaying] = useState<PlayingNudge | null>(null);
+  /** Stops the hop, punch and shout playing on your page, if they are. */
+  const stopHoldoutNudge = useRef<(() => void) | null>(null);
 
   useFunEvents((event) => {
     if (event.kind !== "nudge" || !snapshot) return;
@@ -87,6 +93,11 @@ export function useNudges(
     }, shake.ms);
     if (event.to === myId && !doneWaiting) {
       startShaking(shake);
+      stopHoldoutNudge.current?.();
+      stopHoldoutNudge.current = nudgeHoldout(next.level, {
+        hand: places.hand.current,
+        table: places.table.current,
+      });
       // Once per burst, at the level it has reached by then.
       if (!buzzed.current) {
         buzzed.current = true;
@@ -103,6 +114,7 @@ export function useNudges(
   useEffect(() => {
     if (doneWaiting) {
       stopShaking();
+      stopHoldoutNudge.current?.();
       clearTimeout(buzzTimer.current);
     }
   }, [doneWaiting]);
@@ -113,6 +125,7 @@ export function useNudges(
       clearTimeout(burstTimer.current);
       clearTimeout(buzzTimer.current);
       stopShaking();
+      stopHoldoutNudge.current?.();
     },
     [],
   );

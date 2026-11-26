@@ -69,11 +69,16 @@ export function App({
   } = useRoom(identity, roomId, rejoin);
   // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
   const round = useRoundReading(snapshot);
+  /** The Table's area, where a Nudge's shout pops out. */
+  const tableArea = useRef<HTMLDivElement>(null);
+  /** The strip under the Table that holds your Hand, which hops when you're Nudged. */
+  const handStrip = useRef<HTMLDivElement>(null);
   const playingNudge = useNudges(
     snapshot,
     identity.id,
     showNotice,
     speakNotice,
+    { hand: handStrip, table: tableArea },
   );
   /** The Table and the strip under it: where Ghosts walk. */
   const roomArea = useRef<HTMLDivElement>(null);
@@ -185,7 +190,10 @@ export function App({
             me.ghost && "select-none",
           )}
         >
-          <div className="relative flex min-h-0 flex-1 flex-col">
+          <div
+            ref={tableArea}
+            className="relative flex min-h-0 flex-1 flex-col"
+          >
             <RoomTable
               snapshot={snapshot}
               nudge={playingNudge}
@@ -206,6 +214,7 @@ export function App({
           {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
           {/* Ghosts walk over the strip, but under a Voter's Hand, so they never block a vote. */}
           <div
+            ref={handStrip}
             className={cn(
               "relative h-(--hand-height) shrink-0",
               showsHand && "z-20",

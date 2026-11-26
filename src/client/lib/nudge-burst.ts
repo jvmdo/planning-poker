@@ -87,3 +87,24 @@ export function shakeOf(level: number): Shake {
     px: 4 + strength * 12,
   };
 }
+
+/** What the Holdout's page shouts as a Nudge's level grows, quietest first: one per level. */
+const SHOUTS = ["psst", "hey", "Hey!", "HEY!!", "VOTE!!!"];
+
+/** One word of the Holdout's shout, and its size. */
+export interface ShoutWord {
+  text: string;
+  rem: number;
+}
+
+/**
+ * The words the Holdout's page shouts at `level`, in order: one more word for each level, each
+ * sized for the level it belongs to, so the shout grows louder as it goes.
+ */
+export function shoutOf(level: number): ShoutWord[] {
+  const count = 1 + Math.round(nudgeStrength(level) * (SHOUTS.length - 1));
+  return SHOUTS.slice(0, count).map((text, i) => ({
+    text,
+    rem: 3 + nudgeStrength(i + 1) * 5,
+  }));
+}
