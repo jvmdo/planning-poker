@@ -8,11 +8,13 @@ import {
   type NudgeBurst,
   type Shake,
 } from "./lib/nudge-burst";
+import { buzz, readyBuzz } from "./lib/buzz";
 import { useFunEvents } from "./use-fun-events";
 
 /**
- * The burst playing in this browser, until its shake would end, for the earthquake at the Holdout's seat on everyone else's
- * screen: `id` changes each time the burst grows, which restarts it at the burst's level.
+ * The burst playing in this browser, until its shake would end, for the earthquake at the
+ * Holdout's seat on everyone else's screen: `id` changes each time the burst grows, which restarts
+ * it at the burst's level.
  */
 export interface PlayingNudge {
   to: ParticipantId;
@@ -20,17 +22,23 @@ export interface PlayingNudge {
   id: number;
 }
 
+/**
+ * How long the buzz waits after a burst's first Nudge, so Nudges sent at the same moment are heard
+ * as one buzz at the burst's level.
+ */
+const BUZZ_WAIT_MS = 200;
+
 /** The class on the page's root element that shakes the whole page (see index.css). */
 const SHAKING = "nudged";
 
 /**
  * Every Nudge in the Room: a toast for everyone saying who Nudged whom, and, when you're the
- * Holdout, your whole page shakes, harder at higher levels. A Nudge that arrives while one is still
- * playing joins it as one burst: the shake restarts at the burst's level, and the toast changes in
- * place and is read out once, when the burst is over. A new Round starts a new burst. The shake
- * stops at once when your Vote lands or the Round is Revealed. Input keeps working throughout,
- * since only the page's look moves. Returns the burst for everyone else's screen to play as an
- * earthquake at the Holdout's seat (see RoomTable).
+ * Holdout, your whole page shakes, harder at higher levels, and a buzz plays once per burst. A
+ * Nudge that arrives while one is still playing joins it as one burst: the shake restarts at the
+ * burst's level, and the toast changes in place and is read out once, when the burst is over. A
+ * new Round starts a new burst. The shake stops at once when your Vote lands or the Round is
+ * Revealed. Input keeps working throughout, since only the page's look moves. Returns the burst
+ * for everyone else's screen to play as an earthquake at the Holdout's seat (see RoomTable).
  */
 export function useNudges(
   snapshot: RoomSnapshot | null,
@@ -43,6 +51,9 @@ export function useNudges(
   /** The burst playing in this browser, until its shake would end. */
   const burst = useRef<NudgeBurst | null>(null);
   const burstTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** The burst has buzzed, or is about to: it buzzes only once. */
+  const buzzed = useRef(false);
+  const buzzTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** The Round the burst is in. */
   const burstRound = useRef<number | null>(null);
   const [playing, setPlaying] = useState<PlayingNudge | null>(null);
@@ -50,7 +61,9 @@ export function useNudges(
   useFunEvents((event) => {
     if (event.kind !== "nudge" || !snapshot) return;
     const sameRound = burstRound.current === snapshot.round;
-    const next = addNudge(sameRound ? burst.current : null, event);
+    const ongoing = sameRound ? burst.current : null;
+    const next = addNudge(ongoing, event);
+    if (!ongoing || ongoing.to !== next.to) buzzed.current = false;
     burstRound.current = snapshot.round;
     burst.current = next;
     setPlaying((last) => ({
@@ -71,17 +84,33 @@ export function useNudges(
       setPlaying(null);
       speakNotice(text);
     }, shake.ms);
-    if (event.to === myId && !doneWaiting) startShaking(shake);
+    if (event.to === myId && !doneWaiting) {
+      startShaking(shake);
+      // Once per burst, at the level it has reached by then.
+      if (!buzzed.current) {
+        buzzed.current = true;
+        buzzTimer.current = setTimeout(
+          () => buzz(burst.current?.level ?? next.level),
+          BUZZ_WAIT_MS,
+        );
+      }
+    }
   });
 
+  useEffect(readyBuzz, []);
+
   useEffect(() => {
-    if (doneWaiting) stopShaking();
+    if (doneWaiting) {
+      stopShaking();
+      clearTimeout(buzzTimer.current);
+    }
   }, [doneWaiting]);
 
   // A page left while a burst plays stops it.
   useEffect(
     () => () => {
       clearTimeout(burstTimer.current);
+      clearTimeout(buzzTimer.current);
       stopShaking();
     },
     [],
