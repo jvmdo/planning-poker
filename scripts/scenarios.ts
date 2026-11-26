@@ -12,7 +12,8 @@
  * out in a random Skin and changes it now and then. `--ghosts 0` leaves them out; the default is 1.
  *
  * `--holdout` leaves the last bot Voter of each scenario without a Vote, as the Holdout, so you can
- * Nudge them. The Round then waits for your Reveal, which leaves their Card out.
+ * Nudge them (as an Observer: a Voter who hasn't played is waited on too). The Round then waits
+ * for your Reveal, which leaves their Card out. The bots don't Nudge: `scripts/nudgers.ts` does.
  *
  * Ctrl+C makes every bot Leave the Room. Set SERVER_URL to use another server than :8000.
  */
