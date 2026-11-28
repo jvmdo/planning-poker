@@ -1,22 +1,48 @@
 import { LoaderCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RoomId } from "../shared/protocol";
+import { randomRoomId } from "../shared/room-id";
+import { cn } from "@/lib/utils";
 import { CardHand } from "./card-hand";
 import { JoinScreen } from "./join-screen";
 import { loadIdentity } from "./lib/identity";
+import { shareLinkOf, shortRoomId, showInAddressBar } from "./lib/page-room";
 import { NoticeToast } from "./notice-toast";
+import { useRoundReading } from "./lib/vote-marks";
 import { ResultBreakdown } from "./result-breakdown";
 import { RoomTable } from "./room-table";
 import { RoundPanel } from "./round-panel";
 import { Sidebar } from "./sidebar";
+import { useNudges } from "./use-nudges";
 import { useRoom } from "./use-room";
 
-export function App() {
+/** Longer Room IDs are cut short in the tab title. */
+const ROOM_ID_IN_TITLE = 24;
+/** Long enough to copy the Share link by hand. */
+const COPY_BY_HAND_MS = 12000;
+
+/**
+ * The page of the Room `startRoomId`, which it rejoins without the join screen when `rejoin` is
+ * set. When `startRoomId` is null, the join screen offers to create a Room, and the page becomes
+ * that Room's.
+ */
+export function App({
+  startRoomId,
+  rejoin,
+}: {
+  startRoomId: RoomId | null;
+  rejoin: boolean;
+}) {
   const [identity] = useState(loadIdentity);
+  const [roomId, setRoomId] = useState(startRoomId);
   const {
     connected,
     reconnecting,
     snapshot,
     notice,
+    spokenNotice,
+    showNotice,
+    speakNotice,
     pendingCommand,
     me,
     name,
@@ -27,6 +53,7 @@ export function App() {
     reveal,
     newRound,
     setDeck,
+    setAutoReveal,
     becomeVoter,
     becomeObserver,
     handOver,
@@ -34,17 +61,69 @@ export function App() {
     leave,
     react,
     throwAt,
-  } = useRoom(identity);
+    nudge,
+    nudgeCoolingDown,
+    wearSkin,
+    dismissGhost,
+    moveGhost,
+  } = useRoom(identity, roomId, rejoin);
+  // How the revealed Votes came out, read at the Reveal for the Table, the sidebar and the breakdown.
+  const round = useRoundReading(snapshot);
+  /** The Table's area, where a Nudge's shout pops out. */
+  const tableArea = useRef<HTMLDivElement>(null);
+  /** The strip under the Table that holds your Hand, which hops when you're Nudged. */
+  const handStrip = useRef<HTMLDivElement>(null);
+  const playingNudge = useNudges(
+    snapshot,
+    identity.id,
+    showNotice,
+    speakNotice,
+    { hand: handStrip, table: tableArea },
+  );
+  /** The Table and the strip under it: where Ghosts walk. */
+  const roomArea = useRef<HTMLDivElement>(null);
 
-  if (!me || !snapshot)
+  // The tab title names the Room, on the join screen too, so two open tabs are easy to tell apart.
+  useEffect(() => {
+    document.title = roomId
+      ? `${shortRoomId(roomId, ROOM_ID_IN_TITLE)} · Planning Poker`
+      : "Planning Poker";
+  }, [roomId]);
+
+  /** The clipboard needs a secure origin, so plain-HTTP LAN access gets the link to copy by hand. */
+  async function copyShareLink(roomIdToShare: RoomId) {
+    const link = shareLinkOf(roomIdToShare);
+    try {
+      await navigator.clipboard.writeText(link);
+      showNotice("Link copied");
+    } catch {
+      showNotice(
+        `Couldn't copy the link. Copy it from the address bar: ${link}`,
+        { ms: COPY_BY_HAND_MS },
+      );
+    }
+  }
+
+  function createRoom(nameToJoinWith: string) {
+    const newRoomId = randomRoomId();
+    showInAddressBar(newRoomId);
+    setRoomId(newRoomId);
+    join(nameToJoinWith);
+  }
+
+  /** At `/`, nothing connects until a Room is created. */
+  const connecting = roomId !== null && !connected;
+
+  if (!me || !snapshot || roomId === null)
     return (
       <JoinScreen
+        roomId={roomId}
         initialName={name}
         rejection={rejection}
-        disabled={!connected}
+        disabled={connecting}
         joining={joining}
         alerts={
-          !connected && (
+          connecting && (
             <p
               role="status"
               className="bg-muted text-muted-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm"
@@ -58,14 +137,18 @@ export function App() {
             </p>
           )
         }
-        onJoin={join}
+        onJoin={roomId === null ? createRoom : join}
       />
     );
+
+  /** The strip under the Table holds your Hand, which no Ghost may cover. */
+  const showsHand = !snapshot.revealed && me.role === "voter";
 
   return (
     <div className="flex h-svh">
       <Sidebar
         snapshot={snapshot}
+        round={round}
         me={me}
         myId={identity.id}
         onHandOver={me.isFacilitator ? handOver : undefined}
@@ -75,39 +158,86 @@ export function App() {
       />
       <main className="flex min-w-0 flex-1 flex-col">
         <RoundPanel
+          roomId={roomId}
+          onCopyLink={() => void copyShareLink(roomId)}
           snapshot={snapshot}
+          myId={identity.id}
           isFacilitator={me.isFacilitator}
           reconnecting={reconnecting}
-          onReveal={reveal}
+          onNudge={nudge}
+          nudgeCoolingDown={nudgeCoolingDown}
           onNewRound={newRound}
           onSetDeck={setDeck}
+          onSetAutoReveal={setAutoReveal}
           onClaimFacilitator={claimFacilitator}
+          ghost={
+            me.role === "observer"
+              ? {
+                  skin: me.ghost?.skin ?? null,
+                  onWear: wearSkin,
+                  onDismiss: dismissGhost,
+                }
+              : null
+          }
           pendingCommand={pendingCommand}
         />
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <RoomTable
-            snapshot={snapshot}
-            myId={identity.id}
-            onReact={react}
-            onThrow={throwAt}
-          />
-          <NoticeToast notice={notice} />
-        </div>
-        {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
-        <div className="h-(--hand-height) shrink-0">
-          {snapshot.revealed ? (
-            <ResultBreakdown snapshot={snapshot} />
-          ) : me.role === "voter" ? (
-            <CardHand
-              deck={snapshot.deck}
-              myVote={snapshot.myVote}
-              onPlay={vote}
-            />
-          ) : (
-            <p className="text-muted-foreground grid h-full place-items-center text-sm">
-              You're observing. The Room won't wait for your Vote.
-            </p>
+        {/* The room area: the Table and the strip under it, where Ghosts may walk. */}
+        {/* While your Ghost is out its text can't be selected, so clicks to walk don't select it. */}
+        <div
+          ref={roomArea}
+          className={cn(
+            "flex min-h-0 flex-1 flex-col",
+            me.ghost && "select-none",
           )}
+        >
+          <div
+            ref={tableArea}
+            className="relative flex min-h-0 flex-1 flex-col"
+          >
+            <RoomTable
+              snapshot={snapshot}
+              nudge={playingNudge}
+              round={round}
+              myId={identity.id}
+              roomRef={roomArea}
+              isFacilitator={me.isFacilitator}
+              locked={reconnecting || pendingCommand !== null}
+              pendingCommand={pendingCommand}
+              onReveal={reveal}
+              onNewRound={newRound}
+              onReact={react}
+              onThrow={throwAt}
+              onMoveGhost={moveGhost}
+            />
+            <NoticeToast notice={notice} spoken={spokenNotice} />
+          </div>
+          {/* The hand and the breakdown share a height, so the table stays put at the Reveal. */}
+          {/* Ghosts walk over the strip, but under a Voter's Hand, so they never block a vote. */}
+          <div
+            ref={handStrip}
+            className={cn(
+              "relative h-(--hand-height) shrink-0",
+              showsHand && "z-20",
+            )}
+          >
+            {snapshot.revealed ? (
+              <ResultBreakdown
+                snapshot={snapshot}
+                round={round}
+                myId={identity.id}
+              />
+            ) : showsHand ? (
+              <CardHand
+                deck={snapshot.deck}
+                myVote={snapshot.myVote}
+                onPlay={vote}
+              />
+            ) : (
+              <p className="text-muted-foreground grid h-full place-items-center text-sm">
+                You're observing. The Room won't wait for your Vote.
+              </p>
+            )}
+          </div>
         </div>
       </main>
     </div>

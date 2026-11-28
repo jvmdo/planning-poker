@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Vote in secret)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] When a Participant's socket closes, the Room starts a 30-second grace period, and everyone sees that Participant marked "away".
 - [x] Reconnecting within the grace period cancels it and restores the Participant exactly as before: name, Voter/Observer role and current Vote.
@@ -28,3 +28,4 @@
   - an "Away" marker and a dimmed row;
   - a connecting/reconnecting banner that mentions the server waking up;
   - brief notices for refused commands caused by races: a hand-over to someone who just left, a Vote landing after the Reveal, or a Reveal with no Votes left.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

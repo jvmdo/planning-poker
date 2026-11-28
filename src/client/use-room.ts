@@ -4,30 +4,52 @@ import type {
   ParticipantRole,
   JoinRejectionReason,
   Rejection,
+  RoomId,
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card, Deck } from "../shared/deck";
 import {
+  NUDGE_COOLDOWN_MS,
   spendBurst,
   type Burst,
+  type FunEvent,
   type Reaction,
   type Throwable,
 } from "../shared/fun";
-import { loadIdentity, saveIdentity, type Identity } from "./lib/identity";
-import { socket } from "./lib/socket";
+import {
+  GHOST_MOVE_BURST,
+  rollVent,
+  type GhostMove,
+  type Skin,
+  type TablePoint,
+} from "../shared/ghost";
+import {
+  loadIdentity,
+  roleIn,
+  updateIdentity,
+  withRoleIn,
+  type Identity,
+} from "./lib/identity";
+import { connectTo, socket } from "./lib/socket";
+import { ghostComeback } from "./ghost-comeback";
 import {
   findParticipant,
   isPendingCommand,
   settlePendingCommand,
+  settlePendingGhost,
   settlePendingRole,
   settlePendingVote,
   withPending,
   type PendingCommand,
+  type PendingGhost,
   type PendingVote,
 } from "./pending";
 
-/** How long a notice about a refused command stays on screen. */
+/** How long a notice stays on screen, unless it asks for longer. */
 const NOTICE_MS = 4000;
+
+/** A notice in the toast, how long it stays, and what screen readers hear of it (null: nothing). */
+type Notice = { text: string; ms: number; spoken: string | null };
 
 /**
  * Commands the UI offers can still be refused when the Room changed a moment earlier. These are
@@ -52,40 +74,92 @@ function keyOf(rejection: Rejection): RejectionKey {
 }
 
 /**
- * Connects to the Room and keeps the latest snapshot. Rejoins automatically on every (re)connect
- * once this browser has a name to join with.
+ * Connects to the Room `roomId` and keeps the latest snapshot. Rejoins automatically on every
+ * (re)connect once this tab has joined, or from the start when `rejoin` is set. Doesn't connect
+ * while `roomId` is null.
  */
-export function useRoom(identity: Identity) {
+export function useRoom(
+  identity: Identity,
+  roomId: RoomId | null,
+  rejoin: boolean,
+) {
   const [connected, setConnected] = useState(false);
   /** The snapshot came after the latest (re)connect, so it isn't stale. */
   const [rejoined, setRejoined] = useState(false);
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [rejection, setRejection] = useState<JoinRejectionReason | null>(null);
   const [name, setName] = useState(identity.name);
-  const [wantsToJoin, setWantsToJoin] = useState(identity.inRoom);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [wantsToJoin, setWantsToJoin] = useState(rejoin);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingVote, setPendingVote] = useState<PendingVote | null>(null);
   const [pendingRole, setPendingRole] = useState<ParticipantRole | null>(null);
+  const [pendingGhost, setPendingGhost] = useState<PendingGhost | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(
     null,
   );
+  /**
+   * Where Ghosts have been sent since the latest snapshot, which carries them all from then on.
+   * Moves change nothing else in the Room, so they come on their own, without a snapshot.
+   */
+  const [ghostMoves, setGhostMoves] = useState<
+    ReadonlyMap<ParticipantId, TablePoint>
+  >(new Map());
+  /** Where you sent your own Ghost, shown at once, until the server sends the move back. */
+  const [pendingMove, setPendingMove] = useState<TablePoint | null>(null);
   /** This browser's count of the Reactions and Throws left; the server keeps the real one. */
   const burst = useRef<Burst | undefined>(undefined);
+  /**
+   * Set while you can't Nudge again, as this browser counts it, and bumped each time the wait
+   * restarts. It restarts when the Room sends your Nudge back, after the Room started its own
+   * wait, so this one never ends first.
+   */
+  const [nudgeWait, setNudgeWait] = useState<number | null>(null);
+  /** This browser's count of Ghost moves left, on a budget of their own. */
+  const moveBurst = useRef<Burst | undefined>(undefined);
+  /** The remembered Ghost has been summoned since you last became an Observer here, joined or rejoined. */
+  const comebackTried = useRef(false);
+  /** Joined from the join screen, so the next snapshot with this browser in it makes this the last Room. */
+  const joinedFromJoinScreen = useRef(false);
+
+  const showNotice = useCallback(
+    (
+      text: string | null,
+      { ms = NOTICE_MS, quiet = false }: { ms?: number; quiet?: boolean } = {},
+    ) => {
+      setNotice(
+        text === null ? null : { text, ms, spoken: quiet ? null : text },
+      );
+    },
+    [],
+  );
+
+  const speakNotice = useCallback((text: string) => {
+    setNotice((shown) =>
+      shown?.text === text && shown.spoken === null
+        ? { ...shown, spoken: text }
+        : shown,
+    );
+  }, []);
 
   /**
    * Back to the join form, with the name kept to rejoin with. Read from storage, since this also
-   * runs as a socket listener that outlives the render it was made in.
+   * runs as a socket listener that outlives the render it was made in. `/` stops going back to
+   * this Room, unless another tab has joined another Room since.
    */
   const resetToJoinScreen = useCallback(() => {
     const saved = loadIdentity().name;
     setName((current) => saved || current);
+    joinedFromJoinScreen.current = false;
     setWantsToJoin(false);
     setSnapshot(null);
     setPendingVote(null);
     setPendingRole(null);
     setPendingCommand(null);
-    saveIdentity({ id: identity.id, name: saved, inRoom: false });
-  }, [identity.id]);
+    setPendingMove(null);
+    updateIdentity((stored) =>
+      stored.lastRoom === roomId ? { ...stored, lastRoom: null } : stored,
+    );
+  }, [roomId]);
 
   useEffect(() => {
     function onConnect() {
@@ -97,25 +171,71 @@ export function useRoom(identity: Identity) {
       // Whatever was in flight may never reach the server. The snapshot after rejoining says.
       setPendingVote(null);
       setPendingRole(null);
+      setPendingGhost(null);
       setPendingCommand(null);
+      setPendingMove(null);
     }
     function onSnapshot(next: RoomSnapshot) {
       setSnapshot(next);
+      setGhostMoves(new Map());
+      // A Ghost that's been put away has nowhere to walk to.
+      if (!findParticipant(next, identity.id)?.ghost) setPendingMove(null);
       setRejoined(true);
       setPendingVote((pending) => settlePendingVote(pending, next));
       setPendingRole((pending) =>
         settlePendingRole(pending, next, identity.id),
       );
+      setPendingGhost((pending) =>
+        settlePendingGhost(pending, next, identity.id),
+      );
       setPendingCommand((pending) => settlePendingCommand(pending, next));
       const me = findParticipant(next, identity.id);
-      if (me) saveIdentity({ id: identity.id, name: me.name, inRoom: true });
+      // You come back to this Room, after your grace period or a restart, in the role it last showed.
+      if (me && roomId !== null && roleIn(loadIdentity(), roomId) !== me.role)
+        updateIdentity((stored) => withRoleIn(stored, roomId, me.role));
+      if (me && joinedFromJoinScreen.current) {
+        joinedFromJoinScreen.current = false;
+        updateIdentity((stored) => ({
+          ...stored,
+          name: me.name,
+          lastRoom: roomId,
+        }));
+      }
     }
     function onDeckChanged(by: ParticipantId) {
       // The Facilitator knows: they changed it.
-      if (by !== identity.id) setNotice("The Facilitator changed the Deck.");
+      if (by !== identity.id) showNotice("The Facilitator changed the Deck.");
+    }
+    function onAutoRevealChanged(by: ParticipantId, on: boolean) {
+      if (by !== identity.id)
+        showNotice(`The Facilitator turned Auto Reveal ${on ? "on" : "off"}.`);
+    }
+    function onGhostMoved({ id, to }: GhostMove) {
+      setGhostMoves((moves) => new Map(moves).set(id, to));
+      if (id === identity.id)
+        setPendingMove((pending) =>
+          pending && pending.x === to.x && pending.y === to.y ? null : pending,
+        );
+    }
+    function onFun(event: FunEvent) {
+      if (event.kind === "nudge" && event.from === identity.id)
+        setNudgeWait((wait) => (wait === null ? null : wait + 1));
     }
     function onRejected(rejection: Rejection) {
+      // A refused move is no news to anyone: your Ghost just walks back to where the Room has it.
+      if (rejection.command === "moveGhost") {
+        setPendingMove(null);
+        return;
+      }
+      // A refused Nudge needs no notice: its button is already greyed out, or gone.
+      if (rejection.command === "nudge") return;
       if (rejection.command === "vote") setPendingVote(null);
+      if (
+        rejection.command === "summonGhost" ||
+        rejection.command === "dressGhost" ||
+        rejection.command === "dismissGhost"
+      )
+        setPendingGhost(null);
       if (
         rejection.command === "becomeVoter" ||
         rejection.command === "becomeObserver"
@@ -123,9 +243,10 @@ export function useRoom(identity: Identity) {
         setPendingRole(null);
       if (isPendingCommand(rejection.command)) setPendingCommand(null);
       if (rejection.command !== "join") {
-        setNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
+        showNotice(RACE_NOTICES[keyOf(rejection)] ?? null);
         return;
       }
+      joinedFromJoinScreen.current = false;
       setWantsToJoin(false);
       setSnapshot(null);
       setRejection(rejection.reason);
@@ -136,31 +257,64 @@ export function useRoom(identity: Identity) {
     socket.on("snapshot", onSnapshot);
     socket.on("rejected", onRejected);
     socket.on("deckChanged", onDeckChanged);
+    socket.on("autoRevealChanged", onAutoRevealChanged);
+    socket.on("ghostMoved", onGhostMoved);
+    socket.on("fun", onFun);
     socket.on("left", resetToJoinScreen);
-    socket.connect();
+    if (roomId !== null) connectTo(roomId);
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
       socket.off("snapshot", onSnapshot);
       socket.off("rejected", onRejected);
       socket.off("deckChanged", onDeckChanged);
+      socket.off("autoRevealChanged", onAutoRevealChanged);
+      socket.off("ghostMoved", onGhostMoved);
+      socket.off("fun", onFun);
       socket.off("left", resetToJoinScreen);
       socket.disconnect();
     };
-  }, [identity.id, resetToJoinScreen]);
+  }, [identity.id, roomId, resetToJoinScreen, showNotice]);
+
+  // Whenever you're an Observer without a Ghost, the one this browser remembers comes back, once.
+  useEffect(() => {
+    // Out of the Room, or not yet back in it, counts as not being there.
+    const me =
+      snapshot && rejoined ? findParticipant(snapshot, identity.id) : null;
+    const { summon, tried } = ghostComeback(
+      comebackTried.current,
+      me,
+      loadIdentity().ghost,
+      pendingGhost,
+    );
+    comebackTried.current = tried;
+    if (!summon || !socket.connected) return;
+    const roll = rollVent();
+    socket.emit("summonGhost", summon, roll);
+    setPendingGhost({ skin: summon, roll });
+  }, [snapshot, rejoined, pendingGhost, identity.id]);
+
+  useEffect(() => {
+    if (nudgeWait === null) return;
+    const timer = setTimeout(() => setNudgeWait(null), NUDGE_COOLDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [nudgeWait]);
 
   useEffect(() => {
     if (notice === null) return;
-    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    const timer = setTimeout(() => setNotice(null), notice.ms);
     return () => clearTimeout(timer);
   }, [notice]);
 
   useEffect(() => {
-    if (connected && wantsToJoin) socket.emit("join", identity.id, name);
-  }, [connected, wantsToJoin, name, identity.id]);
+    // A Room that no longer has you, as after a restart, takes you back in the role remembered for it.
+    if (connected && wantsToJoin && roomId !== null)
+      socket.emit("join", identity.id, name, roleIn(loadIdentity(), roomId));
+  }, [connected, wantsToJoin, name, identity.id, roomId]);
 
   function join(nameToJoinWith: string) {
     setRejection(null);
+    joinedFromJoinScreen.current = true;
     setName(nameToJoinWith);
     setWantsToJoin(true);
   }
@@ -174,7 +328,9 @@ export function useRoom(identity: Identity) {
   }
 
   /** Marks the command pending in this Round, or says it can't be sent. */
-  function startCommand(command: PendingCommand["command"]) {
+  function startCommand(
+    command: Exclude<PendingCommand["command"], "setAutoReveal">,
+  ) {
     if (!snapshot || !canSend()) return false;
     setPendingCommand({ command, fromRound: snapshot.round });
     return true;
@@ -190,6 +346,16 @@ export function useRoom(identity: Identity) {
 
   function setDeck(deck: Deck) {
     if (startCommand("setDeck")) socket.emit("setDeck", [...deck]);
+  }
+
+  function setAutoReveal(on: boolean) {
+    if (!snapshot || !canSend()) return;
+    setPendingCommand({
+      command: "setAutoReveal",
+      fromRound: snapshot.round,
+      on,
+    });
+    socket.emit("setAutoReveal", on);
   }
 
   function becomeVoter() {
@@ -249,8 +415,66 @@ export function useRoom(identity: Identity) {
     return true;
   }
 
+  /** Nudges the Holdout `to`, unless you Nudged too recently: the server would refuse it. */
+  function nudge(to: ParticipantId) {
+    if (!canSend() || nudgeWait !== null) return;
+    socket.emit("nudge", to);
+    setNudgeWait(0);
+  }
+
+  /**
+   * Brings out your Ghost in `skin`, as an Observer, or re-dresses it if it's out. Either shows at
+   * once, before the server answers. This browser remembers it, in every Room, until it's put away.
+   */
+  function wearSkin(skin: Skin) {
+    if (!canSend()) return;
+    const roll = rollVent();
+    if (me?.ghost) socket.emit("dressGhost", skin);
+    else socket.emit("summonGhost", skin, roll);
+    setPendingGhost({ skin, roll });
+    updateIdentity((stored) => ({ ...stored, ghost: skin }));
+  }
+
+  /**
+   * Puts your Ghost away down a vent, back to the Watching line, at once. This browser forgets it,
+   * so it no longer comes back.
+   */
+  function dismissGhost() {
+    if (!canSend()) return;
+    updateIdentity((stored) => ({ ...stored, ghost: null }));
+    socket.emit("dismissGhost");
+    setPendingGhost("away");
+    showNotice("Folded and vented. Nobody suspects a thing.");
+  }
+
+  /**
+   * Sends your Ghost walking to a point on the shared Table. It sets off at once, before the server
+   * answers. Moves past the budget aren't sent: the server would refuse them.
+   */
+  function moveGhost(to: TablePoint) {
+    if (!canSend()) return;
+    const next = spendBurst(moveBurst.current, Date.now(), GHOST_MOVE_BURST);
+    if (!next) return;
+    moveBurst.current = next;
+    setPendingMove(to);
+    socket.emit("moveGhost", to);
+  }
+
+  // Moves first, so a new Ghost of yours comes out at the vent the Room, which has them all, will pick.
   const displayed =
-    snapshot && withPending(snapshot, identity.id, pendingVote, pendingRole);
+    snapshot &&
+    withPending(
+      withGhostMoves(
+        snapshot,
+        pendingMove
+          ? new Map(ghostMoves).set(identity.id, pendingMove)
+          : ghostMoves,
+      ),
+      identity.id,
+      pendingVote,
+      pendingRole,
+      pendingGhost,
+    );
   const me = displayed ? findParticipant(displayed, identity.id) : null;
   const joining = me === null && wantsToJoin;
 
@@ -260,8 +484,18 @@ export function useRoom(identity: Identity) {
     reconnecting: displayed !== null && !rejoined,
     /** The server's snapshot plus your pending Vote and role: what the screen shows. */
     snapshot: displayed,
-    notice,
-    /** Reveal, New Round or a new Deck, sent and not yet answered by the server. */
+    notice: notice?.text ?? null,
+    /** What screen readers hear of the notice: the same text, unless it's still quiet. */
+    spokenNotice: notice?.spoken ?? null,
+    /**
+     * Shows a notice of the page's own in the toast, for `ms` milliseconds. Screen readers hear it
+     * at once, unless it's `quiet`: one that will change in place, to be read out with speakNotice
+     * once it settles.
+     */
+    showNotice,
+    /** Reads out the quiet notice in the toast, if it still says `text`, and keeps it up a while. */
+    speakNotice,
+    /** Reveal, New Round, a new Deck or Auto Reveal, sent and not yet answered by the server. */
     pendingCommand: pendingCommand?.command ?? null,
     me,
     name,
@@ -272,6 +506,7 @@ export function useRoom(identity: Identity) {
     reveal,
     newRound,
     setDeck,
+    setAutoReveal,
     becomeVoter,
     becomeObserver,
     handOver,
@@ -279,5 +514,26 @@ export function useRoom(identity: Identity) {
     leave,
     react,
     throwAt,
+    nudge,
+    /** You Nudged too recently to Nudge again. */
+    nudgeCoolingDown: nudgeWait !== null,
+    wearSkin,
+    dismissGhost,
+    moveGhost,
+  };
+}
+
+/** The snapshot with each Ghost heading where it was last sent. */
+function withGhostMoves(
+  snapshot: RoomSnapshot,
+  moves: ReadonlyMap<ParticipantId, TablePoint>,
+): RoomSnapshot {
+  if (moves.size === 0) return snapshot;
+  return {
+    ...snapshot,
+    participants: snapshot.participants.map((p) => {
+      const to = moves.get(p.id);
+      return p.ghost && to ? { ...p, ghost: { ...p.ghost, to } } : p;
+    }),
   };
 }

@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] The colour tokens in `index.css` are the Playful palette, in light and dark, so every screen (join, Room, notices) takes the style without per-component colours.
 - [x] Buttons, inputs and panels are pills or rounded boxes with an ink outline and a hard shadow; buttons press in when clicked.
@@ -24,3 +24,4 @@
 - **Theme:** `lib/theme.ts` keeps the choice in `localStorage` under `theme` (nothing stored means "system") and follows the operating system while on "system". An inline script in `index.html` applies it before the first paint. The switch sits in the sidebar header.
 - **Fonts:** Fredoka and Nunito load from Google Fonts.
 - **Checked** in a browser on a production build with three Participants: light and dark during voting and after the Reveal; a browser whose system is dark starts dark; choosing Dark survives a reload with the class already set when the page loads; going back to System clears the saved choice.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

@@ -8,17 +8,24 @@ import { cn } from "@/lib/utils";
  * clicks still reach the seats.
  *
  * The toast keeps the last notice's text while it slides out, so screen readers hear each notice
- * from a live region of its own instead. Hidden, it waits past the table's right edge, so a layer of
- * its own clips it there: otherwise it would widen the page and bring in scrollbars.
+ * from a live region of its own instead, as `spoken`: a notice that changes in place can stay
+ * quiet until it settles, so it's read out once. Hidden, it waits past the table's right edge, so
+ * a layer of its own clips it there: otherwise it would widen the page and bring in scrollbars.
  */
-export function NoticeToast({ notice }: { notice: string | null }) {
+export function NoticeToast({
+  notice,
+  spoken,
+}: {
+  notice: string | null;
+  spoken: string | null;
+}) {
   const [shown, setShown] = useState(notice);
   if (notice !== null && notice !== shown) setShown(notice);
 
   return (
     <>
       <p role="alert" className="sr-only">
-        {notice}
+        {spoken}
       </p>
       <div
         aria-hidden
@@ -26,7 +33,7 @@ export function NoticeToast({ notice }: { notice: string | null }) {
       >
         <p
           className={cn(
-            "bg-card text-card-foreground border-ink shadow-hard-sm pointer-events-none absolute top-2 right-5 z-10 max-w-[clamp(14rem,22vw,26rem)] rounded-lg border-[3px] px-3 py-2 text-sm leading-snug font-semibold text-balance transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-opacity",
+            "bg-card text-card-foreground border-ink shadow-hard-sm pointer-events-none absolute top-2 right-5 z-10 max-w-[clamp(14rem,22vw,26rem)] rounded-lg border-[3px] px-3 py-2 text-sm leading-snug font-semibold text-balance wrap-anywhere transition-[opacity,translate] duration-300 ease-out motion-reduce:transition-opacity",
             notice === null &&
               "translate-x-6 opacity-0 motion-reduce:translate-x-0",
           )}

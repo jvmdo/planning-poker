@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] The full logo sits beside "Planning Poker" in the sidebar header and on the join screen, drawn inline so its clock face follows the theme's secondary colour in light and dark.
 - [x] The browser tab shows the simplified favicon: the two Cards and the 8, without the ticket icons and clocks. On dark browser tabs its outlines turn cream.
@@ -20,3 +20,4 @@
 - **Files:** `src/client/logo.tsx` draws the logo inline (ids made unique per instance with `useId`); `public/logo.svg` is the same drawing standalone; `public/favicon.svg` is the favicon cut, with a `prefers-color-scheme: dark` style; `public/favicon-32.png` and `public/apple-touch-icon.png` were rendered from those SVGs in a headless browser. Vite copies `public/` into the build, and the Node server serves them.
 - **Theme switch moved:** the logo made the sidebar title wrap beside the light/dark/system switch from ticket 12, so the switch moved to the sidebar footer, next to the Voter/Observer switch.
 - **Checked** in a browser on a production build: all four icon files are served with the right types and linked from the page; the logo shows on the join screen and in the sidebar; its clock face resolves to the theme's secondary colour in light and in dark.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

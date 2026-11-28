@@ -15,4 +15,11 @@ services:
       # Turns off development-only switches such as SIMULATED_LATENCY_MS.
       - key: NODE_ENV
         value: production
-    autoDeploy: true
+    # `main` is the live site: every commit to it deploys.
+    branch: main
+    autoDeployTrigger: commit
+    # Every pull request gets its own preview service and URL, redeployed on each push to its branch
+    # and removed when the PR closes. Skip one with the label `render-preview-skip` or
+    # `[skip preview]` in its title. Each preview is its own process, so it has its own Rooms.
+    previews:
+      generation: automatic

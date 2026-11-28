@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { FunEvent } from "../shared/fun";
 import { socket } from "./lib/socket";
 
-/** Calls `listener` with every Reaction and Throw in the Room, your own included. */
+/** Calls `listener` with every Reaction, Throw and Nudge in the Room, your own included. */
 export function useFunEvents(listener: (event: FunEvent) => void) {
   const latest = useRef(listener);
   useEffect(() => {

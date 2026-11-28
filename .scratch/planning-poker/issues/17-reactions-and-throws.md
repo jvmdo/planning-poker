@@ -4,7 +4,7 @@
 
 **Blocked by:** 16
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] **Room:** `react(id, reaction)` and `throwAt(by, to, item)` follow the spec: Reactions only from Voters; Throws from anyone, only at another present Voter; only items from the shared lists; the burst limit, shared between the two: up to 3 in a row, then one more every 300 ms, never more than 3 saved up. A rejected one returns a reason and nothing is sent. An accepted one leaves every snapshot as it was and reaches a separate subscriber once.
 - [x] **Shared contract:** the Reactions list (🎉 😱 🤔 🔥 ☕ 👍) and the Throws list (paper ball 📄, rock 🪨, tomato 🍅, egg 🥚, fish 🐟, flowers 💐), the two client-to-server events, and one server-to-client event carrying who, to whom (for a Throw) and what.
@@ -37,3 +37,4 @@
 - **Refill shortened to 300 ms** (`BURST_REFILL_MS`): still 3 in a row, then one more every 300 ms. Spec, criteria and the Room test updated (299 ms rejected, 300 ms accepted).
 - **Your own play at once:** the sender's screen animates on the click instead of waiting for the server, and skips the server's echo of its own event. Everyone else still animates on the server's event. Since the client runs the same burst rule, the server rarely refuses one it allowed; if it does, the sender alone saw an animation, which changes nothing. Checked with `SIMULATED_LATENCY_MS=250`: the thrower's tomato appeared 1 ms after the click and only once, and the other Voter saw it once. Four quick clicks sent three, and one more went through 310 ms later.
 - **Known gap:** if you're in the Room from two tabs, the tab you didn't click in skips your own Reactions and Throws, since both tabs are the same Participant.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

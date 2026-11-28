@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Reveal, Result and New Round)
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] The Facilitator can pick another present Participant and hand them the role.
 - [x] After the hand-over, exactly one Participant is Facilitator, everyone's snapshot reflects it, and the controls follow the role.
@@ -20,3 +20,4 @@
 - **Extra rule:** the Facilitator handing the role to themselves is rejected (`already-facilitator`). This leaves the Room unchanged and notifies nobody. The ticket says "another" Participant.
 - **UI:** each other Participant's row has a crown button, shown only to the Facilitator. A `window.confirm` guards it so a stray tap can't give the role away.
 - **06:** "present" currently means "in the Room". 06 should decide whether a Participant who is away in their grace period can receive the role. Under the spec's Names rule, they still count as present. Also, the client ignores hand-over rejections. Once 06 removes Participants, a hand-over to someone who just expired would fail with no message, so show it then.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

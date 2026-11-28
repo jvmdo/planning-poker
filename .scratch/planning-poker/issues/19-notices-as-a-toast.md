@@ -6,7 +6,7 @@ The notices are the ones the Room shows today: "The Facilitator changed the Deck
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] Each notice shows as a toast over the top-right corner of the table area, overlapping the table rather than taking room from it. It doesn't cover a seat, the hand or the status bar's controls.
 - [x] Behaviour is as today: one notice at a time, a newer one replaces the one showing, and each disappears after 4 seconds. The existing notice state and timer are reused; no toast library is added.
@@ -25,3 +25,7 @@ The notices are the ones the Room shows today: "The Facilitator changed the Deck
 - **Same as before:** a repeat of the same notice text within 4 seconds doesn't restart the timer or announce again, because the state is a plain string.
 - **Checked** in headless Chromium on a production build at 1024×720 and 1920×1080, light and dark, with 7 Voters and an Observer: the table section's and the oval's boxes are identical before, during and after a notice; the toast misses the status bar and the seats; the alert empties after 4 seconds; with reduced motion only opacity transitions; a click on the top-right seat while the toast shows opens its Throw deck.
 - **Review (standards and spec):** no breaches. `last` renamed `shown`. Kept: the `alerts` name for the join screen's connection message (ticket 20 moves it), and the toast's offsets living outside `RoomTable`.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

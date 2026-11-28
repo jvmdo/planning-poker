@@ -4,7 +4,7 @@
 
 **Blocked by:** 19 (Notices as a toast), 20 ("Reconnecting…" in the status bar).
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] While the Room has no Facilitator, the status bar's second line reads "The Facilitator left and the Round was discarded." and a **Become Facilitator** button sits on the right, where Reveal, New Round and Deck normally are. Everyone sees it, Voters and Observers alike.
 - [x] Claiming works as today: the first click wins, and a late click gets the existing "Someone else became the Facilitator first." notice, now a toast. The new Facilitator's controls replace the button.
@@ -12,3 +12,7 @@
 - [x] The strip above the table is deleted, and nothing else renders between the status bar and the table.
 - [x] The spec's Client section describes where the notices, the connection message and the "Become Facilitator" button now live.
 - [x] Checked in a browser on a production build at 1024×720, 1366×768 and 1920×1080: the table's box is identical through a notice, a reconnect and a lost Facilitator being replaced. To lose the Facilitator, close their browser and wait out the 30-second grace period.
+
+## Comments
+
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

@@ -1,46 +1,85 @@
-import { LoaderCircle } from "lucide-react";
+import { Copy, LoaderCircle } from "lucide-react";
 import type { Deck } from "../shared/deck";
-import type { RoomSnapshot } from "../shared/protocol";
-import { DeckDialog } from "./deck-dialog";
+import type { Skin } from "../shared/ghost";
+import { holdoutOf } from "../shared/holdout";
+import type { ParticipantId, RoomId, RoomSnapshot } from "../shared/protocol";
+import { shortRoomId } from "./lib/page-room";
+import { GhostPicker } from "./ghost-picker";
+import { RoomSettings } from "./room-settings";
 import { Waiting } from "./waiting";
 import type { PendingCommand } from "./pending";
 import { Button } from "@/components/ui/button";
 
 const RECONNECTING = "Reconnecting… you'll rejoin automatically.";
 const FACILITATOR_LEFT = "The Facilitator left and the Round was discarded.";
+/** Longer Room IDs are cut short, so the status bar never pushes the Facilitator's controls. */
+const ROOM_ID_SHOWN = 16;
 
 /**
- * Where the Round stands, who we're waiting on, and the Facilitator's controls: Reveal, New Round
- * and the Deck. While the Room has no Facilitator it says so, and offers everyone "Become
- * Facilitator" where those controls would be: the first click wins. While the connection is down it
- * says so instead, and the buttons wait for the Room's snapshot after rejoining, since nothing they
- * send would arrive.
+ * The Room ID with a button that copies its Share link, where the Round stands, who we're waiting
+ * on, the Room settings for everyone, and the Facilitator's New Round while voting (the Table has
+ * Reveal, and New Round after the Reveal). While the Room has no Facilitator it says so, and offers
+ * everyone "Become Facilitator" where those controls would be: the first click wins. An Observer
+ * also gets a Ghost button, first among the Round's actions, which opens the Skin picker. When
+ * someone else is the Holdout and isn't away, the waiting line ends with a button to Nudge them,
+ * greyed out for a moment after you do. While the connection is down it says so instead, and the
+ * buttons wait for the Room's snapshot after rejoining, since nothing they send would arrive.
  */
 export function RoundPanel({
+  roomId,
+  onCopyLink,
   snapshot,
+  myId,
   isFacilitator,
   reconnecting,
-  onReveal,
+  onNudge,
+  nudgeCoolingDown,
   onNewRound,
   onSetDeck,
+  onSetAutoReveal,
   onClaimFacilitator,
+  ghost,
   pendingCommand,
 }: {
+  roomId: RoomId;
+  onCopyLink: () => void;
   snapshot: RoomSnapshot;
+  myId: ParticipantId;
   isFacilitator: boolean;
+  onNudge: (to: ParticipantId) => void;
+  /** You Nudged too recently to Nudge again. */
+  nudgeCoolingDown: boolean;
   /** Lost the connection, and not back in the Room yet. */
   reconnecting: boolean;
   /** Sent and not yet answered by the server: every button waits until it is. */
   pendingCommand: PendingCommand["command"] | null;
-  onReveal: () => void;
   onNewRound: () => void;
   onSetDeck: (deck: Deck) => void;
+  onSetAutoReveal: (on: boolean) => void;
   onClaimFacilitator: () => void;
+  /** Your Ghost's button and Skin picker, only for an Observer. */
+  ghost: {
+    /** Your Ghost's Skin while it's out, or null. */
+    skin: Skin | null;
+    /** Brings out your Ghost in this Skin, or re-dresses it. */
+    onWear: (skin: Skin) => void;
+    onDismiss: () => void;
+  } | null;
 }) {
   const voters = snapshot.participants.filter((p) => p.role === "voter");
   const played = voters.filter((p) => p.hasVoted).length;
+  const showClaim = !snapshot.hasFacilitator;
+  const showNewRound = isFacilitator && !snapshot.revealed;
   const waiting = voters.filter((p) => !p.hasVoted);
-  const anyVotes = played > 0;
+  const holdoutId = holdoutOf(snapshot.participants, snapshot.revealed);
+  const nudgeable = voters.find(
+    (p) => p.id === holdoutId && p.id !== myId && p.connected,
+  );
+  const progressLine =
+    `${played} of ${voters.length} Voters played` +
+    (!snapshot.revealed && waiting.length > 0
+      ? ` · waiting on ${waiting.map((p) => p.name).join(", ")}`
+      : "");
   const progress = voters.length ? (played / voters.length) * 100 : 0;
   const locked = reconnecting || pendingCommand !== null;
   const status = reconnecting
@@ -52,8 +91,22 @@ export function RoundPanel({
   return (
     <div className="relative">
       <div className="flex h-20 items-center gap-4 border-b px-8">
-        <div>
-          <p className="font-display text-lg font-semibold">
+        <div className="min-w-0">
+          <p className="font-display flex items-center text-lg font-semibold whitespace-nowrap">
+            <span title={roomId}>{shortRoomId(roomId, ROOM_ID_SHOWN)}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Copy Share link"
+              title="Copy Share link"
+              onClick={onCopyLink}
+              className="text-muted-foreground mx-1 size-8 px-0"
+            >
+              <Copy aria-hidden className="size-4" />
+            </Button>
+            <span aria-hidden className="text-muted-foreground mr-1">
+              ·
+            </span>
             {snapshot.revealed ? "Votes revealed" : "Voting"}
           </p>
           {status ? (
@@ -67,59 +120,75 @@ export function RoundPanel({
               {status}
             </p>
           ) : (
-            <p className="text-muted-foreground text-sm">
-              {played} of {voters.length} Voters played
-              {!snapshot.revealed && waiting.length > 0 && (
-                <> · waiting on {waiting.map((p) => p.name).join(", ")}</>
+            // The line stays on one line, cut short if it must, so the Nudge button stays in the bar.
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <p className="truncate" title={progressLine}>
+                {progressLine}
+              </p>
+              {nudgeable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNudge(nudgeable.id)}
+                  disabled={nudgeCoolingDown}
+                  aria-label={`Nudge ${nudgeable.name}`}
+                  title={`Nudge ${nudgeable.name}`}
+                  className="text-foreground h-6 shrink-0 px-2.5 text-xs shadow-none"
+                >
+                  Nudge
+                </Button>
               )}
-            </p>
+            </div>
           )}
           {/* Always mounted, so screen readers hear the message when it fills. */}
           <p role="status" className="sr-only">
             {status}
           </p>
         </div>
-        {!snapshot.hasFacilitator && (
-          <Button
-            className="ml-auto"
-            onClick={onClaimFacilitator}
-            disabled={locked}
-            aria-busy={pendingCommand === "claimFacilitator"}
-          >
-            {pendingCommand === "claimFacilitator" && <Waiting />}
-            Become Facilitator
-          </Button>
-        )}
-        {isFacilitator && (
-          <div className="ml-auto flex gap-2">
-            {!snapshot.revealed && (
-              <Button
-                onClick={onReveal}
-                disabled={!anyVotes || locked}
-                aria-busy={pendingCommand === "reveal"}
-              >
-                {pendingCommand === "reveal" && <Waiting />}
-                Reveal
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={onNewRound}
-              disabled={locked}
-              aria-busy={pendingCommand === "newRound"}
-            >
-              {pendingCommand === "newRound" && <Waiting />}
-              New Round
-            </Button>
-            <DeckDialog
-              deck={snapshot.deck}
-              votesCast={snapshot.participants.filter((p) => p.hasVoted).length}
-              disabled={locked}
-              busy={pendingCommand === "setDeck"}
-              onApply={onSetDeck}
-            />
-          </div>
-        )}
+        {/* The Round's actions sit together; the gear stands apart from them. */}
+        <div className="ml-auto flex items-center gap-4">
+          {(ghost || showClaim || showNewRound) && (
+            <div className="flex items-center gap-2">
+              {ghost && (
+                <GhostPicker
+                  skin={ghost.skin}
+                  disabled={reconnecting}
+                  onWear={ghost.onWear}
+                  onDismiss={ghost.onDismiss}
+                />
+              )}
+              {showClaim && (
+                <Button
+                  onClick={onClaimFacilitator}
+                  disabled={locked}
+                  aria-busy={pendingCommand === "claimFacilitator"}
+                >
+                  {pendingCommand === "claimFacilitator" && <Waiting />}
+                  Become Facilitator
+                </Button>
+              )}
+              {showNewRound && (
+                <Button
+                  variant="outline"
+                  onClick={onNewRound}
+                  disabled={locked}
+                  aria-busy={pendingCommand === "newRound"}
+                >
+                  {pendingCommand === "newRound" && <Waiting />}
+                  New Round
+                </Button>
+              )}
+            </div>
+          )}
+          <RoomSettings
+            snapshot={snapshot}
+            isFacilitator={isFacilitator}
+            locked={locked}
+            pendingCommand={pendingCommand}
+            onSetAutoReveal={onSetAutoReveal}
+            onSetDeck={onSetDeck}
+          />
+        </div>
       </div>
       <div
         role="progressbar"

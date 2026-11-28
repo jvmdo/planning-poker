@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] The main area, under the status bar, is an oval table. Each Voter has a seat on its edge with their Card and their name; you sit at the bottom, closest to your hand, and everyone else goes round from there. The Cards look like the sidebar's, only bigger: an empty dashed slot, then face-down with the striped back, then face-up with the Vote (or "–") at the Reveal. Away Voters are faded.
 - [x] Observers don't get a seat. They're listed in a "Watching: …" line in a corner of the table area.
@@ -28,3 +28,4 @@
 - **Rewritten:** `card-hand.tsx` is the fanned hand; `result-breakdown.tsx` is the strip with vertical bars, the spread and "No Vote". "Your Vote" is gone from the breakdown, since your Card on the table shows it. `RoleToggle` gained a `compact` form with icons.
 - **Sizes:** `--hand-card-width` and `--hand-height` in `index.css` set the hand's size from the screen's width and height. The hand and the breakdown both use `--hand-height`, which keeps the table still. The `grow` animation became `grow-up`, since the bars are now vertical.
 - **Checked** in a browser on a production build: 1024×720, 1366×768 and 1920×1080 with five Voters and an Observer, then dark theme with ten Voters at 1024×720 and 1920×1080. There was no horizontal or vertical scrolling, the hand stayed inside the window, and the table's box was identical before and after the Reveal. Ten Voters exactly fill the collapsed sidebar at 720px tall; more would scroll. Not checked in this run: exactly two Voters, and the "Become Facilitator" banner (its markup is unchanged; it now sits between the status bar and the table).
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

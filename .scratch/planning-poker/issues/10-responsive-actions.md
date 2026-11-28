@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 | Action | Approach | Why |
 |---|---|---|
@@ -34,3 +34,4 @@
 - **Known limitation:** clicking A, then B, then back to A within one round trip can briefly show B. A snapshot that predates your clicks already holds A and settles the pending A early, then the server's answer to B arrives. Telling them apart would need the server to acknowledge each command. Not worth it for a flicker of under 250 ms in an unusual click pattern.
 - **Checked** in a browser with 250 ms of delay: the Card highlights within ~25 ms; a snapshot from someone else's Vote doesn't flash your Card back; a Vote that loses the race against the Reveal reverts with its notice; the role switches at once; Reveal and New Round are busy until answered, with the spinner after 150 ms (seen at 1 s of delay). With the server stopped, clicks do nothing, and after it comes back Reveal works normally.
 - **Review:** a standards review and a spec review ran on the change. Fixed from them: commands stuck pending when sent while disconnected, the latency switch working in production, a duplicated participant lookup and command type, and missing doc comments. Left as they are: a single reducer for the three pending states (not needed at this size), a "pressed" style beyond disabled-plus-spinner, and unit tests (not wanted for this ticket).
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.

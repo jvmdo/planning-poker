@@ -28,6 +28,16 @@
   --pop-3: oklch(0.8 0.16 150);
   --pop-4: oklch(0.85 0.15 90);
   --pop-5: oklch(0.65 0.18 330);
+  /* A Ghost's body, its shading, and the pale stripes of its dress. */
+  --ghost: oklch(0.995 0.005 285);
+  --ghost-shade: oklch(0.9 0.03 285);
+  --cream: oklch(0.97 0.03 85);
+  /* The rest of the Ghost fabrics and disguises. */
+  --pop-5-light: oklch(0.86 0.08 330);
+  --lilac: oklch(0.72 0.12 300);
+  --night: oklch(0.32 0.09 285);
+  --glass: oklch(0.9 0.06 230 / 0.28);
+  --plate: oklch(0.88 0.015 285);
 }
 
 .dark {
@@ -46,6 +56,9 @@
   --border: oklch(0.12 0.04 285);
   --input: oklch(0.12 0.04 285);
   --ink: oklch(0.1 0.04 285);
+  --ghost: oklch(0.96 0.02 285);
+  --ghost-shade: oklch(0.82 0.04 285);
+  --night: oklch(0.42 0.1 285);
 }
 
 @theme inline {
@@ -85,6 +98,8 @@
 @theme {
   --animate-pop: pop 380ms cubic-bezier(0.3, 1.8, 0.5, 1) both;
   --animate-grow-up: grow-up 700ms cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  --animate-ghost-bob: ghost-bob 2.4s ease-in-out infinite;
+  --animate-ghost-trot: ghost-trot 0.45s ease-in-out infinite;
 
   @keyframes pop {
     0% {
@@ -95,6 +110,24 @@
     }
     100% {
       transform: scale(1);
+    }
+  }
+  @keyframes ghost-bob {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -5em;
+    }
+  }
+  @keyframes ghost-trot {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -2em;
     }
   }
   @keyframes grow-up {
@@ -113,6 +146,81 @@
   }
 }
 
+/*
+ * The Holdout's whole page shakes for a moment when they're Nudged. The page clips while it
+ * shakes, so no scrollbar flickers in at its edges.
+ */
+html.nudged {
+  overflow: clip;
+}
+html.nudged #root {
+  /* How far, how fast and how often are set by the page for each Nudge's level. */
+  animation: nudge-shake var(--nudge-cycle) linear var(--nudge-cycles);
+}
+/*
+ * With reduced motion the page stays still: its edge flashes red instead, thicker at higher
+ * levels, for as long as the shake would last.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html.nudged #root {
+    animation: none;
+  }
+  html.nudged body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    /* Over everything on the page, the Hand, dialogs and Throws included. */
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 calc(var(--nudge-px) * 1.25) var(--destructive);
+    animation: nudge-flash var(--nudge-ms) ease-out both;
+  }
+}
+/* With reduced motion, the Holdout's seat Card on everyone else's screen, instead of cracks. */
+.nudge-highlight {
+  outline: 4px solid var(--destructive);
+  outline-offset: 3px;
+}
+@keyframes nudge-flash {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  60% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes nudge-shake {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  12% {
+    translate: calc(var(--nudge-px) * -1) calc(var(--nudge-px) * 0.4);
+  }
+  25% {
+    translate: var(--nudge-px) calc(var(--nudge-px) * -0.4);
+  }
+  37% {
+    translate: calc(var(--nudge-px) * -0.8) calc(var(--nudge-px) * -0.2);
+  }
+  50% {
+    translate: calc(var(--nudge-px) * 0.8) calc(var(--nudge-px) * 0.4);
+  }
+  62% {
+    translate: calc(var(--nudge-px) * -0.6) calc(var(--nudge-px) * 0.2);
+  }
+  75% {
+    translate: calc(var(--nudge-px) * 0.6) calc(var(--nudge-px) * -0.2);
+  }
+  87% {
+    translate: calc(var(--nudge-px) * -0.2) 0;
+  }
+}
+
 /* For things that should show only if a wait lasts: start at opacity 0 and add a delay. */
 @keyframes appear {
   to {
@@ -127,6 +235,19 @@
 :root {
   --hand-card-width: clamp(56px, min(6.4vw, 10.5vh), 118px);
   --hand-height: calc(var(--hand-card-width) * 4 / 3 + clamp(40px, 6vh, 64px));
+}
+
+/*
+ * A seat's Card at the table grows with the width of the screen. A Ghost grows with it, so the two
+ * keep their sizes side by side on any screen: a Ghost is drawn in pixels of its own, 1em each,
+ * 42 of them wide, as wide as a seat's Card is at its smallest (40px) and a little wider. Name
+ * tags stay the page's size, on seats and Ghosts alike.
+ */
+:root {
+  --seat-card-width: clamp(40px, 3.4vw, 68px);
+}
+.ghost-size {
+  font-size: calc(var(--seat-card-width) / 40);
 }
 
 /*
@@ -161,5 +282,488 @@
   .card-hand > [data-selected] {
     translate: 0 -10px;
     z-index: 5;
+  }
+}
+
+/*
+ * A Ghost's pose, set on an ancestor of its figure by the walker: `data-facing="left"` turns it
+ * with a quick flip, `data-walking` makes it walk, `--lean` leans the whole Ghost into the walk
+ * from its hem, and `--look-x`/`--look-y` point its face where it's going. On stopping, the lean
+ * eases back with a small swing past upright. Units in the SVG are the drawing's own.
+ */
+@layer components {
+  .ghost-lean {
+    transform-box: view-box;
+    transform-origin: 32px 62px;
+    rotate: var(--lean, 0deg);
+    transition: rotate 0.5s cubic-bezier(0.3, 2.4, 0.5, 1);
+  }
+  [data-walking] .ghost-lean {
+    transition: rotate 0.25s ease-out;
+  }
+  .ghost-turn {
+    transform-box: view-box;
+    transform-origin: 32px 35px;
+    transition: transform 0.14s ease-in-out;
+  }
+  [data-facing="left"] .ghost-turn {
+    transform: scaleX(-1);
+  }
+  .ghost-face {
+    transform: translate(calc(2.5px + var(--look-x, 0px)), var(--look-y, 0px));
+    transition: transform 0.2s ease-out;
+  }
+  .ghost-tail {
+    transform-box: fill-box;
+    transform-origin: 80% 0%;
+    animation: ghost-tail-sway 2.4s ease-in-out infinite;
+  }
+  [data-walking] .ghost-tail {
+    animation: ghost-tail-trail 0.7s ease-in-out infinite;
+  }
+  .ghost-hem {
+    transform-box: fill-box;
+    transform-origin: 50% 0%;
+  }
+  [data-walking] .ghost-hem {
+    animation: ghost-hem-flutter 0.28s ease-in-out infinite alternate;
+  }
+  .ghost-flame {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  [data-walking] .ghost-flame {
+    opacity: 1;
+  }
+  /*
+   * The other back items move in time with the trot (0.45 s), as if loose on the Ghost's back, and
+   * each has something that shows only while walking, as the flame does: soap bubbles off the
+   * bow, a twinkle on the sword's hilt, coins out of the sack, a feather off the quiver.
+   */
+  .ghost-bow-top,
+  .ghost-bow-low,
+  .ghost-sword,
+  .ghost-sack,
+  .ghost-quiver,
+  .ghost-arrows {
+    transform-box: view-box;
+  }
+  .ghost-bow-top,
+  .ghost-bow-low {
+    transform-origin: 14.2px 35.8px;
+  }
+  .ghost-sword {
+    transform-origin: 15px 32px;
+  }
+  .ghost-sack {
+    transform-origin: 13.5px 31px;
+  }
+  .ghost-quiver {
+    transform-origin: 12px 31px;
+  }
+  .ghost-arrows {
+    transform-origin: 17px 14px;
+  }
+  [data-walking] .ghost-bow-top {
+    animation: ghost-bow-top 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-bow-low {
+    animation: ghost-bow-low 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-sword {
+    animation: ghost-sword-rattle 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-sack {
+    animation: ghost-sack-swing 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-quiver {
+    animation: ghost-quiver-rock 0.45s ease-in-out infinite;
+  }
+  [data-walking] .ghost-arrows {
+    animation: ghost-arrows-rattle 0.225s ease-in-out infinite alternate;
+  }
+  /* What trails off a walking Ghost: hidden while it stands. */
+  .ghost-trail {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-walking] .ghost-bubble {
+    animation: ghost-bubble 1.2s ease-out infinite;
+  }
+  [data-walking] .ghost-bubble:nth-child(2) {
+    animation-delay: 0.4s;
+  }
+  [data-walking] .ghost-bubble:nth-child(3) {
+    animation-delay: 0.8s;
+  }
+  [data-walking] .ghost-glint {
+    animation: ghost-glint 0.9s ease-in-out infinite;
+  }
+  [data-walking] .ghost-coin {
+    animation: ghost-coin 0.9s cubic-bezier(0.4, 0, 0.8, 0.4) infinite;
+  }
+  [data-walking] .ghost-coin + .ghost-coin {
+    animation-delay: 0.45s;
+  }
+  [data-walking] .ghost-feather {
+    animation: ghost-feather 1.6s ease-in-out infinite;
+  }
+  /* The Rogue's eyes pulse red while walking, two pulses to a trot's four steps. */
+  .ghost-rogue-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-walking] .ghost-rogue-eye {
+    animation: ghost-rogue-eye 0.9s ease-in-out infinite;
+  }
+}
+@keyframes ghost-tail-sway {
+  0%,
+  100% {
+    rotate: -8deg;
+  }
+  50% {
+    rotate: 8deg;
+  }
+}
+/* Swung back behind the Ghost, and swaying faster. */
+@keyframes ghost-tail-trail {
+  0%,
+  100% {
+    rotate: 8deg;
+  }
+  50% {
+    rotate: 22deg;
+  }
+}
+@keyframes ghost-hem-flutter {
+  from {
+    transform: skewX(-3deg);
+  }
+  to {
+    transform: skewX(3deg);
+  }
+}
+@keyframes ghost-bow-top {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  50% {
+    rotate: 14deg;
+  }
+}
+@keyframes ghost-bow-low {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  50% {
+    rotate: -14deg;
+  }
+}
+@keyframes ghost-sword-rattle {
+  0%,
+  100% {
+    rotate: -3deg;
+    translate: 0 0;
+  }
+  50% {
+    rotate: 3deg;
+    translate: 0 1.2px;
+  }
+}
+@keyframes ghost-sack-swing {
+  0%,
+  100% {
+    rotate: -2deg;
+    scale: 1 1;
+  }
+  50% {
+    rotate: 6deg;
+    scale: 1.04 0.95;
+  }
+}
+@keyframes ghost-quiver-rock {
+  0%,
+  100% {
+    rotate: -2deg;
+  }
+  50% {
+    rotate: 3deg;
+  }
+}
+@keyframes ghost-arrows-rattle {
+  from {
+    translate: 0 0;
+    rotate: -4deg;
+  }
+  to {
+    translate: 0 -1.6px;
+    rotate: 4deg;
+  }
+}
+/* Drifts up and back off the bow, wobbling, and pops. */
+@keyframes ghost-bubble {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+    scale: 0.4;
+  }
+  15% {
+    opacity: 1;
+    scale: 1;
+  }
+  50% {
+    translate: -4px -8px;
+    scale: 1.08 0.94;
+  }
+  85% {
+    opacity: 1;
+    translate: -6px -15px;
+    scale: 1;
+  }
+  100% {
+    opacity: 0;
+    translate: -6px -16px;
+    scale: 1.5;
+  }
+}
+@keyframes ghost-glint {
+  0%,
+  15% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 0deg;
+  }
+  45%,
+  60% {
+    opacity: 1;
+    scale: 1.3;
+    rotate: 45deg;
+  }
+  90%,
+  100% {
+    opacity: 0;
+    scale: 0.2;
+    rotate: 90deg;
+  }
+}
+@keyframes ghost-coin {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  10% {
+    opacity: 1;
+    translate: -2px -3px;
+  }
+  70% {
+    opacity: 1;
+    translate: -7px 12px;
+  }
+  100% {
+    opacity: 0;
+    translate: -9px 12px;
+  }
+}
+@keyframes ghost-feather {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  15% {
+    opacity: 1;
+  }
+  50% {
+    translate: -8px 14px;
+    rotate: 40deg;
+  }
+  100% {
+    opacity: 0;
+    translate: -4px 32px;
+    rotate: -10deg;
+  }
+}
+/* An animation, so it wins over the eyes' own fill. */
+@keyframes ghost-rogue-eye {
+  0%,
+  100% {
+    fill: oklch(0.55 0.22 27);
+    scale: 1;
+  }
+  50% {
+    fill: oklch(0.68 0.26 27);
+    scale: 1.2;
+  }
+}
+/* Nothing walks, so nothing jiggles or trails off; the flame still shows on a jump. */
+@media (prefers-reduced-motion: reduce) {
+  .ghost-tail,
+  [data-walking]
+    :is(
+      .ghost-bow-top,
+      .ghost-bow-low,
+      .ghost-sword,
+      .ghost-sack,
+      .ghost-quiver,
+      .ghost-arrows,
+      .ghost-trail,
+      .ghost-rogue-eye
+    ) {
+    animation: none;
+  }
+}
+
+/*
+ * A Ghost coming out of a vent (`data-venting="out"`, 0.6 s) or going into one (`"in"`, 0.5 s), set
+ * on its `<li>` by `useVenting`, which keeps the timings. The grate opens on the floor and its slats
+ * slide aside; the Ghost rises out with a small bounce, or sinks in, cut off at the hole; then the
+ * slats slide shut and the grate fades. Its name tag follows it.
+ */
+@layer components {
+  [data-venting] .ghost-vent-hole {
+    /* The Ghost below the hole is underground. */
+    clip-path: inset(-80em -80em 4em -80em);
+  }
+  .ghost-vent-grate .ghost-vent-slats {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  [data-venting="out"] .ghost-vent-grate {
+    animation: vent-grate 0.6s ease-out both;
+  }
+  [data-venting="out"] .ghost-vent-slats {
+    animation: vent-slats-out 0.6s ease-in-out both;
+  }
+  [data-venting="out"] .ghost-vent-body {
+    animation: vent-rise 0.6s linear both;
+  }
+  [data-venting="out"] .ghost-vent-tag {
+    animation: vent-tag-in 0.6s ease-out both;
+  }
+  [data-venting="in"] .ghost-vent-grate {
+    animation: vent-grate 0.5s ease-out both;
+  }
+  [data-venting="in"] .ghost-vent-slats {
+    animation: vent-slats-in 0.5s ease-in-out both;
+  }
+  [data-venting="in"] .ghost-vent-body {
+    animation: vent-sink 0.5s linear both;
+  }
+  [data-venting="in"] .ghost-vent-tag {
+    animation: vent-tag-out 0.5s ease-in both;
+  }
+}
+@keyframes vent-grate {
+  0% {
+    opacity: 0;
+    scale: 0.2 0.2;
+  }
+  18% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  80% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.9 0.9;
+  }
+}
+@keyframes vent-slats-out {
+  0%,
+  15% {
+    scale: 1 1;
+  }
+  28%,
+  70% {
+    scale: 0 1;
+  }
+  82%,
+  100% {
+    scale: 1 1;
+  }
+}
+@keyframes vent-slats-in {
+  0%,
+  18% {
+    scale: 1 1;
+  }
+  32%,
+  72% {
+    scale: 0 1;
+  }
+  85%,
+  100% {
+    scale: 1 1;
+  }
+}
+@keyframes vent-rise {
+  0%,
+  25% {
+    translate: 0 110%;
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1);
+  }
+  60% {
+    translate: 0 -14%;
+    animation-timing-function: ease-in-out;
+  }
+  75% {
+    translate: 0 4%;
+    animation-timing-function: ease-out;
+  }
+  85%,
+  100% {
+    translate: 0 0;
+  }
+}
+@keyframes vent-sink {
+  0%,
+  20% {
+    translate: 0 0;
+    animation-timing-function: ease-out;
+  }
+  34% {
+    translate: 0 -10%;
+    animation-timing-function: ease-in;
+  }
+  72%,
+  100% {
+    translate: 0 110%;
+  }
+}
+@keyframes vent-tag-in {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes vent-tag-out {
+  0% {
+    opacity: 1;
+  }
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost-vent-grate {
+    display: none;
+  }
+  [data-venting] .ghost-vent-hole {
+    clip-path: none;
+  }
+  [data-venting] .ghost-vent-body,
+  [data-venting] .ghost-vent-tag {
+    animation: none;
   }
 }

@@ -8,7 +8,7 @@ The team (~15 people) estimates task durations in hours during a remote meeting.
 
 ## Solution
 
-A real-time web app with a single **Room** at the root URL. Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from the Room's **Deck** of hours, which the Facilitator can change. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
+A real-time web app where every URL such as `/team-alpha` is its own **Room**. Opening `/` goes back to the last Room this browser joined, or offers to create a new Room with a random, hard-to-guess Room ID (see `.scratch/rooms/spec.md`). Participants join by typing a display name, with no login. Every Round, each **Voter** plays a **Card** from the Room's **Deck** of hours, which the Facilitator can change. Everyone can see who has voted but not what, until the **Facilitator** triggers the **Reveal**. The Reveal shows each Participant's Card and the **Result**, the mean of the Votes cast. The Facilitator then starts a new Round. People who only want to watch join as **Observers**. If someone drops off briefly (a page refresh or a Wi-Fi blip), they come back where they were. If the Facilitator leaves for good, anyone can step up.
 
 The vocabulary used below is defined in `GLOSSARY.md`.
 
@@ -16,7 +16,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 ### Joining and identity
 
-1. As a team member, I want to open one fixed URL and land in the team's Room, so that there's nothing to create or share before a meeting.
+1. As a team member, I want to open my team's Room URL (or `/`, which takes me back to the last Room I joined or creates a new one) and land in the Room, so that there's nothing to set up before a meeting.
 2. As a team member, I want to join by typing only a display name, so that I don't need an account or a password.
 3. As a team member, I want my display name and identity remembered in this browser, so that a reload puts me straight back into the Room as the same Participant.
 4. As a team member, I want to be told when the name I typed is already used by someone in the Room, so that two identical names never appear on the board.
@@ -160,7 +160,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 - **Result:** the arithmetic mean of the Votes cast by Participants still present, rounded to one decimal place. It is computed only at the Reveal and shown only after it.
 - **Reactions and Throws:** they leave the Room's state as it was and send no snapshots. An accepted one is passed to a separate subscriber as a one-off event (who, to whom, what), for the adapter to send on. The **burst limit** is per Participant and shared between Reactions and Throws: each Participant can send up to 3 in a row; after that, one more becomes available every 300 ms, and never more than 3 are saved up.
 - **Deck changes:** besides the snapshots, an accepted new Deck is passed to a separate subscriber with who changed it, for the adapter to send on, so everyone else can be told.
-- **Names:** compared after trimming and ignoring case. A name already used by a present Participant, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
+- **Names:** compared after trimming and ignoring case, and unique only within a Room: the same name can be in two Rooms. A name already used by a present Participant of the Room, including one in their grace period, is rejected, unless it's the same Participant ID rejoining.
 
 **Shared contract (shared area).**
 
@@ -185,32 +185,36 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 **Socket adapter (server).**
 
-- Thin glue: on connection the client sends its stored ID and name.
-- The adapter calls `join` or `reconnect`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
-- On every Room change notification it sends each connected socket its own `snapshotFor`.
-- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions, Throws and Deck changes are the exceptions: they hold no Votes, so the adapter broadcasts them to every socket as their own events.
+- Thin glue. Rooms are per URL: the client sends its page's Room ID once, in the Socket.IO handshake, and the adapter drops a connection whose Room ID isn't valid. No command carries a Room ID; every command acts on the socket's Room. After connecting, the client sends its stored ID and name to join.
+- The adapter calls `join`, translates each incoming event into a Room command, sends rejections back to the sender only, and calls `disconnect` when the socket closes.
+- A socket that joins goes into the Socket.IO room named after its Room ID. Updates go only to that Room's sockets, never to every socket on the server: a Room's updates must never reach another Room.
+- On every Room change notification it sends each of that Room's sockets its own `snapshotFor`.
+- It never sends a snapshot as a broadcast that is the same for everyone, because hidden Votes depend on the recipient. Reactions, Throws and Deck changes are the exceptions: they hold no Votes, so the adapter broadcasts them within the Room as their own events. `left` goes only to the leaving Participant's tabs in that Room.
 - It contains no rules.
 
 **HTTP entry (server).**
 
 - Serves the built client's static files and the Socket.IO endpoint from the same process.
+- Any other path without a dot gets `index.html`, so a Room's URL such as `/team-alpha` loads the app (which says when a path isn't a valid Room).
 - Listens on the port the host provides.
 
 **Client (React SPA).**
 
-- Join screen: a display-name input, pre-filled from browser storage, showing name-taken errors.
+- Join screen: a display-name input, pre-filled from browser storage, showing name-taken errors. At `/<id>` it says "Joining **<id>**"; at `/` it names no Room and its button reads **Create Room**, which makes up a random `word-word-number` Room ID, goes to it and joins.
+- Browser storage keeps the Participant ID, the name and the **last Room** joined (one Room). `/` with a last Room goes to it (replacing the history entry) and rejoins without the join screen. A URL that names a Room wins over the last Room: the last Room rejoins automatically, any other shows the join screen with the name filled in, and joining makes it the last Room. Leave clears the last Room if it is this tab's Room. A reload of a tab whose Room is no longer the last Room shows the join screen.
 - Room board:
   - Participants with their role, Facilitator badge, voted or away markers, and Cards after the Reveal.
   - The Result after the Reveal.
   - The Card hand.
   - The Voter/Observer toggle.
   - Facilitator controls: Reveal (disabled with zero Votes), New Round, hand-over, and the Deck dialog (presets, free input, a preview of the hand).
-  - A status bar above the table: where the Round stands and who we're waiting on, with the Facilitator's Reveal, New Round and Deck on its right. When there's no Facilitator, its second line says the Facilitator left and the Round was discarded, and the "Become Facilitator" button takes the controls' place, for everyone.
-  - Notices (a command refused, the Deck changed) appear as a toast over the table and fade on their own.
+  - A status bar above the table: the Room ID (cut short with "…" after 16 characters, the full ID on hover) and a "Copy Share link" button, then where the Round stands and who we're waiting on, with the Facilitator's Reveal, New Round and Deck on its right. When there's no Facilitator, its second line says the Facilitator left and the Round was discarded, and the "Become Facilitator" button takes the controls' place, for everyone.
+  - Notices (a command refused, the Deck changed, the Share link copied) appear as a toast over the table and fade on their own. Where the clipboard can't be written (an insecure origin, such as plain-HTTP LAN access), the toast says so and shows the Share link to copy from the address bar.
   - Nothing sits between the status bar and the table, so the table only changes size with the window.
+- The tab title is `<Room ID> · Planning Poker`, the ID cut short after 24 characters, on the join screen too.
 - Connecting state on the join screen, covering Render's ~1-minute wake-up. After joining, a lost connection shows "Reconnecting…" as the status bar's second line, and its buttons are disabled until the snapshot after rejoining arrives.
 - The client keeps no Room state of its own beyond the latest snapshot. It renders that and sends commands.
-- Socket.IO's automatic reconnect plus the stored ID give silent rejoin, including after a server restart.
+- Socket.IO's automatic reconnect plus the stored ID give silent rejoin, including after a server restart. At `/` with no last Room, nothing connects until a Room is created.
 - UI: shadcn/ui components with Tailwind, responsive from the start (the Card hand becomes a wrapping grid on narrow screens), English only.
 
 ## Testing Decisions
@@ -231,7 +235,7 @@ The vocabulary used below is defined in `GLOSSARY.md`.
 
 ## Out of Scope
 
-- More than one Room, or sub-teams estimating in parallel.
+- More than one Room, or sub-teams estimating in parallel. (Since added: see `.scratch/rooms/spec.md`.)
 - Accounts, login, SSO, or a Room passcode.
 - Non-numeric or fractional Cards (`?`, ☕, ½), and a different Deck per Participant.
 - Task titles, a backlog, or Jira/issue-tracker integration.

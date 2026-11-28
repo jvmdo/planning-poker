@@ -1,8 +1,9 @@
 /**
  * What this browser has sent and the server hasn't answered yet.
  *
- * A Vote or a role change affects only the person clicking, so it is shown before the server
- * confirms it. Reveal, New Round, a new Deck and claiming the Facilitator role change everyone's
+ * A Vote, a role change or a change to your own Ghost is yours alone to make, so it is shown
+ * before the server confirms it. Reveal, New Round, a new Deck, Auto Reveal and claiming the
+ * Facilitator role change everyone's
  * screen, so they are never shown early: they only mark their buttons busy. Each pending thing stays until a snapshot confirms it,
  * the server refuses it, or it stops making sense. A snapshot that merely predates it, such as one
  * caused by someone else's Vote, doesn't drop it, so it never flashes back.
@@ -13,6 +14,7 @@ import type {
   RoomSnapshot,
 } from "../shared/protocol";
 import type { Card } from "../shared/deck";
+import { ventFor, type GhostView, type Skin } from "../shared/ghost";
 
 export interface PendingVote {
   card: Card;
@@ -42,11 +44,33 @@ export function settlePendingRole(
   return pending;
 }
 
+/**
+ * Your Ghost as you last asked for it: out in a Skin (brought out or re-dressed), or put away. A
+ * summon's roll picks the vent it comes out of.
+ */
+export type PendingGhost = { skin: Skin; roll: number } | "away";
+
+/** Drops the pending Ghost once the snapshot shows it, or once you're no longer an Observer. */
+export function settlePendingGhost(
+  pending: PendingGhost | null,
+  snapshot: RoomSnapshot,
+  myId: ParticipantId,
+): PendingGhost | null {
+  const me = findParticipant(snapshot, myId);
+  if (!pending || me?.role !== "observer") return null;
+  if (pending === "away") return me.ghost ? pending : null;
+  const shown =
+    me.ghost?.skin.fabric === pending.skin.fabric &&
+    me.ghost.skin.disguise === pending.skin.disguise;
+  return shown ? null : pending;
+}
+
 /** The commands that change everyone's screen, so they wait on the server. */
 export const PENDING_COMMANDS = [
   "reveal",
   "newRound",
   "setDeck",
+  "setAutoReveal",
   "claimFacilitator",
 ] as const;
 
@@ -56,18 +80,27 @@ export function isPendingCommand(
   return (PENDING_COMMANDS as readonly string[]).includes(command);
 }
 
-export interface PendingCommand {
-  command: (typeof PENDING_COMMANDS)[number];
-  /**
-   * The Round it was sent in. Each command is answered once that Round is over: a New Round, and a
-   * changed Deck, start the next one.
-   */
-  fromRound: number;
-}
+export type PendingCommand =
+  | {
+      command: Exclude<(typeof PENDING_COMMANDS)[number], "setAutoReveal">;
+      /**
+       * The Round it was sent in. Each command is answered once that Round is over: a New Round,
+       * and a changed Deck, start the next one.
+       */
+      fromRound: number;
+    }
+  | {
+      command: "setAutoReveal";
+      /** As above: a Round that ends first drops it, and the next snapshot shows the setting. */
+      fromRound: number;
+      /** The setting asked for. */
+      on: boolean;
+    };
 
 /**
  * Drops the pending command once the snapshot shows its effect. A claim is answered once anyone is
- * the Facilitator: if it wasn't you, the server's refusal says so.
+ * the Facilitator: if it wasn't you, the server's refusal says so. An Auto Reveal change is
+ * answered once the Room has the setting asked for.
  */
 export function settlePendingCommand(
   pending: PendingCommand | null,
@@ -77,15 +110,21 @@ export function settlePendingCommand(
   if (pending.command === "reveal" && snapshot.revealed) return null;
   if (pending.command === "claimFacilitator" && snapshot.hasFacilitator)
     return null;
+  if (pending.command === "setAutoReveal" && snapshot.autoReveal === pending.on)
+    return null;
   return pending;
 }
 
-/** The snapshot as this browser should display it: the server's, plus your pending Vote and role. */
+/**
+ * The snapshot as this browser should display it: the server's, plus your pending Vote, role and
+ * Ghost. A new Ghost appears where the Room will put it.
+ */
 export function withPending(
   snapshot: RoomSnapshot,
   myId: ParticipantId,
   vote: PendingVote | null,
   role: ParticipantRole | null,
+  ghost: PendingGhost | null,
 ): RoomSnapshot {
   const myRole = role ?? findParticipant(snapshot, myId)?.role;
   // Becoming an Observer before the Reveal gives up your Vote.
@@ -93,6 +132,16 @@ export function withPending(
     myRole === "observer" && !snapshot.revealed
       ? null
       : (vote?.card ?? snapshot.myVote);
+
+  /** Only Observers have Ghosts. */
+  function myGhost(shown: GhostView | null): GhostView | null {
+    if (myRole !== "observer" || ghost === "away") return null;
+    if (!ghost) return shown;
+    const others = snapshot.participants.flatMap((p) =>
+      p.id !== myId && p.ghost ? [p.ghost.to] : [],
+    );
+    return { skin: ghost.skin, to: shown?.to ?? ventFor(ghost.roll, others) };
+  }
 
   return {
     ...snapshot,
@@ -103,6 +152,7 @@ export function withPending(
             ...p,
             role: myRole,
             hasVoted: snapshot.revealed ? p.hasVoted : myVote !== null,
+            ghost: myGhost(p.ghost),
           }
         : p,
     ),

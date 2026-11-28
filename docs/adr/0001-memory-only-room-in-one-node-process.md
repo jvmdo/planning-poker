@@ -1,6 +1,6 @@
 # Room state lives in memory, in exactly one Node process
 
-The app is one Node process that serves the React build and a Socket.IO server, hosted on Render's free tier. The Room lives only in that process's memory: no database, no Redis, no history. A Room that exists only for the length of a meeting has nothing worth persisting, and keeping it in memory removes every moving part except the process itself.
+The app is one Node process that serves the React build and a Socket.IO server, hosted on Render's free tier. Every Room lives only in that process's memory: no database, no Redis, no history. A Room that exists only for the length of a meeting has nothing worth persisting, and keeping it in memory removes every moving part except the process itself.
 
 ## Considered Options
 
@@ -11,6 +11,7 @@ The app is one Node process that serves the React build and a Socket.IO server, 
 
 ## Consequences
 
-- **Never run more than one instance.** A second instance means a second, separate Room. Render's free tier can't scale past one instance. On any other host, pin the instance count to 1.
-- A restart or redeploy wipes the Room. Clients reconnect and silently rejoin, and the first one back becomes Facilitator. This is accepted.
+- **Never run more than one instance.** A second instance means a second, separate set of Rooms: two people at the same Room ID could land in different Rooms. Render's free tier can't scale past one instance. On any other host, pin the instance count to 1.
+- A restart or redeploy wipes every Room. Clients reconnect and silently rejoin the Room in their URL, and in each Room the first one back becomes Facilitator. This is accepted.
+- A Render pull request preview is a separate app with its own process and its own Rooms, so it doesn't break the one-instance rule.
 - The first visit after ~15 minutes of inactivity waits ~1 minute for Render to wake the service.

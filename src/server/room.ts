@@ -1,18 +1,24 @@
 import type {
   ClaimFacilitatorRejectionReason,
   CommandResult,
+  DismissGhostRejectionReason,
+  DressGhostRejectionReason,
   DisconnectRejectionReason,
   HandOverRejectionReason,
   JoinRejectionReason,
   LeaveRejectionReason,
+  MoveGhostRejectionReason,
   NewRoundRejectionReason,
+  NudgeRejectionReason,
   ParticipantId,
   ParticipantRole,
   ReactRejectionReason,
   RevealRejectionReason,
   RoleRejectionReason,
   RoomSnapshot,
+  SetAutoRevealRejectionReason,
   SetDeckRejectionReason,
+  SummonGhostRejectionReason,
   ThrowRejectionReason,
   VoteRejectionReason,
 } from "../shared/protocol.js";
@@ -27,11 +33,30 @@ import {
 import {
   isReaction,
   isThrowable,
+  NUDGE_COOLDOWN_MS,
+  NUDGE_TOP_LEVEL,
   spendBurst,
   type Burst,
   type FunEvent,
 } from "../shared/fun.js";
-import { GRACE_PERIOD_MS } from "../shared/protocol.js";
+import {
+  GHOST_MOVE_BURST,
+  isVentRoll,
+  rollVent,
+  ventFor,
+  isSkin,
+  isTablePoint,
+  type GhostMove,
+  type GhostView,
+} from "../shared/ghost.js";
+import { holdoutOf } from "../shared/holdout.js";
+import { AUTO_REVEAL_DELAY_MS, GRACE_PERIOD_MS } from "../shared/protocol.js";
+
+/**
+ * The most Participants a Room takes, counting those in their grace period. Each change sends every
+ * Participant their own snapshot, and that CPU is the free instance's real limit (ADR 0002).
+ */
+const MAX_PARTICIPANTS = 30;
 
 interface Participant {
   id: ParticipantId;
@@ -39,10 +64,23 @@ interface Participant {
   role: ParticipantRole;
   /** Open connections (one per browser tab). Zero means they're away in their grace period. */
   connections: number;
+  /** An Observer's Ghost while it's out. */
+  ghost: GhostView | null;
 }
 
 export interface Room {
-  join(id: ParticipantId, name: string): CommandResult<JoinRejectionReason>;
+  /**
+   * Adds the Participant, or reconnects them if they're already in the Room. A new Participant
+   * past MAX_PARTICIPANTS is refused with `room-full`; one already in the Room, even in their grace
+   * period, can always rejoin. A new Participant arrives as an Observer when `role` says so, and as
+   * a Voter otherwise; one already in the Room keeps their role. Takes any value as the role, since
+   * callers pass untrusted input.
+   */
+  join(
+    id: ParticipantId,
+    name: string,
+    role?: unknown,
+  ): CommandResult<JoinRejectionReason>;
   /** Takes any number, since callers pass untrusted input; only Cards in the Deck are accepted. */
   vote(id: ParticipantId, card: number): CommandResult<VoteRejectionReason>;
   reveal(by: ParticipantId): CommandResult<RevealRejectionReason>;
@@ -55,6 +93,11 @@ export interface Room {
     by: ParticipantId,
     cards: readonly unknown[],
   ): CommandResult<SetDeckRejectionReason>;
+  /** Refuses the setting it already has, so every change sent gets an answer. */
+  setAutoReveal(
+    by: ParticipantId,
+    on: boolean,
+  ): CommandResult<SetAutoRevealRejectionReason>;
   handOver(
     by: ParticipantId,
     to: ParticipantId,
@@ -83,12 +126,51 @@ export interface Room {
     to: ParticipantId,
     item: string,
   ): CommandResult<ThrowRejectionReason>;
+  /**
+   * Nudges the Holdout `to`. Anyone else in the Room can, Observers too, but not at a Holdout who
+   * is away, and each sender only once every NUDGE_COOLDOWN_MS. It doesn't spend the Reactions and
+   * Throws burst.
+   */
+  nudge(
+    by: ParticipantId,
+    to: ParticipantId,
+  ): CommandResult<NudgeRejectionReason>;
+  /**
+   * Brings out an Observer's Ghost at a free vent, picked by `roll`. Takes any value as the Skin and
+   * the roll, since callers pass untrusted input; only listed fabrics and disguises are accepted,
+   * and without a roll of the dice, 0 up to 1, the Room rolls its own.
+   */
+  summonGhost(
+    id: ParticipantId,
+    skin: unknown,
+    roll?: unknown,
+  ): CommandResult<SummonGhostRejectionReason>;
+  /**
+   * Changes the Skin of an Observer's Ghost that's out, where it stands. Takes any value as the
+   * Skin, since callers pass untrusted input; only listed fabrics and disguises are accepted.
+   */
+  dressGhost(
+    id: ParticipantId,
+    skin: unknown,
+  ): CommandResult<DressGhostRejectionReason>;
+  /** Puts an Observer's Ghost away. */
+  dismissGhost(id: ParticipantId): CommandResult<DismissGhostRejectionReason>;
+  /**
+   * Sends an Observer's Ghost walking to a point on the shared Table. Takes any value as the point,
+   * since callers pass untrusted input. Moves are capped by a budget of their own.
+   */
+  moveGhost(
+    id: ParticipantId,
+    to: unknown,
+  ): CommandResult<MoveGhostRejectionReason>;
   snapshotFor(id: ParticipantId): RoomSnapshot;
+  /** No Participants, counting those away in their grace period. */
+  isEmpty(): boolean;
   /** Calls `listener` after every change to the Room. Returns a function that unsubscribes. */
   subscribe(listener: () => void): () => void;
   /**
-   * Calls `listener` with every accepted Reaction and Throw. They change nothing in the Room, so
-   * they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
+   * Calls `listener` with every accepted Reaction, Throw and Nudge. They change nothing in the
+   * Room, so they never notify `subscribe`'s listeners. Returns a function that unsubscribes.
    */
   subscribeToFun(listener: (event: FunEvent) => void): () => void;
   /**
@@ -96,6 +178,20 @@ export interface Room {
    * listeners. Returns a function that unsubscribes.
    */
   subscribeToDeckChanges(listener: (by: ParticipantId) => void): () => void;
+  /**
+   * Calls `listener` with the Facilitator's ID and the new setting each time they turn Auto Reveal
+   * on or off, after `subscribe`'s listeners. Returns a function that unsubscribes.
+   */
+  subscribeToAutoRevealChanges(
+    listener: (by: ParticipantId, on: boolean) => void,
+  ): () => void;
+
+  /**
+   * Calls `listener` with every accepted Ghost move. A move doesn't notify `subscribe`'s listeners,
+   * but the next snapshot carries the Ghost's latest destination. Returns a function that
+   * unsubscribes.
+   */
+  subscribeToGhosts(listener: (move: GhostMove) => void): () => void;
 }
 
 /** Names are compared after trimming and ignoring case. */
@@ -114,25 +210,72 @@ export function createRoom(): Room {
   const participants = new Map<ParticipantId, Participant>();
   let facilitatorId: ParticipantId | null = null;
   const votes = new Map<ParticipantId, Card>();
+  /**
+   * The Votes of Voters whose grace period ran out, set aside until the Round ends, so a phone that
+   * slept through it gets its Vote back on rejoining. They count only once their Voter is back.
+   */
+  const setAside = new Map<ParticipantId, Card>();
   let revealed = false;
   let round = 1;
   /** Kept when everyone leaves: only a new Room (a server start) begins with the default. */
   let deck: Deck = DEFAULT_DECK;
   const graceTimers = new Map<ParticipantId, ReturnType<typeof setTimeout>>();
+  /** Kept when everyone leaves, like the Deck. */
+  let autoReveal = true;
+  /** Running while Auto Reveal counts down to the Reveal. */
+  let countdown: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
   const funListeners = new Set<(event: FunEvent) => void>();
   /** Each Participant's Reactions and Throws left; shared between the two. */
   const bursts = new Map<ParticipantId, Burst>();
+  /** When each Participant last Nudged, for their cooldown. */
+  const lastNudges = new Map<ParticipantId, number>();
+  /** Everyone who has Nudged each Voter this Round, kept while the Holdout changes hands. */
+  const nudgers = new Map<ParticipantId, Set<ParticipantId>>();
   const deckListeners = new Set<(by: ParticipantId) => void>();
+  const autoRevealListeners = new Set<
+    (by: ParticipantId, on: boolean) => void
+  >();
+
+  /** Every Voter in the Room has voted, counting those away in their grace period. */
+  function everyVoterVoted() {
+    const voters = [...participants.values()].filter((p) => p.role === "voter");
+    return voters.length > 0 && voters.every((p) => votes.has(p.id));
+  }
+
+  /**
+   * Starts or stops Auto Reveal's countdown to match the Room. Runs on every change. It waits while
+   * there's no Facilitator, since nobody could start the next Round.
+   */
+  function syncCountdown() {
+    const due =
+      autoReveal && facilitatorId !== null && !revealed && everyVoterVoted();
+    if (due && countdown === null) {
+      countdown = setTimeout(() => {
+        countdown = null;
+        revealed = true;
+        notifyChanged();
+      }, AUTO_REVEAL_DELAY_MS);
+    } else if (!due && countdown !== null) {
+      clearTimeout(countdown);
+      countdown = null;
+    }
+  }
+  const ghostListeners = new Set<(move: GhostMove) => void>();
+  /** Each Participant's Ghost moves left, on a budget of their own. */
+  const moveBursts = new Map<ParticipantId, Burst>();
 
   function notifyChanged() {
+    syncCountdown();
     for (const listener of listeners) listener();
   }
 
   function discardRound() {
     votes.clear();
+    setAside.clear();
     revealed = false;
     round += 1;
+    nudgers.clear();
   }
 
   function setRole(
@@ -144,6 +287,8 @@ export function createRoom(): Room {
     if (participant.role === role) return { ok: true };
 
     participant.role = role;
+    // Only Observers have Ghosts.
+    if (role === "voter") participant.ghost = null;
     // An Observer has no Vote, unless it was already revealed (Votes are locked after the Reveal).
     if (role === "observer" && !revealed) votes.delete(id);
     notifyChanged();
@@ -158,15 +303,36 @@ export function createRoom(): Room {
     const burst = spendBurst(bursts.get(id), Date.now());
     if (!burst) return { ok: false, reason: "burst-used-up" };
     bursts.set(id, burst);
-    for (const listener of funListeners) listener(event);
+    emitFun(event);
     return { ok: true };
   }
 
-  function remove(id: ParticipantId) {
+  function emitFun(event: FunEvent) {
+    for (const listener of funListeners) listener(event);
+  }
+
+  /** The Holdout, if there is one, counting Voters away in their grace period. */
+  function holdout() {
+    return holdoutOf(
+      [...participants.values()].map((p) => ({
+        id: p.id,
+        role: p.role,
+        hasVoted: votes.has(p.id),
+      })),
+      revealed,
+    );
+  }
+
+  /** `keepVote` sets their Vote aside for the rest of the Round, in case they come back. */
+  function remove(id: ParticipantId, { keepVote = false } = {}) {
     clearTimeout(graceTimers.get(id));
     graceTimers.delete(id);
     participants.delete(id);
     bursts.delete(id);
+    lastNudges.delete(id);
+    moveBursts.delete(id);
+    const vote = votes.get(id);
+    if (keepVote && vote !== undefined) setAside.set(id, vote);
     votes.delete(id);
     if (facilitatorId === id) {
       // The Round can't continue without anyone to run it.
@@ -177,9 +343,12 @@ export function createRoom(): Room {
   }
 
   return {
-    join(id, name) {
+    join(id, name, role) {
       const key = nameKey(name);
       if (key === "") return { ok: false, reason: "name-empty" };
+      if (!participants.has(id) && participants.size >= MAX_PARTICIPANTS) {
+        return { ok: false, reason: "room-full" };
+      }
       const taken = [...participants.values()].some(
         (p) => p.id !== id && nameKey(p.name) === key,
       );
@@ -189,11 +358,20 @@ export function createRoom(): Room {
       graceTimers.delete(id);
       if (participants.size === 0) facilitatorId = id;
       const existing = participants.get(id);
+      const arrivingRole: ParticipantRole =
+        existing?.role ?? (role === "observer" ? "observer" : "voter");
+      const vote = setAside.get(id);
+      if (!existing && vote !== undefined) {
+        // An Observer has no Vote: one set aside stays out of the Round.
+        if (arrivingRole === "voter") votes.set(id, vote);
+        setAside.delete(id);
+      }
       participants.set(id, {
         id,
         name: name.trim(),
-        role: existing?.role ?? "voter",
+        role: arrivingRole,
         connections: (existing?.connections ?? 0) + 1,
+        ghost: existing?.ghost ?? null,
       });
       notifyChanged();
       return { ok: true };
@@ -243,6 +421,17 @@ export function createRoom(): Room {
       return { ok: true };
     },
 
+    setAutoReveal(by, on) {
+      if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
+      if (on === autoReveal) {
+        return { ok: false, reason: "auto-reveal-unchanged" };
+      }
+      autoReveal = on;
+      notifyChanged();
+      for (const listener of autoRevealListeners) listener(by, on);
+      return { ok: true };
+    },
+
     handOver(by, to) {
       if (by !== facilitatorId) return { ok: false, reason: "not-facilitator" };
       if (to === by) return { ok: false, reason: "already-facilitator" };
@@ -276,7 +465,7 @@ export function createRoom(): Room {
       }
       graceTimers.set(
         id,
-        setTimeout(() => remove(id), GRACE_PERIOD_MS),
+        setTimeout(() => remove(id, { keepVote: true }), GRACE_PERIOD_MS),
       );
       notifyChanged();
       return { ok: true };
@@ -297,7 +486,8 @@ export function createRoom(): Room {
     react(id, reaction) {
       const participant = participants.get(id);
       if (!participant) return { ok: false, reason: "not-in-room" };
-      if (participant.role === "observer") {
+      // An Observer reacts from their Ghost, so needs one out.
+      if (participant.role === "observer" && !participant.ghost) {
         return { ok: false, reason: "observer-cannot-react" };
       }
       if (!isReaction(reaction)) return { ok: false, reason: "not-a-reaction" };
@@ -309,11 +499,95 @@ export function createRoom(): Room {
       const target = participants.get(to);
       if (!target) return { ok: false, reason: "unknown-participant" };
       if (to === by) return { ok: false, reason: "cannot-throw-at-yourself" };
-      if (target.role === "observer") {
+      // An Observer is thrown at through their Ghost, so needs one out.
+      if (target.role === "observer" && !target.ghost) {
         return { ok: false, reason: "cannot-throw-at-observer" };
       }
       if (!isThrowable(item)) return { ok: false, reason: "not-throwable" };
       return sendFun(by, { kind: "throw", from: by, to, item });
+    },
+
+    nudge(by, to) {
+      if (!participants.has(by)) return { ok: false, reason: "not-in-room" };
+      if (to === by) return { ok: false, reason: "cannot-nudge-yourself" };
+      if (to !== holdout()) return { ok: false, reason: "not-the-holdout" };
+      if (participants.get(to)?.connections === 0) {
+        return { ok: false, reason: "holdout-away" };
+      }
+      const now = Date.now();
+      const last = lastNudges.get(by);
+      if (last !== undefined && now - last < NUDGE_COOLDOWN_MS) {
+        return { ok: false, reason: "nudge-cooling-down" };
+      }
+      lastNudges.set(by, now);
+      const senders = nudgers.get(to) ?? new Set<ParticipantId>();
+      nudgers.set(to, senders.add(by));
+      const level = Math.min(senders.size, NUDGE_TOP_LEVEL);
+      emitFun({ kind: "nudge", from: by, to, level });
+      return { ok: true };
+    },
+
+    summonGhost(id, skin, roll) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (participant.role === "voter") {
+        return { ok: false, reason: "voter-cannot-have-ghost" };
+      }
+      if (!isSkin(skin)) return { ok: false, reason: "not-a-skin" };
+      if (participant.ghost) return { ok: false, reason: "ghost-already-out" };
+      participant.ghost = {
+        skin: { fabric: skin.fabric, disguise: skin.disguise },
+        to: ventFor(
+          isVentRoll(roll) ? roll : rollVent(),
+          [...participants.values()].flatMap((p) =>
+            p.ghost ? [p.ghost.to] : [],
+          ),
+        ),
+      };
+      notifyChanged();
+      return { ok: true };
+    },
+
+    dressGhost(id, skin) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      if (!isSkin(skin)) return { ok: false, reason: "not-a-skin" };
+      // A new Ghost, not a changed one, so snapshots already sent keep what they showed.
+      participant.ghost = {
+        ...participant.ghost,
+        skin: { fabric: skin.fabric, disguise: skin.disguise },
+      };
+      notifyChanged();
+      return { ok: true };
+    },
+
+    dismissGhost(id) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      participant.ghost = null;
+      notifyChanged();
+      return { ok: true };
+    },
+
+    moveGhost(id, to) {
+      const participant = participants.get(id);
+      if (!participant) return { ok: false, reason: "not-in-room" };
+      if (!participant.ghost) return { ok: false, reason: "no-ghost" };
+      if (!isTablePoint(to)) return { ok: false, reason: "not-a-point" };
+      const burst = spendBurst(
+        moveBursts.get(id),
+        Date.now(),
+        GHOST_MOVE_BURST,
+      );
+      if (!burst) return { ok: false, reason: "moves-used-up" };
+      moveBursts.set(id, burst);
+      const point = { x: to.x, y: to.y };
+      // A new Ghost, not a changed one, so snapshots already sent keep what they showed.
+      participant.ghost = { ...participant.ghost, to: point };
+      for (const listener of ghostListeners) listener({ id, to: point });
+      return { ok: true };
     },
 
     snapshotFor(id) {
@@ -326,6 +600,7 @@ export function createRoom(): Room {
           hasVoted: votes.has(p.id),
           vote: revealed ? (votes.get(p.id) ?? null) : null,
           connected: p.connections > 0,
+          ghost: p.ghost,
         })),
         myVote: votes.get(id) ?? null,
         hasFacilitator: facilitatorId !== null,
@@ -333,7 +608,13 @@ export function createRoom(): Room {
         revealed,
         result: revealed ? resultOf(votes.values()) : null,
         deck,
+        autoReveal,
+        countingDown: countdown !== null,
       };
+    },
+
+    isEmpty() {
+      return participants.size === 0;
     },
 
     subscribe(listener) {
@@ -349,6 +630,15 @@ export function createRoom(): Room {
     subscribeToDeckChanges(listener) {
       deckListeners.add(listener);
       return () => deckListeners.delete(listener);
+    },
+
+    subscribeToAutoRevealChanges(listener) {
+      autoRevealListeners.add(listener);
+      return () => autoRevealListeners.delete(listener);
+    },
+    subscribeToGhosts(listener) {
+      ghostListeners.add(listener);
+      return () => ghostListeners.delete(listener);
     },
   };
 }

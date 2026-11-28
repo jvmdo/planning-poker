@@ -4,7 +4,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** closed
 
 - [x] **Shared contract:** `deck.ts` keeps today's list as `DEFAULT_DECK` and holds the Deck rules as constants (`MIN_DECK_SIZE` 2, `MAX_DECK_SIZE` 15, `MIN_CARD` 1, `MAX_CARD` 99), plus a pure function that turns free input into a Deck or into what's wrong with it. A `Card` becomes a plain `number`. The snapshot carries the Room's `deck`. A `setDeck(cards)` client-to-server event. Both the Room and the dialog use the same function, as `spendBurst` is shared for the burst limit.
 - [x] **Deck rules:** 2 to 15 Cards; each a whole number from 1 to 99; duplicates removed and the Cards sorted ascending, without complaint. Anything else (a decimal, 0 or a negative, 100 or more, something that isn't a number, too few or too many Cards) is refused.
@@ -55,3 +55,8 @@
 - **Spec wording:** the preview is described as using the same sizing as Voters' hands, as wide as the dialog allows, rather than "exactly as Voters will see it".
 - **Browsers:** `sibling-index()` checked in Firefox by the user. Safari not yet checked.
 - **Tests:** 101 in all. The Deck block has 12 tests, one of which runs 11 rejected Decks, plus 4 for `parseDeck`. (The earlier count of "20 for the Room" is out of date.)
+
+**Follow-up (2026-11-25).** The Room settings dialog's controls now look like one family. The Deck's opener says what it does: "✎ Change", or "👁 View" for anyone but the Facilitator, instead of repeating "Deck". The Auto Reveal switch is as tall as a Button, with its border, hard shadow and press, and shows a ✓ when on. Close is a round ✕ in the header, the gear's size, so the footer is gone and the read-only note stands alone. Chosen from a UI prototype of four variants (current, these row controls, an Off/On pill with a whole-row Deck button and a "Done", and pressable tiles); the variants are kept on the branch `prototype/settings-controls` (commit 6a0e0f2), never to be merged.
+
+**Follow-up (2026-11-25).** Anyone but the Facilitator now gets the full Deck dialog, titled "Try a Deck": the presets, the Cards field and the preview all work, so they can try Decks out. Apply stays disabled, and the footer says why: "Only the Facilitator can apply a Deck." Enter doesn't send it either. `DeckDialog`'s `readOnly` prop became `canApply`. The opener for them now reads "⚗ Try" (lucide's `FlaskConical`) instead of "👁 View", since they can try Decks rather than only look. Checked in a browser: picking Fibonacci as a Voter updated the preview, Apply stayed disabled, and the Room's Deck didn't change after Enter.
+- 2026-11-26: closed by the human (was `ready-for-agent`), without re-checking each box here.
